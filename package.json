@@ -1,0 +1,44 @@
+{
+  "name": "oh-my-google",
+  "version": "0.1.0",
+  "description": "Google ecosystem orchestration layer for any AI coding agent",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "omg": "bin/omg"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "google",
+    "gcp",
+    "cli",
+    "orchestration",
+    "stitch",
+    "jules",
+    "cloud-run",
+    "ai-agent"
+  ],
+  "author": "TurnaboutHero",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google-cloud/run": "^3.2.0",
+    "commander": "^14.0.3",
+    "google-auth-library": "^10.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
