@@ -1,6 +1,6 @@
 import type { OmgError } from "./errors.js";
 
-export type ConnectorId = "cloud-run" | "jules" | "stitch" | "firebase";
+export type ConnectorId = "cloud-run" | "firebase";
 
 export type OperationState =
   | "accepted"
@@ -75,22 +75,3 @@ export interface Connector<TRequest = Record<string, unknown>, TResult = unknown
   rollback?(action: string, config: ConnectorConfig): Promise<void>;
 }
 
-/**
- * Extended interface for async services (Jules).
- * Supports submit → poll → result pattern.
- */
-export interface AsyncConnector<TRequest = Record<string, unknown>, TResult = unknown>
-  extends Connector<TRequest, TResult> {
-
-  /** Submit task, returns operation handle */
-  submit(params: TRequest, config: ConnectorConfig): Promise<OperationHandle>;
-
-  /** Poll for progress */
-  poll(handle: OperationHandle, config: ConnectorConfig): Promise<ConnectorStatus<TResult>>;
-
-  /** Get final result */
-  result(handle: OperationHandle, config: ConnectorConfig): Promise<ConnectorResult<TResult>>;
-
-  /** Cancel running operation */
-  cancel(handle: OperationHandle, config: ConnectorConfig): Promise<void>;
-}
