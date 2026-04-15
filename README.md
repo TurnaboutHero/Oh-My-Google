@@ -1,154 +1,220 @@
 # oh-my-google (omg)
 
-> AI 에이전트가 **Google Cloud (GCP) + Firebase**를 하나의 프로젝트로 통합해서 다루는 하네스.
+`oh-my-google`은 AI 코딩 에이전트가 Google Cloud와 Firebase를 더 예측 가능하게 다루도록 돕는 CLI 하네스입니다.
 
-## 핵심 가치: 두 세계를 하나로
+현재 구현 초점은 Phase 1.1 기준의 4개 명령입니다.
 
-Firebase 프로젝트 = GCP 프로젝트 (1:1)인데 현실은 **별도 CLI, 별도 auth, 별도 console**. 에이전트는 이 경계에서 자주 깨짐.
+- `omg init`
+- `omg link`
+- `omg deploy`
+- `omg doctor`
 
-```
-Before:  gcloud auth + firebase login (따로)
-         gcloud run deploy + firebase deploy (따로)
-         Cloud Run URL 복사 → firebase.json 수정 (수동)
+핵심 아이디어는 두 가지입니다.
 
-After:   omg init  (한 번)
-         omg deploy  (자동 wiring)
-```
+- GCP와 Firebase를 하나의 프로젝트 흐름으로 다룬다.
+- 에이전트가 파싱하기 쉬운 JSON 출력 계약을 제공한다.
 
-**핵심 패턴: Setup-time intense + Runtime hands-off**
-- 초기 1회: Trust Profile 설정 (사용자 명시 승인)
-- 이후: profile 따라 자동. 에이전트 자체 판단 금지.
+## 현재 상태
 
-## 왜?
+현재 저장소에서 실제로 구현된 범위:
 
-AI 에이전트(Claude Code, Codex, Antigravity 등)가 Google Cloud 건드릴 때 막히는 지점들:
+- GCP 프로젝트 선택/생성, 빌링 연결, 필수 API 활성화, IAM 기본 바인딩
+- 리포 감지 후 `.omg/project.yaml` 생성
+- Trust Profile 저장과 배포 게이트
+- Cloud Run + Firebase Hosting 순차 배포
+- Firebase rewrites 자동 주입
+- `--output json` 구조화 출력
 
-1. **GCP 인증 혼란** — ADC vs service account vs user auth
-2. **Non-interactive 실패** — `firebase init` 같은 TTY 프롬프트
-3. **서비스 wiring** — Cloud Run URL → Firebase rewrites 수동 연결
-4. **위험한 기본값** — 기본 public exposure 등
-5. **출력 파싱 불안정** — gcloud 커맨드마다 다른 포맷
-6. **권한/빌링 설정 지옥** — 처음 들어오는 사람이 가장 많이 포기
+아직 구현되지 않았거나 유보된 범위:
 
-omg가 해결: **통일된 JSON, 안전 기본값, 자동 wiring, admin surface 통합.**
+- MCP 서버
+- admin surface (`budget`, `secret`, `iam`, `notify`, `security`)
+- 고급 승인 UX
+- 서비스별 세밀한 롤백
 
 ## 설치
 
+개발 환경:
+
 ```bash
-# npm
-npm install -g oh-my-google
-
-# Claude Code plugin
-claude plugin install oh-my-google
-
-# Codex plugin
-codex plugin install oh-my-google
+npm install
+npm run typecheck
+npm run build
 ```
 
-## 3-Step Deploy
+로컬 실행:
 
 ```bash
-omg init       # GCP 프로젝트 + 인증 + 빌링 + API + IAM 자동
-omg link       # repo 분석 → 배포 계획 (.omg/project.yaml)
-omg deploy     # 계획대로 배포 + 서비스 간 자동 wiring
+npm run dev -- --help
+node bin/omg --help
 ```
 
-## Admin Surface (MVP 포함)
+필수 전제:
+
+- Node.js 20+
+- `gcloud` CLI
+- 필요 시 `firebase` CLI
+- GCP ADC 인증
+
+## 명령 개요
+
+### `omg init`
+
+GCP 프로젝트, 빌링, API, IAM, Trust Profile을 초기화합니다.
+
+예시:
 
 ```bash
-omg budget    예산 한도 + 경고
-omg secret    Secret Manager 키 관리
-omg iam       권한 조회/부여/회수
-omg notify    알림 채널 (Slack/email)
-omg security  IAM 최소권한 + audit log
-omg doctor    전체 진단
+omg init
+omg init --project my-project --billing 000000-000000-000000 --environment dev --region asia-northeast3 --yes
+omg --output json init --project my-project --billing 000000-000000-000000 --environment dev --region asia-northeast3 --yes
 ```
 
-모든 변경 작업은 **Propose → Approve → Execute** 패턴 준수.
+JSON 모드에서는 다음 플래그가 모두 필요합니다.
 
-## 지원 스택 (배포 대상)
+- `--project`
+- `--billing`
+- `--environment`
+- `--region`
+- `--yes`
 
-| 감지 | 배포 대상 |
-|---|---|
-| 정적 (HTML, Vite SPA) | Firebase Hosting |
-| Python API (+ Dockerfile) | Cloud Run |
-| Node API (+ Dockerfile) | Cloud Run |
-| **Fullstack (SPA + API)** | **Firebase + Cloud Run + rewrites 자동 연결** |
+### `omg link`
 
-## 에이전트 사용 (Agent-first)
+현재 리포를 분석해 `.omg/project.yaml`을 생성합니다.
+
+감지하는 대표 신호:
+
+- `Dockerfile`
+- `package.json`
+- `firebase.json`
+- `public/`
+- `index.html`
+- `functions/`
+- `next.config.js` / `next.config.ts`
+
+예시:
 
 ```bash
+omg link
 omg --output json link
 ```
+
+`spa-plus-api` 리포로 감지되면 backend 먼저, frontend 나중 순서로 계획이 생성됩니다.
+
+### `omg deploy`
+
+`.omg/project.yaml`과 `.omg/trust.yaml`을 읽어 배포합니다.
+
+예시:
+
+```bash
+omg deploy --dry-run
+omg deploy --yes
+omg --output json deploy --dry-run
+```
+
+현재 동작:
+
+- `--dry-run`이면 계획만 출력
+- backend가 있으면 `deploy.cloud-run` trust 게이트 적용
+- `require_confirm`이면 JSON 모드에서 `--yes`가 필요
+- `require_approval`이면 현재는 구조화 에러로 차단
+
+### `omg doctor`
+
+현재 환경 상태를 점검합니다.
+
+체크 항목:
+
+- 로컬 omg config
+- ADC 인증 존재 여부
+- Cloud Run API 점검 가능 여부
+- `firebase` CLI 존재 여부
+- `gcloud` CLI 존재 여부
+
+## JSON 출력 계약
+
+성공 예시:
 
 ```json
 {
   "ok": true,
   "command": "link",
   "data": {
-    "detected": { "stack": "spa-plus-api" },
-    "targets": {
-      "frontend": { "service": "firebase-hosting" },
-      "backend": { "service": "cloud-run", "region": "asia-northeast3" }
-    },
-    "wiring": [{ "from": "frontend.rewrites[/api/**]", "to": "backend.cloudRun.url" }]
+    "plan": {
+      "version": 1,
+      "detected": {
+        "stack": "spa-plus-api"
+      }
+    }
   },
   "next": ["omg deploy --dry-run"]
 }
 ```
 
-구조화 에러:
+실패 예시:
 
 ```json
 {
   "ok": false,
   "command": "init",
   "error": {
-    "code": "NO_BILLING",
-    "message": "No billing account linked.",
+    "code": "VALIDATION_ERROR",
+    "message": "JSON mode requires --project, --billing, --environment, --region, and --yes.",
     "recoverable": false,
-    "hint": "Add --billing <ID> flag."
+    "hint": "Provide --project, --billing, --environment, --region, and --yes in JSON mode."
   }
 }
 ```
 
-자세한 에이전트 통합: [AGENTS.md](./AGENTS.md)
+대표 에러 코드:
 
-## 안전 기본값 (Hard Harness)
+- `VALIDATION_ERROR`
+- `NO_PROJECT`
+- `NO_DEPLOYABLE_CONTENT`
+- `NO_PLAN`
+- `NO_TRUST_PROFILE`
+- `NO_BILLING`
+- `NO_AUTH`
+- `TRUST_REQUIRES_CONFIRM`
+- `TRUST_REQUIRES_APPROVAL`
 
-- **Dry-run 우선** — `--dry-run` 후 `--yes`로 실행
-- **확인 게이트** — 비용/프로덕션 영향 작업은 JSON 모드도 `--yes` 필수
-- **안전 기본값** — Cloud Run 기본 비공개, Firestore rules 변경 전 diff
-- **자동 롤백** — 배포 실패 시 이전 리비전 복원
-- **예산 가드** — 월 한도 설정, 초과 시 알림
+## 리포 구조
 
-## 로드맵
+현재 핵심 디렉터리:
 
-- [x] CLI 뼈대 + `--output json`
-- [x] GCP 인증 (ADC)
-- [x] Cloud Run / Firebase 커넥터
-- [ ] **Phase 1 (MVP)**: init + link + deploy + admin surface (budget/secret/iam/notify)
-- [ ] Phase 2: Firestore, Cloud Storage, Secret Manager 심화
-- [ ] Phase 3: Gemini (Vertex AI) 네이티브 통합
-- [ ] Phase 4: Stitch (디자인), DESIGN.md 워크플로우
-- [ ] Phase 5: Google Analytics, Ads 연결
-- [ ] Phase 6: 전체 라이프사이클 오케스트레이션
+```text
+src/
+  auth/
+  cli/
+    commands/
+  connectors/
+  executor/
+  planner/
+  setup/
+  trust/
+  types/
+  wiring/
+```
+
+주요 파일:
+
+- `src/cli/index.ts`
+- `src/cli/output.ts`
+- `src/cli/commands/init.ts`
+- `src/cli/commands/link.ts`
+- `src/cli/commands/deploy.ts`
+- `src/planner/schema.ts`
+- `src/trust/profile.ts`
+- `src/executor/apply.ts`
 
 ## 문서
 
-| | |
-|---|---|
-| [PRD.md](./PRD.md) | 포지셔닝, MVP 범위, 전체 비전 |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | 기술 설계, 모듈 구조 |
-| [AGENTS.md](./AGENTS.md) | AI 에이전트용 사용 가이드 |
-| [PLAN.md](./PLAN.md) | Phase별 구현 계획 |
+- [PRD.md](./PRD.md)
+- [ARCHITECTURE.md](./ARCHITECTURE.md)
+- [PLAN.md](./PLAN.md)
+- [AGENTS.md](./AGENTS.md)
 
-## 배경
+## 참고
 
-oh-my 시리즈 (omc/omo/omx)에서 영감받았지만 특정 툴의 플러그인이 아닌 **독립 CLI**. 각 에이전트에는 얇은 플러그인 형태로 번들됨.
-
-[oh-my-antigravity](https://github.com/TurnaboutHero/oh-my-antigravity)에서 서브에이전트 부재로 오케스트레이션이 막혔던 경험이 시작점.
-
-## License
-
-MIT
+현재 이 문서는 “지금 커밋된 코드” 기준입니다. PRD의 장기 비전 전체를 설명하지 않고, 실제 구현 범위만 반영합니다.
