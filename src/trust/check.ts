@@ -17,11 +17,47 @@ export interface CheckOptions {
 }
 
 export function checkPermission(
-  _action: string,
-  _profile: TrustProfile,
-  _opts: CheckOptions = {},
+  action: string,
+  profile: TrustProfile,
+  opts: CheckOptions = {},
 ): PermissionCheck {
-  throw new Error("Not implemented");
+  const level = getLevel(action);
+  const trustAction = profile.rules[level];
+
+  if (trustAction === "deny") {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Action ${action} is denied by the trust profile.`,
+    };
+  }
+
+  if (trustAction === "auto") {
+    return {
+      allowed: true,
+      action: trustAction,
+    };
+  }
+
+  if (!opts.yes) {
+    const reason =
+      trustAction === "require_approval"
+        ? `Action ${action} requires approval. Re-run with --yes.`
+        : opts.jsonMode
+          ? `Action ${action} requires confirmation in JSON mode. Re-run with --yes.`
+          : `Action ${action} requires confirmation. Re-run with --yes.`;
+
+    return {
+      allowed: false,
+      action: trustAction,
+      reason,
+    };
+  }
+
+  return {
+    allowed: true,
+    action: trustAction,
+  };
 }
 
 export { getLevel };
