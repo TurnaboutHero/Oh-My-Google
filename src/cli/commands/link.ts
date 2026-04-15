@@ -83,3 +83,13 @@ async function getActiveProjectId(): Promise<string | undefined> {
     return undefined;
   }
 }
+
+linkCommand.addHelpText(
+  "afterAll",
+  `
+Examples:
+  omg link
+  omg link --region asia-northeast3
+  omg --output json link --service-name my-api --site-name my-site
+`,
+);

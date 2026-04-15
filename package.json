@@ -19,7 +19,7 @@
     "gcp",
     "cli",
     "orchestration",
-    "stitch",
+    "firebase",
     "cloud-run",
     "ai-agent"
   ],

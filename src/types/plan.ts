@@ -57,4 +57,5 @@ export interface Plan {
   environment: Record<string, Record<string, string>>;
   deploymentOrder: Array<"frontend" | "backend">;
   checks: string[];
+  warnings: string[];
 }

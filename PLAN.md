@@ -157,6 +157,34 @@
 - MCP 상의 trust gate 표현
 - CLI와 MCP가 같은 core를 호출하도록 경계 정리
 
+세부 작업 분해:
+
+1. `init`, `link`, `deploy`, `doctor`를 MCP로 그대로 노출할 최소 tool set 정의
+2. CLI 전용 책임과 shared core 책임 분리
+3. MCP에서 human confirmation이 없는 상태에서 trust gate를 어떻게 표현할지 결정
+4. stdio 기준 서버 구동과 tool 응답 포맷 검증
+
+shared core 경계:
+
+- shared core
+  - `auth-manager`
+  - `setup/*`
+  - `planner/*`
+  - `trust/*`
+  - `executor/*`
+  - `connectors/*`
+  - `wiring/*`
+- CLI layer
+  - commander option parsing
+  - human prompt 수집
+  - human/json 출력 formatting
+  - process exit / shell ergonomics
+- MCP layer
+  - tool schema
+  - tool input validation
+  - MCP response shaping
+  - same core 호출
+
 완료 기준:
 
 - stdio 기준으로 최소 동작이 된다.

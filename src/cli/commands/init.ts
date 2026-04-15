@@ -342,3 +342,13 @@ function emitInitError(error: unknown): never {
   );
   process.exit(1);
 }
+
+initCommand.addHelpText(
+  "afterAll",
+  `
+Examples:
+  omg init
+  omg init --project my-project --billing 000000-000000-000000 --environment dev --region asia-northeast3 --yes
+  omg --output json init --project my-project --billing 000000-000000-000000 --environment dev --region asia-northeast3 --yes
+`,
+);

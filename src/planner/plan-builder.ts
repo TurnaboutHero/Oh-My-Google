@@ -32,6 +32,7 @@ export function buildPlan(
     },
     deploymentOrder: [],
     checks: [],
+    warnings: [],
   };
 
   if (detected.stack === "static" || detected.stack === "spa-plus-api") {
@@ -62,6 +63,12 @@ export function buildPlan(
     plan.deploymentOrder = ["backend"];
   } else if (detected.stack === "static") {
     plan.deploymentOrder = ["frontend"];
+  }
+
+  if (detected.frontend?.type === "next-static") {
+    plan.warnings.push(
+      "Next.js repositories are only partially supported in Phase 1. Prefer static export output or use Vercel for SSR.",
+    );
   }
 
   return plan;

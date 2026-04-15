@@ -39,7 +39,7 @@ export interface ApplyResult {
 export async function applyPlan(plan: Plan, ctx: ApplyContext): Promise<ApplyResult> {
   const urls: ApplyResult["urls"] = {};
   const steps: ApplyResult["steps"] = [];
-  const rollbackActions: Array<() => Promise<void>> = [];
+  const rollbackActions: Array<{ name: string; run: () => Promise<void> }> = [];
   const config = {
     project: {
       projectId: ctx.profile.projectId,
@@ -74,6 +74,13 @@ export async function applyPlan(plan: Plan, ctx: ApplyContext): Promise<ApplyRes
         );
         ensureConnectorSuccess(deployResult, "Cloud Run deployment failed.");
 
+        if (!ctx.dryRun && cloudRunConnector.rollback) {
+          rollbackActions.push({
+            name: "rollback:backend",
+            run: () => cloudRunConnector.rollback!("deploy", config),
+          });
+        }
+
         if (!ctx.dryRun) {
           const backendEnv = await resolveEnv(plan.environment.backend ?? {}, ctx.profile.projectId);
           if (Object.keys(backendEnv).length > 0) {
@@ -98,9 +105,12 @@ export async function applyPlan(plan: Plan, ctx: ApplyContext): Promise<ApplyRes
         ensureConnectorSuccess(describeResult, "Cloud Run status check failed.");
 
         urls.backend = describeResult.data?.url ?? deployResult.data?.url;
-
-        if (!ctx.dryRun && cloudRunConnector.rollback) {
-          rollbackActions.push(() => cloudRunConnector.rollback!("deploy", config));
+        if (!ctx.dryRun && describeResult.data?.ready !== true) {
+          throw new OmgError(
+            "Cloud Run deployment did not report a ready revision.",
+            "DEPLOY_FAILED",
+            true,
+          );
         }
       }
 
@@ -139,6 +149,9 @@ export async function applyPlan(plan: Plan, ctx: ApplyContext): Promise<ApplyRes
         ensureConnectorSuccess(deployResult, "Firebase Hosting deployment failed.");
 
         urls.frontend = `https://${frontendTarget.siteName}.web.app`;
+        if (!ctx.dryRun) {
+          await verifyUrlReachable(urls.frontend);
+        }
       }
 
       steps.push({
@@ -155,10 +168,20 @@ export async function applyPlan(plan: Plan, ctx: ApplyContext): Promise<ApplyRes
 
       if (!ctx.dryRun) {
         for (const rollback of [...rollbackActions].reverse()) {
+          const rollbackStartedAt = Date.now();
           try {
-            await rollback();
+            await rollback.run();
+            steps.push({
+              name: rollback.name,
+              state: "completed",
+              durationMs: Date.now() - rollbackStartedAt,
+            });
           } catch {
-            // Best-effort rollback for Phase 1.1.
+            steps.push({
+              name: rollback.name,
+              state: "failed",
+              durationMs: Date.now() - rollbackStartedAt,
+            });
           }
         }
       }
@@ -251,4 +274,41 @@ function mapGcloudError(error: unknown, message: string): OmgError {
     typeof cliError.code === "number" ? cliError.code : 1,
     stderr,
   );
+}
+
+async function verifyUrlReachable(url: string): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+      });
+      if (response.ok) {
+        return;
+      }
+
+      lastError = new Error(`Received HTTP ${response.status} from ${url}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    if (attempt < 2) {
+      await delay(500);
+    }
+  }
+
+  throw new OmgError(
+    lastError instanceof Error
+      ? `Deployed frontend URL is not reachable: ${lastError.message}`
+      : "Deployed frontend URL is not reachable.",
+    "DEPLOY_FAILED",
+    true,
+  );
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

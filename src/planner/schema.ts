@@ -46,7 +46,12 @@ export function validatePlan(raw: unknown): Plan {
     throw new OmgError("Project plan is missing targets.", "INVALID_PLAN", false);
   }
 
-  return plan as Plan;
+  return {
+    ...plan,
+    warnings: Array.isArray(plan.warnings)
+      ? plan.warnings.filter((warning): warning is string => typeof warning === "string")
+      : [],
+  } as Plan;
 }
 
 function getPlanPath(cwd: string): string {

@@ -236,6 +236,33 @@ interface Connector<TRequest, TResult> {
 - planner는 connector를 직접 쓰지 않음
 - executor가 connector를 호출함
 
+## MCP Prep Boundary
+
+MCP를 붙일 때 새 business logic를 만들지 않는다.
+
+경계는 이렇게 고정한다.
+
+- shared core
+  - `auth/`
+  - `setup/`
+  - `planner/`
+  - `trust/`
+  - `executor/`
+  - `connectors/`
+  - `wiring/`
+- CLI
+  - commander 명령 정의
+  - interactive prompt
+  - human/json 출력
+  - exit code 처리
+- MCP
+  - tool schema
+  - tool input validation
+  - tool result serialization
+  - shared core 호출
+
+즉 MCP는 CLI를 호출하는 layer가 아니라, CLI와 같은 core를 호출하는 별도 surface다.
+
 ## Wiring
 
 현재 wiring은 두 개입니다.

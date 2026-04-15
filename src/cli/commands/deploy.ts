@@ -75,3 +75,13 @@ export const deployCommand = new Command("deploy")
       process.exit(1);
     }
   });
+
+deployCommand.addHelpText(
+  "afterAll",
+  `
+Examples:
+  omg deploy --dry-run
+  omg deploy --yes
+  omg --output json deploy --dry-run
+`,
+);

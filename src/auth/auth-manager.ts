@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
+import { execFile } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
+import { promisify } from "node:util";
 import { AuthError } from "../types/errors.js";
 
 export interface ProjectProfile {
@@ -11,6 +13,13 @@ export interface ProjectProfile {
 
 export interface OmgConfig {
   profile: ProjectProfile;
+}
+
+export interface AuthStatus {
+  projectId: string | null;
+  adcConfigured: boolean;
+  gcloudAccount: string | null;
+  gcp: boolean;
 }
 
 export interface AuthProvider {
@@ -42,6 +51,7 @@ export class GcpAuthProvider implements AuthProvider {
 
 const OMG_DIR = path.join(os.homedir(), ".omg");
 const CONFIG_PATH = path.join(OMG_DIR, "config.json");
+const execFileAsync = promisify(execFile);
 
 export class AuthManager {
   private gcpProvider = new GcpAuthProvider();
@@ -77,14 +87,16 @@ export class AuthManager {
     });
   }
 
-  async status(): Promise<{
-    projectId: string | null;
-    gcp: boolean;
-  }> {
+  async status(): Promise<AuthStatus> {
     const config = await AuthManager.loadConfig();
+    const adcConfigured = await this.gcpProvider.isConfigured();
+    const gcloudAccount = await getActiveGcloudAccount();
+
     return {
       projectId: config?.profile.projectId ?? null,
-      gcp: await this.gcpProvider.isConfigured(),
+      adcConfigured,
+      gcloudAccount,
+      gcp: adcConfigured && gcloudAccount !== null,
     };
   }
 }
@@ -102,4 +114,27 @@ function getAdcPaths(): string[] {
   }
 
   return candidates;
+}
+
+async function getActiveGcloudAccount(): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      "gcloud",
+      [
+        "auth",
+        "list",
+        "--filter=status:ACTIVE",
+        "--format=value(account)",
+      ],
+      {
+        encoding: "utf-8",
+        windowsHide: true,
+      },
+    );
+
+    const account = stdout.trim();
+    return account.length > 0 ? account : null;
+  } catch {
+    return null;
+  }
 }
