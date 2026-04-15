@@ -1,18 +1,238 @@
-/**
- * Repo 스캔 → DetectedState 생성.
- *
- * TODO(codex):
- * - detect(cwd): DetectedState
- *   - Dockerfile → backend 후보
- *   - package.json scripts.build → frontend 후보
- *   - firebase.json → 기존 Firebase 설정
- *   - next.config.js → WARN (Vercel 권장)
- *   - public/ + index.html → static
- *   - functions/ → Firebase Functions
- */
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { DetectedBackend, DetectedFrontend, DetectedState } from "../types/plan.js";
 
-import type { DetectedState } from "../types/plan.js";
+interface PackageJson {
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
 
-export async function detect(_cwd: string): Promise<DetectedState> {
-  throw new Error("Not implemented");
+interface FirebaseJson {
+  hosting?: {
+    public?: string;
+  } | Array<{
+    public?: string;
+  }>;
+}
+
+export async function detect(cwd: string): Promise<DetectedState> {
+  const packageJson = await readJson<PackageJson>(path.join(cwd, "package.json"));
+  const firebaseJson = await readJson<FirebaseJson>(path.join(cwd, "firebase.json"));
+  const hasDockerfile = await exists(path.join(cwd, "Dockerfile"));
+  const hasFunctionsDir = await exists(path.join(cwd, "functions"));
+  const hasPublicDir = await exists(path.join(cwd, "public"));
+  const hasIndexHtml = await exists(path.join(cwd, "index.html"));
+  const hasNextConfig = await hasAny(cwd, ["next.config.js", "next.config.ts"]);
+  const hasRequirements = await exists(path.join(cwd, "requirements.txt"));
+  const hasPyproject = await exists(path.join(cwd, "pyproject.toml"));
+
+  const frontend = await detectFrontend(cwd, packageJson, firebaseJson, {
+    hasPublicDir,
+    hasIndexHtml,
+    hasNextConfig,
+  });
+  const backend = detectBackend(packageJson, {
+    hasDockerfile,
+    hasRequirements,
+    hasPyproject,
+  });
+
+  if (frontend && backend) {
+    return {
+      stack: "spa-plus-api",
+      frontend,
+      backend,
+    };
+  }
+
+  if (backend) {
+    return {
+      stack: "api-only",
+      backend,
+    };
+  }
+
+  if (hasFunctionsDir) {
+    return {
+      stack: "functions",
+    };
+  }
+
+  if (frontend) {
+    return {
+      stack: "static",
+      frontend,
+    };
+  }
+
+  return {
+    stack: "unknown",
+  };
+}
+
+async function detectFrontend(
+  cwd: string,
+  packageJson: PackageJson | null,
+  firebaseJson: FirebaseJson | null,
+  options: {
+    hasPublicDir: boolean;
+    hasIndexHtml: boolean;
+    hasNextConfig: boolean;
+  },
+): Promise<DetectedFrontend | undefined> {
+  const buildCommand = packageJson?.scripts?.build;
+  const dependencies = {
+    ...packageJson?.dependencies,
+    ...packageJson?.devDependencies,
+  };
+  const firebasePublic = getFirebasePublicDir(firebaseJson);
+
+  if (
+    !buildCommand &&
+    !options.hasPublicDir &&
+    !options.hasIndexHtml &&
+    !firebasePublic &&
+    !options.hasNextConfig
+  ) {
+    return undefined;
+  }
+
+  if (options.hasNextConfig || buildCommand?.includes("next")) {
+    return {
+      type: "next-static",
+      buildCommand: buildCommand ?? "npm run build",
+      outputDir: (await readConfiguredOutputDir(cwd, "next")) ?? firebasePublic ?? "out",
+    };
+  }
+
+  if (dependencies.vite || buildCommand?.includes("vite")) {
+    return {
+      type: "vite-react",
+      buildCommand: buildCommand ?? "npm run build",
+      outputDir: (await readConfiguredOutputDir(cwd, "vite")) ?? firebasePublic ?? "dist",
+    };
+  }
+
+  if (dependencies["react-scripts"]) {
+    return {
+      type: "cra",
+      buildCommand: buildCommand ?? "npm run build",
+      outputDir: firebasePublic ?? "build",
+    };
+  }
+
+  return {
+    type: "plain-html",
+    buildCommand,
+    outputDir: firebasePublic ?? (options.hasPublicDir ? "public" : "."),
+  };
+}
+
+function detectBackend(
+  packageJson: PackageJson | null,
+  options: {
+    hasDockerfile: boolean;
+    hasRequirements: boolean;
+    hasPyproject: boolean;
+  },
+): DetectedBackend | undefined {
+  if (!options.hasDockerfile) {
+    return undefined;
+  }
+
+  const dependencies = {
+    ...packageJson?.dependencies,
+    ...packageJson?.devDependencies,
+  };
+
+  let type = "generic-docker";
+  if (options.hasRequirements || options.hasPyproject) {
+    type = dependencies.fastapi ? "python-fastapi" : "python-fastapi";
+  } else if (dependencies.fastify) {
+    type = "node-fastify";
+  } else if (dependencies.express) {
+    type = "node-express";
+  }
+
+  return {
+    type,
+    dockerfile: "Dockerfile",
+    port: 8080,
+  };
+}
+
+async function readConfiguredOutputDir(
+  cwd: string,
+  framework: "vite" | "next",
+): Promise<string | undefined> {
+  const configFiles =
+    framework === "vite"
+      ? ["vite.config.ts", "vite.config.js", "vite.config.mjs"]
+      : ["next.config.ts", "next.config.js", "next.config.mjs"];
+
+  for (const fileName of configFiles) {
+    const filePath = path.join(cwd, fileName);
+    if (!(await exists(filePath))) {
+      continue;
+    }
+
+    const raw = await fs.readFile(filePath, "utf-8");
+    const pattern =
+      framework === "vite"
+        ? /outDir\s*:\s*["'`]([^"'`]+)["'`]/
+        : /distDir\s*:\s*["'`]([^"'`]+)["'`]/;
+    const match = raw.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+
+  return undefined;
+}
+
+async function readJson<T>(filePath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(filePath, "utf-8");
+    return JSON.parse(raw) as T;
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function hasAny(cwd: string, fileNames: string[]): Promise<boolean> {
+  for (const fileName of fileNames) {
+    if (await exists(path.join(cwd, fileName))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function exists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getFirebasePublicDir(firebaseJson: FirebaseJson | null): string | undefined {
+  if (!firebaseJson?.hosting) {
+    return undefined;
+  }
+
+  if (Array.isArray(firebaseJson.hosting)) {
+    return firebaseJson.hosting[0]?.public;
+  }
+
+  return firebaseJson.hosting.public;
+}
+
+function isMissing(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }

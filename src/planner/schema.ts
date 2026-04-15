@@ -1,22 +1,58 @@
-/**
- * `.omg/project.yaml` 읽기/쓰기.
- *
- * TODO(codex):
- * - loadPlan(cwd): Plan | null
- * - savePlan(cwd, plan): void  (yaml.stringify)
- * - validatePlan(raw): Plan | throw
- */
-
+import fs from "node:fs/promises";
+import path from "node:path";
+import { parse, stringify } from "yaml";
+import { OmgError, ValidationError } from "../types/errors.js";
 import type { Plan } from "../types/plan.js";
 
-export async function loadPlan(_cwd: string): Promise<Plan | null> {
-  throw new Error("Not implemented");
+const PLAN_FILE = ".omg/project.yaml";
+
+export async function loadPlan(cwd: string): Promise<Plan | null> {
+  try {
+    const raw = await fs.readFile(getPlanPath(cwd), "utf-8");
+    return validatePlan(parse(raw));
+  } catch (error) {
+    if (isMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
-export async function savePlan(_cwd: string, _plan: Plan): Promise<void> {
-  throw new Error("Not implemented");
+export async function savePlan(cwd: string, plan: Plan): Promise<void> {
+  const filePath = getPlanPath(cwd);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, stringify(plan), "utf-8");
 }
 
-export function validatePlan(_raw: unknown): Plan {
-  throw new Error("Not implemented");
+export function validatePlan(raw: unknown): Plan {
+  if (!raw || typeof raw !== "object") {
+    throw new OmgError("Project plan is malformed.", "INVALID_PLAN", false);
+  }
+
+  const plan = raw as Partial<Plan>;
+  if (plan.version !== 1) {
+    throw new ValidationError("Project plan version must be 1.");
+  }
+
+  if (!plan.detected || typeof plan.detected !== "object") {
+    throw new OmgError("Project plan is missing detected stack data.", "INVALID_PLAN", false);
+  }
+
+  if (!Array.isArray(plan.deploymentOrder)) {
+    throw new OmgError("Project plan is missing deploymentOrder.", "INVALID_PLAN", false);
+  }
+
+  if (!plan.targets || typeof plan.targets !== "object") {
+    throw new OmgError("Project plan is missing targets.", "INVALID_PLAN", false);
+  }
+
+  return plan as Plan;
+}
+
+function getPlanPath(cwd: string): string {
+  return path.join(cwd, PLAN_FILE);
+}
+
+function isMissing(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
