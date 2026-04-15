@@ -1,136 +1,77 @@
 import { Command } from "commander";
-import { AuthManager } from "../../auth/auth-manager.js";
-import { success, fail, info, getOutputFormat } from "../output.js";
+import { applyPlan } from "../../executor/apply.js";
+import { loadPlan } from "../../planner/schema.js";
+import { checkPermission } from "../../trust/check.js";
+import { loadProfile } from "../../trust/profile.js";
+import { OmgError, ValidationError } from "../../types/errors.js";
+import { fail, getOutputFormat, success } from "../output.js";
 
 export const deployCommand = new Command("deploy")
-  .description("Deploy to Cloud Run")
-  .option("--service <name>", "Service name")
-  .option("--region <region>", "Deployment region")
-  .option("--source <path>", "Source directory", ".")
+  .description("Deploy according to .omg/project.yaml")
   .option("--dry-run", "Show deployment plan without executing")
-  .option("-y, --yes", "Skip confirmation prompt")
+  .option("-y, --yes", "Approve trust-gated deployment actions")
   .action(async (opts) => {
-    const manager = new AuthManager();
+    try {
+      const plan = await loadPlan(process.cwd());
+      if (!plan) {
+        throw new OmgError("No project plan found. Run 'omg link' first.", "NO_PLAN", false);
+      }
 
-    // 1. Auth check
-    const status = await manager.status();
-    if (!status.projectId || !status.gcp) {
-      fail("deploy", "AUTH_ERROR", "Not authenticated.", false, "Run 'omg setup' first.");
-      process.exit(1);
-    }
+      const profile = await loadProfile(process.cwd());
+      if (!profile) {
+        throw new OmgError("No trust profile found. Run 'omg init' first.", "NO_TRUST_PROFILE", false);
+      }
 
-    const projectId = status.projectId;
-    const service = (opts.service as string) ?? "app";
-    const region = (opts.region as string) ?? "asia-northeast3";
-    const source = opts.source as string;
-    const dryRun = !!opts.dryRun;
-
-    const plan = { projectId, service, region, source };
-
-    // 2. Dry-run: show plan and exit
-    if (dryRun) {
-      success("deploy:dry-run", "Deployment plan ready.", plan, [
-        "omg deploy --yes  (execute deployment)",
-      ]);
-      return;
-    }
-
-    // 3. Confirmation (skip in JSON mode or --yes)
-    if (!opts.yes && getOutputFormat() !== "json") {
-      const readline = await import("node:readline");
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-      const answer = await new Promise<string>((resolve) => {
-        rl.question(`Deploy ${service} to ${region}? (y/N) `, resolve);
-      });
-      rl.close();
-      if (answer.toLowerCase() !== "y") {
-        fail("deploy", "CANCELLED", "Deployment cancelled by user.", false);
+      if (opts.dryRun) {
+        success("deploy", "Deployment plan ready.", { plan }, ["omg deploy --yes"]);
         return;
       }
-    }
 
-    // 4. Deploy
-    try {
-      const { execSync } = await import("node:child_process");
-      const output = execSync(
-        `gcloud run deploy ${service} --source=${source} --region=${region} --project=${projectId} --allow-unauthenticated --quiet --format=json`,
-        { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-      );
+      const action = plan.targets.backend ? "deploy.cloud-run" : "deploy.firebase-hosting";
+      const permission = checkPermission(action, profile, {
+        yes: !!opts.yes,
+        jsonMode: getOutputFormat() === "json",
+      });
 
-      let deployResult: Record<string, unknown> = plan;
-      try {
-        const parsed = JSON.parse(output);
-        deployResult = {
-          ...plan,
-          url: parsed.status?.url,
-          revision: parsed.status?.latestReadyRevisionName,
-        };
-      } catch {
-        // gcloud didn't return JSON, use plan data
+      if (!permission.allowed) {
+        const code =
+          permission.action === "require_confirm"
+            ? "TRUST_REQUIRES_CONFIRM"
+            : "TRUST_REQUIRES_APPROVAL";
+        fail(
+          "deploy",
+          code,
+          permission.reason ?? "Deployment blocked by trust profile.",
+          false,
+          permission.action === "require_confirm" ? "--yes" : undefined,
+        );
+        process.exit(1);
       }
 
-      success("deploy", `Deployed ${service} to ${region}.`, deployResult, [
-        "omg deploy status  (check service status)",
-        "omg deploy logs    (view logs)",
-      ]);
-    } catch (err) {
-      const stderr = err instanceof Error ? err.message : String(err);
-      fail("deploy", "DEPLOY_FAILED", `Deploy failed: ${stderr}`, false, "Check gcloud logs.");
-      process.exit(1);
-    }
-  });
-
-deployCommand
-  .command("status")
-  .description("Show deployment status")
-  .option("--service <name>", "Service name")
-  .option("--region <region>", "Region")
-  .action(async (opts) => {
-    const manager = new AuthManager();
-    const projectId = await manager.getProjectId();
-    const service = (opts.service as string) ?? "app";
-    const region = (opts.region as string) ?? "asia-northeast3";
-
-    try {
-      const { execSync } = await import("node:child_process");
-      const result = execSync(
-        `gcloud run services describe ${service} --region=${region} --project=${projectId} --format=json`,
-        { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-      );
-      const parsed = JSON.parse(result);
-      info("deploy:status", {
-        service,
-        region,
-        url: parsed.status?.url ?? "unknown",
-        ready: parsed.status?.conditions?.[0]?.status === "True",
-        revision: parsed.status?.latestReadyRevisionName ?? "unknown",
+      const result = await applyPlan(plan, {
+        cwd: process.cwd(),
+        profile,
+        dryRun: false,
+        yes: !!opts.yes,
       });
-    } catch {
-      fail("deploy:status", "STATUS_ERROR", `Could not get status for ${service}.`, true);
-    }
-  });
 
-deployCommand
-  .command("logs")
-  .description("View recent deployment logs")
-  .option("--service <name>", "Service name")
-  .option("--region <region>", "Region")
-  .action(async (opts) => {
-    const manager = new AuthManager();
-    const projectId = await manager.getProjectId();
-    const service = (opts.service as string) ?? "app";
-    const region = (opts.region as string) ?? "asia-northeast3";
+      success("deploy", "Deployment completed.", {
+        urls: result.urls,
+        steps: result.steps,
+      });
+    } catch (error) {
+      const omgError =
+        error instanceof OmgError
+          ? error
+          : new ValidationError(error instanceof Error ? error.message : "Unknown deploy error.");
 
-    try {
-      const { execSync } = await import("node:child_process");
-      execSync(
-        `gcloud run services logs read ${service} --region=${region} --project=${projectId} --limit=20`,
-        { stdio: "inherit" },
+      fail(
+        "deploy",
+        omgError.code,
+        omgError.message,
+        omgError.recoverable,
+        omgError.code === "NO_PLAN" ? "omg link" : undefined,
       );
-    } catch {
-      fail("deploy:logs", "LOGS_ERROR", `Could not fetch logs for ${service}.`, true);
+      process.exit(1);
     }
   });

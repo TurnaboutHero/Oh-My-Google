@@ -1,19 +1,9 @@
-/**
- * 실행 전 권한 게이트.
- * 모든 side-effect 동작 전에 반드시 호출.
- *
- * TODO(codex):
- * - checkPermission(action, profile): PermissionCheck
- * - require_confirm: JSON 모드에서 flags.yes 없으면 block
- * - require_approval: 추가 prompt + 감사 로그
- */
-
 import type { PermissionCheck, TrustProfile } from "../types/trust.js";
 import { getLevel } from "./levels.js";
 
 export interface CheckOptions {
-  yes?: boolean;       // --yes 플래그
-  jsonMode?: boolean;  // --output json 여부
+  yes?: boolean;
+  jsonMode?: boolean;
 }
 
 export function checkPermission(
@@ -24,39 +14,34 @@ export function checkPermission(
   const level = getLevel(action);
   const trustAction = profile.rules[level];
 
+  if (trustAction === "auto") {
+    return { allowed: true, action: trustAction };
+  }
+
   if (trustAction === "deny") {
     return {
       allowed: false,
       action: trustAction,
-      reason: `Action ${action} is denied by the trust profile.`,
+      reason: `Trust profile denies ${action}.`,
     };
   }
 
-  if (trustAction === "auto") {
-    return {
-      allowed: true,
-      action: trustAction,
-    };
-  }
+  if (trustAction === "require_confirm") {
+    if (opts.jsonMode && !opts.yes) {
+      return {
+        allowed: false,
+        action: trustAction,
+        reason: `Trust profile requires --yes for ${action} in JSON mode.`,
+      };
+    }
 
-  if (!opts.yes) {
-    const reason =
-      trustAction === "require_approval"
-        ? `Action ${action} requires approval. Re-run with --yes.`
-        : opts.jsonMode
-          ? `Action ${action} requires confirmation in JSON mode. Re-run with --yes.`
-          : `Action ${action} requires confirmation. Re-run with --yes.`;
-
-    return {
-      allowed: false,
-      action: trustAction,
-      reason,
-    };
+    return { allowed: true, action: trustAction };
   }
 
   return {
-    allowed: true,
+    allowed: false,
     action: trustAction,
+    reason: `Trust profile requires manual approval for ${action}.`,
   };
 }
 

@@ -23,17 +23,16 @@ export class GcpAuthProvider implements AuthProvider {
   readonly name = "GCP ADC";
 
   async isConfigured(): Promise<boolean> {
-    // Check if ADC credentials exist
-    try {
-      const { GoogleAuth } = await import("google-auth-library");
-      const auth = new GoogleAuth({
-        scopes: ["https://www.googleapis.com/auth/cloud-platform"],
-      });
-      await auth.getClient();
-      return true;
-    } catch {
-      return false;
+    for (const candidate of getAdcPaths()) {
+      try {
+        await fs.access(candidate);
+        return true;
+      } catch {
+        // Check the next known ADC location.
+      }
     }
+
+    return false;
   }
 
   async validate(): Promise<boolean> {
@@ -64,7 +63,7 @@ export class AuthManager {
   async getProjectId(): Promise<string> {
     const config = await AuthManager.loadConfig();
     if (!config?.profile.projectId) {
-      throw new AuthError("No project configured. Run 'omg setup' first.");
+      throw new AuthError("No project configured. Run 'omg init' first.");
     }
     return config.profile.projectId;
   }
@@ -88,4 +87,19 @@ export class AuthManager {
       gcp: await this.gcpProvider.isConfigured(),
     };
   }
+}
+
+function getAdcPaths(): string[] {
+  const candidates: string[] = [];
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    candidates.push(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  }
+
+  if (process.platform === "win32" && process.env.APPDATA) {
+    candidates.push(path.join(process.env.APPDATA, "gcloud", "application_default_credentials.json"));
+  } else {
+    candidates.push(path.join(os.homedir(), ".config", "gcloud", "application_default_credentials.json"));
+  }
+
+  return candidates;
 }

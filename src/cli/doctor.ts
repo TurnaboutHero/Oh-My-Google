@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { AuthManager } from "../auth/auth-manager.js";
-import { success, fail, getOutputFormat } from "./output.js";
+import { getOutputFormat } from "./output.js";
 
 export const doctorCommand = new Command("doctor")
   .description("Diagnose connection status")
@@ -11,21 +11,25 @@ export const doctorCommand = new Command("doctor")
 
     const checks: Record<string, { ok: boolean; detail: string }> = {};
 
-    // Config check
     checks.config = status.projectId
       ? { ok: true, detail: `project ${status.projectId}` }
       : { ok: false, detail: "no project configured" };
 
-    // GCP ADC check
     checks.gcpAuth = status.gcp
       ? { ok: true, detail: "valid" }
       : { ok: false, detail: "not authenticated" };
 
-    // Cloud Run API check
     if (status.projectId && status.gcp) {
       try {
-        const result = execSync(
-          `gcloud services list --project=${status.projectId} --filter="config.name:run.googleapis.com" --format="value(config.name)"`,
+        const result = execFileSync(
+          "gcloud",
+          [
+            "services",
+            "list",
+            `--project=${status.projectId}`,
+            "--filter=config.name:run.googleapis.com",
+            "--format=value(config.name)",
+          ],
           { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
         ).trim();
         checks.cloudRun = result.includes("run.googleapis.com")
@@ -38,17 +42,18 @@ export const doctorCommand = new Command("doctor")
       checks.cloudRun = { ok: false, detail: "requires auth first" };
     }
 
-    // Firebase check
     try {
-      execSync("firebase --version", { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] });
+      execFileSync("firebase", ["--version"], {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      });
       checks.firebaseCli = { ok: true, detail: "installed" };
     } catch {
       checks.firebaseCli = { ok: false, detail: "not found" };
     }
 
-    // gcloud CLI check
     try {
-      const version = execSync("gcloud --version", {
+      const version = execFileSync("gcloud", ["--version"], {
         encoding: "utf-8",
         stdio: ["pipe", "pipe", "pipe"],
       }).split("\n")[0]?.trim();
@@ -57,27 +62,31 @@ export const doctorCommand = new Command("doctor")
       checks.gcloudCli = { ok: false, detail: "not found" };
     }
 
-    // Determine next steps
     const next: string[] = [];
-    if (!checks.config.ok || !checks.gcpAuth.ok) next.push("omg setup");
-    if (!checks.cloudRun.ok && checks.gcpAuth.ok) next.push("gcloud services enable run.googleapis.com");
+    if (!checks.config.ok || !checks.gcpAuth.ok) {
+      next.push("omg init");
+    }
+    if (!checks.cloudRun.ok && checks.gcpAuth.ok) {
+      next.push("gcloud services enable run.googleapis.com");
+    }
 
-    const allOk = Object.values(checks).every((c) => c.ok);
+    const allOk = Object.values(checks).every((check) => check.ok);
 
     if (getOutputFormat() === "json") {
       console.log(JSON.stringify({ ok: allOk, command: "doctor", data: { checks }, next }));
-    } else {
-      console.log("omg doctor\n");
-      for (const [name, check] of Object.entries(checks)) {
-        const icon = check.ok ? "✓" : "✗";
-        console.log(`  ${icon} ${name}: ${check.detail}`);
-      }
-      if (next.length) {
-        console.log("\nNext steps:");
-        for (const step of next) {
-          console.log(`  → ${step}`);
-        }
-      }
+      return;
+    }
+
+    console.log("omg doctor");
+    console.log("");
+    for (const [name, check] of Object.entries(checks)) {
+      console.log(`${name}: ${check.detail} (${check.ok ? "ok" : "needs attention"})`);
+    }
+    if (next.length > 0) {
       console.log("");
+      console.log("Next:");
+      for (const step of next) {
+        console.log(`- ${step}`);
+      }
     }
   });
