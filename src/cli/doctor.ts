@@ -46,11 +46,6 @@ export const doctorCommand = new Command("doctor")
       checks.firebaseCli = { ok: false, detail: "not found" };
     }
 
-    // Jules check
-    checks.jules = status.jules
-      ? { ok: true, detail: "API key configured" }
-      : { ok: false, detail: "API key not configured" };
-
     // gcloud CLI check
     try {
       const version = execSync("gcloud --version", {
@@ -65,7 +60,6 @@ export const doctorCommand = new Command("doctor")
     // Determine next steps
     const next: string[] = [];
     if (!checks.config.ok || !checks.gcpAuth.ok) next.push("omg setup");
-    if (!checks.jules.ok) next.push("omg jules setup");
     if (!checks.cloudRun.ok && checks.gcpAuth.ok) next.push("gcloud services enable run.googleapis.com");
 
     const allOk = Object.values(checks).every((c) => c.ok);

@@ -20,7 +20,6 @@
     "cli",
     "orchestration",
     "stitch",
-    "jules",
     "cloud-run",
     "ai-agent"
   ],

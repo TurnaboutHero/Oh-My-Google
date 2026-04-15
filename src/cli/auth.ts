@@ -11,7 +11,6 @@ export const authCommand = new Command("auth")
     info("auth:status", {
       projectId: status.projectId ?? "(not configured)",
       gcpAdc: status.gcp,
-      julesApiKey: status.jules,
     });
   });
 

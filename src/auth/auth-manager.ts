@@ -11,9 +11,6 @@ export interface ProjectProfile {
 
 export interface OmgConfig {
   profile: ProjectProfile;
-  jules?: {
-    apiKey: string;
-  };
 }
 
 export interface AuthProvider {
@@ -44,27 +41,11 @@ export class GcpAuthProvider implements AuthProvider {
   }
 }
 
-export class JulesAuthProvider implements AuthProvider {
-  readonly name = "Jules API Key";
-
-  constructor(private configPath: string) {}
-
-  async isConfigured(): Promise<boolean> {
-    const config = await AuthManager.loadConfig(this.configPath);
-    return !!config?.jules?.apiKey;
-  }
-
-  async validate(): Promise<boolean> {
-    return this.isConfigured();
-  }
-}
-
 const OMG_DIR = path.join(os.homedir(), ".omg");
 const CONFIG_PATH = path.join(OMG_DIR, "config.json");
 
 export class AuthManager {
   private gcpProvider = new GcpAuthProvider();
-  private julesProvider = new JulesAuthProvider(CONFIG_PATH);
 
   static async loadConfig(configPath = CONFIG_PATH): Promise<OmgConfig | null> {
     try {
@@ -97,24 +78,14 @@ export class AuthManager {
     });
   }
 
-  async getJulesApiKey(): Promise<string> {
-    const config = await AuthManager.loadConfig();
-    if (!config?.jules?.apiKey) {
-      throw new AuthError("Jules API key not configured. Run 'omg jules setup' first.");
-    }
-    return config.jules.apiKey;
-  }
-
   async status(): Promise<{
     projectId: string | null;
     gcp: boolean;
-    jules: boolean;
   }> {
     const config = await AuthManager.loadConfig();
     return {
       projectId: config?.profile.projectId ?? null,
       gcp: await this.gcpProvider.isConfigured(),
-      jules: await this.julesProvider.isConfigured(),
     };
   }
 }
