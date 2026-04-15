@@ -1,1152 +1,397 @@
-# oh-my-google (omg) Architecture
+# oh-my-google (omg) — Architecture
 
-> 버전: 0.2.0 (Claude 초안 + Codex 아키텍처 + API 조사 종합)
-> 최종 수정: 2026-04-14
+> 버전: 1.0.0 (PRD v1.0 정렬)
+> 최종 수정: 2026-04-15
 
-This document synthesizes `PRD.md` and `CLAUDE.md` into an implementation-ready software architecture for `oh-my-google (omg)`: an independent CLI orchestration layer that sits between coding agents and Google services.
+---
 
-Design constraints:
+## 1. 설계 원칙
 
-- `omg` is an independent CLI, not a plugin tied to a single agent.
-- The **hard harness** owns all Google-side effects. The **soft harness** (SKILL.md) guides agent intent, but only `omg` executes service calls.
-- The 2-hop rule is mandatory: `agent → omg → Google service`. No `agent → omg → other agent/tool → Google service`.
-- MVP-alpha: Cloud Run (GA API). MVP-beta: Jules (alpha API). Phase 2: Stitch (MCP, experimental).
-- Authentication is **service-specific**: GCP ADC for Cloud Run/Firebase, API key for Jules, TBD for Stitch.
+1. **GCP + Firebase 통합 레이어**: 두 CLI(`gcloud` + `firebase`), 두 auth, 두 console을 **한 진입점**으로.
+2. **4-command MVP**: `init` / `link` / `deploy` / `doctor`. admin surface는 Phase 2.
+3. **Setup-time intense + Runtime hands-off**: init 1회 승인으로 Trust Profile 생성 → 이후 profile 따라 자동/승인 결정.
+4. **에이전트 자체 판단 금지**: Trust Profile이 결정. 에이전트는 따를 뿐.
+5. **Planner > Executor**: 실행 전 "무엇을 어디에 어떻게"를 먼저 결정. 실행기는 단순.
+6. **Cross-service wiring**: Cloud Run URL → Firebase rewrites 자동 연결이 핵심 가치.
+7. **No premature abstraction**: Pipeline/Adapter 추상화 금지. 동일 패턴 3회 반복 후 등장.
+8. **Agent-first output**: 모든 출력 JSON 구조화 (`ok/command/data/error/next`).
+9. **Dual surface**: CLI + MCP 서버 둘 다 같은 core 호출. 로직 중복 없음.
 
-## 0. Soft / Hard harness boundary
+---
 
-```text
-[Soft Harness — 에이전트 판단 영역]
-  에이전트가 SKILL.md를 읽고 의도 파악
-  "이건 deploy 커맨드가 적합하겠다"
-  → NormalizedIntent 생성 → omg CLI 또는 어댑터 호출
+## 2. 레이어 모델
 
-      ↓  NormalizedIntent (JSON)
-
-[Hard Harness — 코드 통제 영역]
-  PipelineOrchestrator가 실행 계획 수립
-  각 단계 pre/post 검증
-  비용 영향 작업은 사용자 확인 요구
-  에러 시 롤백 또는 중단
-  에이전트 개입 불가
+```
+┌────────────────────┬────────────────────┐
+│  CLI (commander)   │  MCP Server        │   ← 진입점 (dual surface)
+│  bin/omg, omg ...  │  omg mcp-serve     │
+└─────────┬──────────┴──────────┬─────────┘
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+┌──────────────────────────────────────────────────┐
+│  Core (library)                                   │
+├──────────────────────────────────────────────────┤
+│  Output (JSON/Human) + Safety Gate                │
+├──────────────────────────────────────────────────┤
+│  Trust (profile 로드 + checkPermission)           │  ← 에이전트 판단 대체
+├──────────────────────────────────────────────────┤
+│  Planner            │  Executor         │  Setup │
+├──────────────────────────────────────────────────┤
+│  Wiring (cross-service)                           │
+├──────────────────────────────────────────────────┤
+│  Connectors (Cloud Run, Firebase, ...)            │
+├──────────────────────────────────────────────────┤
+│  Auth (AuthManager → providers)                   │
+└──────────────────────────────────────────────────┘
 ```
 
-에이전트의 자유: **뭘 할지** 선택 (소프트)
-코드의 통제: **어떻게 실행할지** 강제 (하드)
+의존 방향: 위 → 아래. 역방향 금지. CLI와 MCP 서버는 core 라이브러리를 공유.
 
-## Shared TypeScript primitives
+---
 
-These shared primitives are referenced by the six sections below.
+## 3. 디렉토리 구조
+
+```
+src/
+├── cli/
+│   ├── index.ts              commander 진입, --output 글로벌 옵션
+│   ├── output.ts             JSON/Human 출력 (success/fail/info)
+│   ├── prompt.ts             human 모드 확인 프롬프트
+│   └── commands/
+│       ├── init.ts           GCP 세팅 자동화 (신규)
+│       ├── link.ts           repo + GCP 스캔 → plan 생성 (신규)
+│       ├── deploy.ts         plan 실행 + wiring (재작성)
+│       ├── doctor.ts         진단
+│       ├── auth.ts           인증 상태/갱신
+│       ├── budget.ts         예산 한도 + 알림 (admin surface)
+│       ├── secret.ts         Secret Manager (admin surface)
+│       ├── iam.ts            권한 조회/부여/회수 (admin surface)
+│       ├── notify.ts         알림 채널 (admin surface)
+│       ├── security.ts       audit + 최소권한 (admin surface)
+│       └── add/              Phase 2+ (firestore, gemini, storage, ...)
+│
+├── planner/
+│   ├── detect.ts             repo 스캔 (Dockerfile, package.json, framework 감지)
+│   ├── gcp-state.ts          GCP 현재 상태 조회
+│   ├── plan-builder.ts       detected + state → project.yaml 생성
+│   └── schema.ts             project.yaml 타입 정의
+│
+├── executor/
+│   └── apply.ts              plan을 받아 순차 실행 (단순, 추상화 없음)
+│
+├── trust/
+│   ├── profile.ts            TrustProfile 로드/저장 (.omg/project.yaml의 trust: 섹션)
+│   ├── levels.ts             L0~L3 액션 매핑
+│   └── check.ts              checkPermission(action, profile) → auto | confirm | approve
+│
+├── mcp/
+│   ├── server.ts             @modelcontextprotocol/sdk 기반 MCP 서버
+│   └── tools.ts              각 omg 커맨드 → MCP tool 매핑
+│
+├── setup/
+│   ├── project.ts            GCP 프로젝트 생성/선택
+│   ├── billing.ts            빌링 계정 연결
+│   ├── apis.ts               필수 API 활성화
+│   └── iam.ts                서비스 계정/역할 기본 세팅
+│
+├── admin/
+│   ├── budget.ts             Cloud Billing Budgets API
+│   ├── secrets.ts            @google-cloud/secret-manager
+│   ├── iam-ops.ts            gcloud projects add-iam-policy-binding
+│   ├── notify.ts             Cloud Monitoring Notification Channels
+│   └── security.ts           audit log + IAM 분석
+│
+├── wiring/
+│   ├── firebase-rewrites.ts  Cloud Run URL → firebase.json rewrites 주입
+│   ├── env-inject.ts         환경변수 매핑
+│   └── secret-link.ts        Secret Manager 값 → 서비스 env
+│
+├── connectors/
+│   ├── cloud-run.ts          Cloud Run (gcloud + @google-cloud/run)
+│   ├── firebase.ts           Firebase (firebase CLI)
+│   └── ...                   (Phase 2: firestore.ts, storage.ts, ...)
+│
+├── auth/
+│   ├── auth-manager.ts       프로바이더 통합 (GCP + Firebase 단일 진입점)
+│   ├── gcp-provider.ts       GCP ADC 기반 (gcloud auth application-default)
+│   ├── firebase-provider.ts  Firebase 토큰 기반 (firebase login:ci or ADC share)
+│   └── api-key-provider.ts   Gemini 등 API 키 기반 (Phase 2+)
+│
+└── types/
+    ├── errors.ts             OmgError 계층
+    ├── connector.ts          Connector 인터페이스 (단순화, AsyncConnector 제거)
+    └── plan.ts               ProjectPlan 타입 (pipeline.ts 대체)
+```
+
+`skills/`, `adapters/`, `orchestrator/` 는 **없음**. MVP에서 제거.
+
+---
+
+## 4. 핵심 데이터 구조
+
+### 4.1 ProjectPlan (`.omg/project.yaml`)
 
 ```ts
-export type ModuleId =
-  | 'cli'
-  | 'auth'
-  | 'connectors'
-  | 'orchestrator'
-  | 'adapters'
-  | 'skills';
-
-export type ConnectorId = 'stitch' | 'jules' | 'cloud-run' | 'firebase';
-
-export type AdapterId =
-  | 'claude-code'
-  | 'codex'
-  | 'opencode'
-  | 'gemini-cli'
-  | 'antigravity';
-
-export type JsonObject = Record<string, unknown>;
-
-export interface ProjectRef {
-  projectId: string;
-  region?: string;
-  environment?: 'dev' | 'stage' | 'prod';
+export interface ProjectPlan {
+  version: 1;
+  project: {
+    id: string;
+    region: string;
+  };
+  detected: {
+    stack: StackType;           // 'static' | 'spa-plus-api' | 'api-only' | 'functions'
+    frontend?: FrontendDetection;
+    backend?: BackendDetection;
+  };
+  targets: {
+    frontend?: {
+      service: 'firebase-hosting';
+      siteName: string;
+    };
+    backend?: {
+      service: 'cloud-run';
+      serviceName: string;
+      region: string;
+      port: number;
+      memory?: string;
+      allowUnauthenticated?: boolean;  // 기본 false (안전)
+    };
+  };
+  wiring: WiringRule[];
+  environment: EnvironmentMap;
+  deploymentOrder: string[];      // ['backend', 'frontend']
+  checks: Check[];
+  warnings: string[];
 }
 
-export interface ActorRef {
-  kind: 'direct-cli' | 'adapter' | 'skill';
+export interface FrontendDetection {
+  type: 'vite-react' | 'cra' | 'static-html' | 'vue' | 'svelte' | 'next-spa';
+  buildCommand: string;
+  outputDir: string;
+  framework?: string;
+}
+
+export interface BackendDetection {
+  type: 'python-fastapi' | 'python-flask' | 'node-express' | 'node-fastify' | 'generic-docker';
+  dockerfile?: string;
+  buildpack?: boolean;
+  port: number;
+  startCommand?: string;
+}
+
+export interface WiringRule {
+  from: string;                  // 'frontend.rewrites["/api/**"]'
+  to: string;                    // 'backend.cloudRun.url'
+}
+
+export type EnvironmentMap = Record<
+  'backend' | 'frontend',
+  Record<string, string | { secret: string }>
+>;
+
+export interface Check {
   id: string;
-  displayName: string;
-}
-
-export interface RequestMetadata {
-  requestId: string;
-  correlationId: string;
-  initiatedAt: string;
-  cwd: string;
-  dryRun: boolean;
-  actor: ActorRef;
-  labels?: Record<string, string>;
-}
-
-export interface OperationLogger {
-  debug(message: string, context?: JsonObject): void;
-  info(message: string, context?: JsonObject): void;
-  warn(message: string, context?: JsonObject): void;
-  error(message: string, context?: JsonObject): void;
+  description: string;
+  severity: 'error' | 'warning';
 }
 ```
 
-## 1. Module dependency graph
-
-### 1.1 Runtime layering
-
-The runtime is intentionally one-directional. `cli/` is the composition root. `auth/` and `skills/` are foundational. `connectors/` are the only Google-facing integration points. `orchestrator/` is the hard harness. `adapters/` are agent-facing normalization/rendering layers.
-
-Import direction: `A -> B` means `A` may import `B`.
-
-```text
-cli ---------> adapters ---------> skills
- |               |
- |               +---------------> orchestrator ---------> connectors ---------> auth
- |                                    |                       |
- |                                    +-----------------------> auth
- |
- +-----------------------------------> skills
- +-----------------------------------> orchestrator
- +-----------------------------------> auth
-```
-
-Equivalent layer stack:
-
-```text
-Layer 5: cli
-Layer 4: adapters
-Layer 3: orchestrator
-Layer 2: connectors
-Layer 1: auth, skills
-```
-
-### 1.2 Module responsibilities and allowed dependencies
+### 4.2 Connector 인터페이스 (단순화)
 
 ```ts
-export interface ModuleBoundary {
-  id: ModuleId;
-  owns: readonly string[];
-  allowedDependencies: readonly ModuleId[];
-  forbiddenDependencies: readonly ModuleId[];
-  runtimeRole:
-    | 'composition-root'
-    | 'foundation'
-    | 'integration'
-    | 'control-plane'
-    | 'agent-surface';
-  notes: string;
-}
-
-export const MODULE_BOUNDARIES: readonly ModuleBoundary[] = [
-  {
-    id: 'cli',
-    owns: ['command parsing', 'process bootstrap', 'dependency wiring', 'human-readable output'],
-    allowedDependencies: ['auth', 'orchestrator', 'adapters', 'skills'],
-    forbiddenDependencies: [],
-    runtimeRole: 'composition-root',
-    notes: 'The only module allowed to wire the full system together.'
-  },
-  {
-    id: 'auth',
-    owns: ['project profile', 'OAuth tokens', 'scope broker', 'credential injection'],
-    allowedDependencies: [],
-    forbiddenDependencies: ['cli', 'connectors', 'orchestrator', 'adapters', 'skills'],
-    runtimeRole: 'foundation',
-    notes: 'No domain module should leak back into auth.'
-  },
-  {
-    id: 'connectors',
-    owns: ['Google service adapters', 'transport code', 'remote status polling', 'rollback hooks'],
-    allowedDependencies: ['auth'],
-    forbiddenDependencies: ['cli', 'orchestrator', 'adapters', 'skills'],
-    runtimeRole: 'integration',
-    notes: 'All side effects against Google APIs/CLIs happen here.'
-  },
-  {
-    id: 'orchestrator',
-    owns: ['pipeline planning', 'validation gates', 'rollback coordination', 'execution state'],
-    allowedDependencies: ['auth', 'connectors'],
-    forbiddenDependencies: ['cli', 'adapters', 'skills'],
-    runtimeRole: 'control-plane',
-    notes: 'Hard harness. Never imports agent-specific code.'
-  },
-  {
-    id: 'adapters',
-    owns: ['agent normalization', 'adapter-specific formatting', 'capability negotiation'],
-    allowedDependencies: ['orchestrator', 'skills'],
-    forbiddenDependencies: ['cli', 'connectors', 'auth'],
-    runtimeRole: 'agent-surface',
-    notes: 'Adapters can request orchestration, but cannot reach connectors directly.'
-  },
-  {
-    id: 'skills',
-    owns: ['SKILL.md discovery', 'metadata parsing', 'skill-to-command mapping'],
-    allowedDependencies: [],
-    forbiddenDependencies: ['cli', 'auth', 'connectors', 'orchestrator', 'adapters'],
-    runtimeRole: 'foundation',
-    notes: 'Treat skill content as declarative. No service calls from skills.'
-  }
-];
-```
-
-### 1.3 Concrete implementation notes
-
-- `src/cli/` should contain `bootstrap.ts` or equivalent composition root code. That file constructs `AuthManager`, `ConnectorRegistry`, `SkillRegistry`, `AdapterRegistry`, and `PipelineOrchestrator`.
-- `src/auth/` must be import-safe and testable in isolation. It should expose no knowledge of specific CLI commands or connectors beyond service IDs and scope requirements.
-- `src/connectors/` must implement only transport and service semantics. It should never choose pipeline order.
-- `src/orchestrator/` owns dependency ordering, validation, retries, rollback, state persistence, and 2-hop rule enforcement.
-- `src/adapters/` should remain thin. Adapters normalize agent input into an `omg` execution request and format `omg` results back into the agent’s expected shape.
-- `skills/` at repository root is content. The runtime loader can live in `src/skills/`, but it must depend only on filesystem/markdown parsing concerns, not on orchestration internals.
-
-## 2. Connector interface
-
-### 2.1 Connector contract goals
-
-Every connector must implement the same contract so the orchestrator can treat `Stitch`, `Jules`, `Cloud Run`, and `Firebase` uniformly:
-
-- auth is injected, never fetched ad hoc inside a connector
-- request/response shapes are typed per connector
-- sync and async services return a common operation handle
-- remote failures normalize into one error model
-- status polling works for async services like `Jules`
-
-### 2.2 Common connector interfaces
-
-```ts
-export type AuthInjectionTarget =
-  | 'rest-header'
-  | 'api-key-header'
-  | 'google-client'
-  | 'gcloud-env'
-  | 'firebase-env';
-
-export interface ConnectorAuthRequirement {
-  target: AuthInjectionTarget;
-  scopes: readonly string[];
-  audience?: string;
-}
-
-export interface ConnectorCapability {
-  action: string;
-  deliveryMode: 'sync' | 'async';
-  supportsDryRun: boolean;
-  supportsRollback: boolean;
-  timeoutMsDefault: number;
-}
-
-export interface ConnectorRequestBase {
-  connectorId: ConnectorId;
-  action: string;
-  project: ProjectRef;
-  metadata: RequestMetadata;
-  idempotencyKey?: string;
-  timeoutMs?: number;
-}
-
-export interface ConnectorArtifact {
-  kind: 'design' | 'source' | 'deployment' | 'url' | 'log' | 'bundle' | 'json';
-  name: string;
-  uri: string;
-  metadata?: JsonObject;
-}
-
-export type ConnectorErrorCategory =
-  | 'auth'
-  | 'validation'
-  | 'transport'
-  | 'quota'
-  | 'timeout'
-  | 'remote'
-  | 'policy'
-  | 'rollback';
-
-export interface ConnectorError {
-  connectorId: ConnectorId;
-  category: ConnectorErrorCategory;
-  code: string;
-  message: string;
-  retryable: boolean;
-  remoteStatusCode?: number;
-  details?: JsonObject;
-}
-
-export interface OperationHandle {
-  connectorId: ConnectorId;
-  operationId: string;
-  externalId?: string;
-  deliveryMode: 'sync' | 'async';
-  createdAt: string;
-  pollAfterMs?: number;
-}
-
-export type OperationState =
-  | 'accepted'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'rolled-back';
-
-export interface ConnectorStatus<TResult> {
-  handle: OperationHandle;
-  state: OperationState;
-  percent?: number;
-  externalStatus?: string;
-  startedAt: string;
-  updatedAt: string;
-  result?: TResult;
-  error?: ConnectorError;
-  artifacts?: readonly ConnectorArtifact[];
-}
-
-export interface PreparedConnectorRequest<TRequest extends ConnectorRequestBase> {
-  request: TRequest;
-  authRequirement: ConnectorAuthRequirement;
-  authInjection: AuthInjection;
-}
-
-export interface ConnectorValidationResult {
-  ok: boolean;
-  findings: readonly ValidationFinding[];
-}
-
-export interface ConnectorExecutionResult<TResult> {
-  handle: OperationHandle;
-  initialStatus: ConnectorStatus<TResult>;
-}
-
-export interface ConnectorRollbackResult {
-  ok: boolean;
-  rolledBackAt: string;
-  artifacts?: readonly ConnectorArtifact[];
-  error?: ConnectorError;
-}
-
-export interface ConnectorContext {
-  metadata: RequestMetadata;
-  logger: OperationLogger;
-  signal?: AbortSignal;
-}
-
-export interface GoogleConnector<
-  TRequest extends ConnectorRequestBase,
-  TResult
-> {
+export interface Connector<Req = unknown, Res = unknown> {
   readonly id: ConnectorId;
   readonly displayName: string;
-  readonly authRequirements: readonly ConnectorAuthRequirement[];
-  readonly capabilities: readonly ConnectorCapability[];
-
-  validate(request: TRequest, ctx: ConnectorContext): Promise<ConnectorValidationResult>;
-  prepare(request: TRequest, auth: AuthSession, ctx: ConnectorContext): Promise<PreparedConnectorRequest<TRequest>>;
-  execute(prepared: PreparedConnectorRequest<TRequest>, ctx: ConnectorContext): Promise<ConnectorExecutionResult<TResult>>;
-  getStatus(handle: OperationHandle, auth: AuthSession, ctx: ConnectorContext): Promise<ConnectorStatus<TResult>>;
-  cancel?(handle: OperationHandle, auth: AuthSession, ctx: ConnectorContext): Promise<ConnectorStatus<TResult>>;
-  rollback?(
-    handle: OperationHandle,
-    auth: AuthSession,
-    ctx: ConnectorContext
-  ): Promise<ConnectorRollbackResult>;
-  normalizeError(error: unknown): ConnectorError;
+  healthCheck(config: ConnectorConfig): Promise<HealthStatus>;
+  execute(action: string, params: Req, config: ConnectorConfig): Promise<ConnectorResult<Res>>;
 }
 ```
 
-### 2.3 Concrete connector request/response types
+`AsyncConnector` 제거. Jules 복귀 시점에 필요하면 그때 추가.
+
+### 4.3 OmgConfig (`~/.omg/config.json`)
 
 ```ts
-export interface StitchCreateDesignRequest extends ConnectorRequestBase {
-  connectorId: 'stitch';
-  action: 'create-design';
-  prompt: string;
-  designSpecMarkdown?: string;
-  outputFormat: 'figma-like-json' | 'html' | 'react';
-}
-
-export interface StitchCreateDesignResult {
-  designId: string;
-  previewUrl?: string;
-  exportUri?: string;
-}
-
-export interface JulesRunTaskRequest extends ConnectorRequestBase {
-  connectorId: 'jules';
-  action: 'run-task';
-  repoUrl: string;
-  branch: string;
-  taskPrompt: string;
-  expectedArtifacts?: readonly string[];
-}
-
-export interface JulesRunTaskResult {
-  taskId: string;
-  branch?: string;
-  patchUri?: string;
-  summary?: string;
-}
-
-export interface CloudRunDeployRequest extends ConnectorRequestBase {
-  connectorId: 'cloud-run';
-  action: 'deploy-service';
-  serviceName: string;
-  imageUri: string;
-  region: string;
-  trafficPercent?: number;
-  env?: Record<string, string>;
-}
-
-export interface CloudRunDeployResult {
-  revisionName: string;
-  serviceUrl: string;
-  trafficPercent: number;
-}
-
-export interface FirebaseDeployRequest extends ConnectorRequestBase {
-  connectorId: 'firebase';
-  action: 'deploy';
-  targets: readonly ('hosting' | 'functions' | 'firestore' | 'storage')[];
-  projectAlias?: string;
-  sourceDir: string;
-}
-
-export interface FirebaseDeployResult {
-  deploymentId: string;
-  consoleUrl?: string;
-  hostingUrl?: string;
+export interface OmgConfig {
+  profile: {
+    projectId: string;
+    region?: string;
+    accountEmail?: string;
+  };
+  apiKeys?: {
+    gemini?: string;
+    jules?: string;
+  };
 }
 ```
 
-### 2.4 Connector registry
+---
+
+## 5. 실행 흐름
+
+### 5.1 `omg init`
+
+```
+1. gcloud CLI 존재 확인
+2. 로그인/ADC 상태 확인 → 필요 시 인증 플로우 트리거
+3. [human] 프로젝트 선택 (기존 or 신규)
+   [json]  --project 플래그 필수
+4. 빌링 계정 확인/연결
+5. 기본 API enable (serviceusage batch)
+   cloudbuild, run, artifactregistry, firebasehosting, firestore,
+   secretmanager, logging
+6. 기본 IAM 세팅
+7. ~/.omg/config.json 저장
+8. JSON 결과 반환
+```
+
+### 5.2 `omg link`
+
+```
+1. omg 설정 로드 (없으면 init 유도)
+2. repo 스캔 (detect.ts)
+   - Dockerfile, package.json, requirements.txt, firebase.json, etc.
+   - stack 결정: static / spa-plus-api / api-only / functions
+3. GCP 상태 조회 (gcp-state.ts)
+   - 활성 API, 기존 서비스, 기존 Firebase 사이트
+4. plan-builder 실행
+   - Detection + State → ProjectPlan 생성
+   - wiring 규칙 추가 (API URL → rewrites)
+   - 환경변수 추론
+   - checks 목록 작성
+   - warnings (Next.js SSR 감지 등)
+5. .omg/project.yaml 저장 (git commit 가능)
+6. JSON 출력
+```
+
+### 5.3 `omg deploy`
+
+```
+1. .omg/project.yaml 로드 (없으면 link 유도)
+2. checks 실행 → 실패 시 중단
+3. --dry-run 이면 계획 JSON 출력하고 종료
+4. 확인 게이트 (JSON 모드는 --yes 필수)
+5. deploymentOrder 순서대로:
+   a. 단계 pre-validate
+   b. connector.execute(...)
+   c. 결과 context에 저장 (다음 단계에서 사용)
+   d. wiring 규칙 적용 (예: Cloud Run URL → firebase.json rewrites)
+   e. post-validate (health check)
+6. 실패 시 역순 롤백 시도
+7. 결과 JSON (모든 URL, 상태, duration)
+```
+
+---
+
+## 6. 하네스 철학
+
+### 6.1 소프트 자동화 (기본값)
+- 프로젝트 생성, API enable, IAM 기본 세팅
+- 서비스 감지, 스택 결정
+- wiring 규칙 자동 생성
+- 환경변수 매핑
+
+### 6.2 하드 통제 (확인 필요)
+- **프로덕션 배포** — 확인 게이트
+- **Firestore rules 변경** — diff 표시
+- **BigQuery 대용량 쿼리** — 비용 경고 (Phase 3+)
+- **Secret Manager 쓰기** — 확인
+- **삭제/롤백** — 확인
+
+### 6.3 JSON 모드 정책
+- 확인 프롬프트 자동 스킵되지 **않음** — `--yes` 없으면 `PENDING_CONFIRMATION` 에러 반환
+- 에이전트는 `--dry-run`으로 계획 확인 후 `--yes`로 실행
+
+---
+
+## 7. 에러 모델
 
 ```ts
-export interface ConnectorRegistry {
-  get<TRequest extends ConnectorRequestBase, TResult>(
-    connectorId: ConnectorId
-  ): GoogleConnector<TRequest, TResult>;
-  list(): readonly GoogleConnector<ConnectorRequestBase, unknown>[];
+class OmgError extends Error {
+  code: string;             // "AUTH_ERROR" | "NO_BILLING" | ...
+  recoverable: boolean;
+  hint?: string;
 }
 ```
 
-### 2.5 Concrete implementation notes
+주요 에러 코드:
 
-- `StitchConnector` (Phase 2): MCP server exists at `stitch.googleapis.com/mcp` but auth/API docs are sparse. Treat as experimental. Initially implement as MCP client if feasible, with fallback to DESIGN.md file-based integration.
-- `JulesConnector` must always be treated as `async`. `execute()` should return `accepted`, and `getStatus()` must translate remote task states into `OperationState`.
-- `CloudRunConnector` should wrap `gcloud run deploy` with auth injected through environment variables rather than relying on mutable global `gcloud auth` state.
-- `FirebaseConnector` should wrap `firebase` CLI or `firebase-tools` with the same auth broker contract. Prefer ephemeral ADC-based auth injection; keep legacy token injection as a fallback only.
-- Every connector must implement `normalizeError()` so the orchestrator never branches on raw exceptions from `fetch`, `googleapis`, or child processes.
+| code | 의미 | recoverable | 에이전트 대응 |
+|---|---|---|---|
+| `AUTH_ERROR` | 인증 실패/만료 | false | `omg setup` 또는 `omg auth refresh` |
+| `NO_BILLING` | 빌링 없음 | false | `--billing` 플래그로 재시도 |
+| `API_ENABLE_FAILED` | API 활성화 실패 | true | 권한 확인 후 재시도 |
+| `NO_DEPLOYABLE_CONTENT` | 배포할 것 없음 | false | repo 확인 |
+| `PLAN_REQUIRED` | project.yaml 없음 | false | `omg link` 실행 |
+| `PENDING_CONFIRMATION` | 확인 필요 | false | `--yes` 추가 |
+| `CHECK_FAILED` | 사전 체크 실패 | true | 메시지 확인 후 수정 |
+| `DEPLOY_FAILED` | 배포 실행 실패 | true | `omg logs` + 재시도 |
+| `QUOTA_EXCEEDED` | 쿼터 초과 | true | 대기 후 재시도 |
+| `WIRING_FAILED` | 서비스 연결 실패 | true | 상세 로그 확인 |
 
-## 3. Orchestrator design
+---
 
-### 3.1 Hard harness responsibilities
+## 8. 확장 지점 (Phase 2+)
 
-The orchestrator is the control plane. It is the only module allowed to:
+### 8.1 `omg add <resource>`
 
-- compile a user or adapter request into a validated execution plan
-- resolve the required scopes and auth session for each step
-- enforce the 2-hop rule
-- run steps sequentially or selectively
-- persist state for `omg status`
-- rollback previously completed steps on failure
-
-Execution flow:
-
-```text
-adapter/cli request
-  -> normalize intent
-  -> compile plan
-  -> enforce 2-hop policy
-  -> validate plan and selected steps
-  -> resolve auth for step
-  -> connector.validate()
-  -> connector.execute()
-  -> poll if async
-  -> post-step validation
-  -> next step
-failure
-  -> stop further steps
-  -> rollback completed reversible steps in reverse order
-  -> persist final execution state
+```
+omg add firestore      Firestore 초기화 + rules 기본값
+omg add storage        Cloud Storage 버킷
+omg add secret KEY=... Secret Manager 등록
+omg add gemini         Vertex AI Gemini + env 주입
+omg add sql            Cloud SQL 인스턴스
+omg add analytics      Google Analytics 측정 ID
 ```
 
-### 3.2 Orchestrator interfaces
+각 명령은 `ProjectPlan`을 업데이트하고 커넥터를 호출.
 
-```ts
-export type PipelineId =
-  | 'design-code-deploy'
-  | 'deploy-only'
-  | 'firebase-deploy'
-  | 'custom';
+### 8.2 새 스택 추가
 
-export type StepId = 'stitch' | 'jules' | 'cloud-run' | 'firebase';
+`planner/detect.ts`에 감지 로직 추가 + `plan-builder.ts`에 타겟 매핑 추가.
+커넥터 자체는 변경 없음.
 
-export interface StepSelector {
-  mode: 'all' | 'single' | 'range' | 'set';
-  stepId?: StepId;
-  fromStepId?: StepId;
-  toStepId?: StepId;
-  stepIds?: readonly StepId[];
-}
+### 8.3 새 연결 추가
 
-export interface ValidationFinding {
-  severity: 'info' | 'warning' | 'error';
-  code: string;
-  message: string;
-  stepId?: StepId;
-  details?: JsonObject;
-}
+`wiring/`에 파일 추가. Plan의 `wiring` 배열에 규칙 명시.
 
-export interface PipelineStepDefinition<TRequest extends ConnectorRequestBase = ConnectorRequestBase> {
-  id: StepId;
-  connectorId: ConnectorId;
-  action: TRequest['action'];
-  dependsOn: readonly StepId[];
-  rollbackPolicy: 'none' | 'best-effort' | 'required';
-  timeoutMs: number;
-  buildRequest(input: PipelineExecutionInput, state: PipelineExecutionRecord): Promise<TRequest>;
-  validateOutput(status: ConnectorStatus<unknown>, state: PipelineExecutionRecord): Promise<ConnectorValidationResult>;
-}
+---
 
-export interface PipelineDefinition {
-  id: PipelineId;
-  description: string;
-  steps: readonly PipelineStepDefinition[];
-}
+## 9. 명시적 비범위
 
-export interface PipelineExecutionInput {
-  project: ProjectRef;
-  selector: StepSelector;
-  payload: JsonObject;
-  metadata: RequestMetadata;
-}
+- Pipeline orchestrator (Phase 6에서 재고)
+- Adapter 레이어 (필요성 재검증 후)
+- SKILL 로더 (문서로 대체)
+- Jules / Stitch (opt-in, alpha/실험 API)
+- Next.js SSR 배포 (Vercel 권장, 필요 시 Cloud Run + 직접 설정)
 
-export type StepRunState =
-  | 'pending'
-  | 'skipped'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'rolled-back';
+---
 
-export interface StepRunRecord {
-  stepId: StepId;
-  connectorId: ConnectorId;
-  state: StepRunState;
-  startedAt?: string;
-  completedAt?: string;
-  handle?: OperationHandle;
-  status?: ConnectorStatus<unknown>;
-  rollback?: ConnectorRollbackResult;
-  findings?: readonly ValidationFinding[];
-}
+## 10. 현재 상태 → 목표 상태
 
-export type PipelineExecutionState =
-  | 'planned'
-  | 'running'
-  | 'failed'
-  | 'completed'
-  | 'rolled-back'
-  | 'cancelled';
-
-export interface PipelineExecutionRecord {
-  executionId: string;
-  pipelineId: PipelineId;
-  project: ProjectRef;
-  state: PipelineExecutionState;
-  selector: StepSelector;
-  createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
-  currentStepId?: StepId;
-  stepRuns: Record<StepId, StepRunRecord>;
-  findings: readonly ValidationFinding[];
-}
-
-export interface ExecutionRepository {
-  save(record: PipelineExecutionRecord): Promise<void>;
-  get(executionId: string): Promise<PipelineExecutionRecord | null>;
-  listOpen(): Promise<readonly PipelineExecutionRecord[]>;
-}
-
-export interface PipelineOrchestrator {
-  compile(input: PipelineExecutionInput): Promise<PipelineDefinition>;
-  validate(definition: PipelineDefinition, input: PipelineExecutionInput): Promise<readonly ValidationFinding[]>;
-  execute(definition: PipelineDefinition, input: PipelineExecutionInput): Promise<PipelineExecutionRecord>;
-  resume(executionId: string): Promise<PipelineExecutionRecord>;
-  cancel(executionId: string, reason: string): Promise<PipelineExecutionRecord>;
-  getStatus(executionId: string): Promise<PipelineExecutionRecord | null>;
-}
+### 지금 (커밋됨)
+```
+✓ CLI 뼈대, --output json
+✓ AuthManager + GcpAuthProvider
+✓ Cloud Run / Firebase connector
+✓ OmgError 계층
+✓ omg deploy / omg firebase (Phase 1에서 deprecate 후 재설계)
+✗ init / link 없음
+✗ planner / executor / wiring / setup 없음
 ```
 
-### 3.3 2-hop policy enforcement
-
-```ts
-export interface InvocationPath {
-  agent: AdapterId | 'direct-cli';
-  omgSurface: 'cli' | 'adapter';
-  connectorId: ConnectorId;
-  googleTransport: 'rest' | 'googleapis-sdk' | 'gcloud-cli' | 'firebase-cli';
-  extraIntermediaries: readonly string[];
-}
-
-export interface HopPolicyViolation {
-  code: 'TWO_HOP_RULE_VIOLATION';
-  message: string;
-  path: InvocationPath;
-}
-
-export interface HopPolicyEnforcer {
-  assert(path: InvocationPath): void;
-}
+### 목표 (Phase 1 끝)
+```
++ omg init (GCP 자동 세팅)
++ omg link (plan 생성)
++ omg deploy 재작성 (plan 실행)
++ planner/, executor/, wiring/, setup/
++ .omg/project.yaml 스키마
++ 핵심 단위 테스트
+- pipeline.ts, AsyncConnector 제거
 ```
 
-Required policy:
+---
 
-- `extraIntermediaries` must always be empty.
-- `googleTransport` may be a Google API/SDK/CLI only.
-- Adapters may normalize requests, but they may not shell out to other agent CLIs to complete work.
-- Connectors may call `gcloud`, `firebase`, or Google APIs directly. They may not call `gemini`, `claude`, `codex`, or `opencode`.
-
-### 3.4 Partial execution and rollback
-
-Partial execution modes:
-
-- `omg deploy` compiles a single-step plan with `selector = { mode: 'single', stepId: 'cloud-run' }`
-- `omg pipeline --from jules --to cloud-run` compiles a range plan
-- `omg pipeline --only firebase` compiles a single-step or set-based plan
-
-Selection rules:
-
-- the selector is validated against step dependencies
-- a step cannot run if any required predecessor is neither already completed nor explicitly included
-- outputs of skipped prerequisite steps must be supplied in `payload`
-
-Rollback rules:
-
-- rollback happens in reverse completion order
-- only steps whose `rollbackPolicy !== 'none'` are attempted
-- rollback failure is recorded but does not hide the original failure
-- status after rollback is `rolled-back` if all completed reversible steps were successfully reverted, otherwise `failed`
-
-### 3.5 Concrete implementation notes
-
-- Persist execution state under `.omg/state/executions/<executionId>.json` so `omg status` survives process restarts.
-- Use optimistic idempotency keys per step, especially for deploy operations.
-- Implement plan-time validation and post-step validation separately. Example: `Cloud Run` may succeed at command level but fail post-step validation if the service URL does not respond or the expected revision is not active.
-- Do not allow adapters or skills to construct arbitrary connector graphs. They may choose among registered pipeline definitions or single commands only.
-
-## 4. Adapter pattern
-
-### 4.1 Adapter goals
-
-Adapters let agent environments plug into the same `omg` core without contaminating the hard harness with agent-specific logic.
-
-Responsibilities:
-
-- detect whether the adapter applies in the current environment
-- normalize raw agent messages/tool calls into an `omg` command or pipeline request
-- advertise supported commands/skills back to the agent
-- format `omg` responses for the agent’s preferred output shape
-
-Non-responsibilities:
-
-- no Google-side effects
-- no direct connector access
-- no pipeline execution decisions outside supported `omg` request models
-
-### 4.2 Adapter interfaces
-
-```ts
-export interface AdapterEnvironment {
-  cwd: string;
-  env: Record<string, string | undefined>;
-  supportsSubagents: boolean;
-  supportsStreaming: boolean;
-}
-
-export interface AdapterInvocation {
-  rawCommand?: string;
-  rawArgs?: readonly string[];
-  rawPayload?: JsonObject;
-  requestedSkillId?: string;
-}
-
-export interface NormalizedIntent {
-  kind: 'setup' | 'auth' | 'doctor' | 'connector' | 'pipeline' | 'status' | 'skill';
-  commandId: string;
-  connectorId?: ConnectorId;
-  pipelineId?: PipelineId;
-  selector?: StepSelector;
-  args: JsonObject;
-}
-
-export interface AdapterExecutionResponse {
-  exitCode: number;
-  stdout: string;
-  stderr?: string;
-  structured?: JsonObject;
-}
-
-export interface ToolAdapter {
-  readonly id: AdapterId;
-  readonly displayName: string;
-  readonly invocationMode: 'plugin' | 'tool-call' | 'shell-wrapper';
-  readonly supportsParallelSubagents: boolean;
-
-  matches(env: AdapterEnvironment): boolean;
-  normalize(invocation: AdapterInvocation, env: AdapterEnvironment): Promise<NormalizedIntent>;
-  describeCapabilities(): Promise<{
-    commands: readonly string[];
-    skills: readonly string[];
-    supportsStreaming: boolean;
-  }>;
-  formatSuccess(result: PipelineExecutionRecord | JsonObject, env: AdapterEnvironment): Promise<AdapterExecutionResponse>;
-  formatFailure(error: ConnectorError | Error, env: AdapterEnvironment): Promise<AdapterExecutionResponse>;
-}
-
-export interface AdapterRegistry {
-  get(id: AdapterId): ToolAdapter;
-  detect(env: AdapterEnvironment): ToolAdapter | null;
-  list(): readonly ToolAdapter[];
-}
-```
-
-### 4.3 Concrete adapter behavior
-
-- `ClaudeCodeAdapter` is the first-class adapter. It should support parallel subagent-friendly output, skill discovery, and structured summaries that map cleanly into Claude Code tool use.
-- `CodexAdapter` and `OpenCodeAdapter` should reuse most of the same normalization and formatting path, differing mostly in environment detection and output conventions.
-- `GeminiCliAdapter` should emphasize tool-call-native flows rather than shell-wrapper ergonomics.
-- `AntigravityAdapter` must report `supportsParallelSubagents = false` and degrade to sequential workflows. It still produces the same normalized intent model.
-
-### 4.4 Implementation notes
-
-- Adapters should be loaded dynamically from `src/adapters/<adapter-id>/index.ts`.
-- Keep agent-specific prompt shaping outside the orchestrator. The adapter may attach presentation metadata, but the orchestrator should only see normalized intent and execution input.
-- `omg` should be able to run with `direct-cli` and no adapter present. Adapters are optional entry surfaces, not runtime prerequisites.
-
-## 5. Skill loading
-
-### 5.1 Discovery model
-
-Skill content is declarative Markdown. Runtime code reads it, indexes it, and maps it to commands or pipelines. The recommended discovery order is:
-
-1. project-local skills: `<repo>/skills/*/SKILL.md`
-2. user-local skills: `~/.omg/skills/*/SKILL.md`
-3. bundled skills shipped with the package
-
-Precedence: project overrides user overrides bundled when `skillId` collides.
-
-### 5.2 Skill metadata and loader interfaces
-
-```ts
-export interface SkillParameter {
-  name: string;
-  type: 'string' | 'number' | 'boolean' | 'string[]';
-  required: boolean;
-  description: string;
-  defaultValue?: string | number | boolean | readonly string[];
-}
-
-export interface SkillFrontmatter {
-  id: string;
-  title: string;
-  description: string;
-  aliases?: readonly string[];
-  commands?: readonly string[];
-  connectorIds?: readonly ConnectorId[];
-  pipelineIds?: readonly PipelineId[];
-  visibleToAdapters?: readonly (AdapterId | '*')[];
-  parameters?: readonly SkillParameter[];
-}
-
-export interface SkillDefinition {
-  id: string;
-  source: 'project' | 'user' | 'bundled';
-  directory: string;
-  filePath: string;
-  checksum: string;
-  metadata: SkillFrontmatter;
-  markdown: string;
-}
-
-export interface SkillCommandBinding {
-  skillId: string;
-  commandId: string;
-  connectorId?: ConnectorId;
-  pipelineId?: PipelineId;
-  defaultArgs?: JsonObject;
-}
-
-export interface SkillIndex {
-  byId: Record<string, SkillDefinition>;
-  byAlias: Record<string, string>;
-  bindings: readonly SkillCommandBinding[];
-}
-
-export interface SkillDiscoveryOptions {
-  cwd: string;
-  includeBundled: boolean;
-  includeUser: boolean;
-  includeProject: boolean;
-}
-
-export interface SkillLoader {
-  discover(options: SkillDiscoveryOptions): Promise<readonly SkillDefinition[]>;
-  load(filePath: string): Promise<SkillDefinition>;
-  buildIndex(skills: readonly SkillDefinition[]): Promise<SkillIndex>;
-}
-
-export interface SkillRegistry {
-  list(): readonly SkillDefinition[];
-  get(skillId: string): SkillDefinition | null;
-  resolveAlias(alias: string): SkillDefinition | null;
-  resolveBinding(commandOrSkill: string): SkillCommandBinding | null;
-}
-```
-
-### 5.3 Mapping rules
-
-- `skills/<name>/SKILL.md` with frontmatter `id` becomes the canonical skill ID.
-- If frontmatter is missing, infer `id` from the directory name and `title` from the first H1.
-- `commands` maps a skill to one or more `omg` commands.
-- `pipelineIds` maps a skill to a registered pipeline definition.
-- `connectorIds` marks the relevant service(s) for discovery/UI filtering, but execution still goes through a command or pipeline binding.
-
-Example:
-
-```ts
-export const EXAMPLE_BINDINGS: readonly SkillCommandBinding[] = [
-  {
-    skillId: 'omg-setup',
-    commandId: 'setup'
-  },
-  {
-    skillId: 'stitch',
-    commandId: 'stitch',
-    connectorId: 'stitch'
-  },
-  {
-    skillId: 'pipeline',
-    commandId: 'pipeline',
-    pipelineId: 'design-code-deploy'
-  }
-];
-```
-
-### 5.4 Implementation notes
-
-- Treat SKILL.md as data, not executable code.
-- Parse frontmatter once and cache checksums for fast startup.
-- `cli` should expose `omg skills list` and `omg skills show <id>` off the same `SkillRegistry`.
-- Adapters should call `SkillRegistry` to advertise skill-capable commands to their host agent.
-- Missing or malformed skills should produce warnings, not process-fatal errors.
-
-## 6. Auth flow
-
-### 6.1 Auth design goals
-
-`omg` uses a **service-specific auth provider** pattern. Not all Google services use the same auth:
-
-| Service | Auth method | Mechanism |
-|---|---|---|
-| Cloud Run | GCP ADC (OAuth2) | `gcloud auth application-default login` |
-| Firebase | GCP ADC (OAuth2) | Same as Cloud Run |
-| Jules | **API key** | `x-goog-api-key` header, issued at `jules.google.com/settings` |
-| Stitch | **TBD** | MCP server auth mechanism undocumented |
-
-The auth manager is central but delegates to service-specific providers:
-
-```text
-AuthManager
-├── GcpAuthProvider     (ADC-based: Cloud Run, Firebase, BigQuery...)
-├── ApiKeyProvider      (API key-based: Jules)
-└── StitchAuthProvider  (TBD: added when Stitch auth is confirmed)
-```
-
-Auth flow:
-
-```text
-omg setup
-  -> capture projectId / default region
-  -> GCP OAuth browser flow (for ADC-based services)
-  -> persist profile + GCP token bundle
-
-omg jules setup
-  -> prompt for Jules API key (from jules.google.com/settings)
-  -> persist API key in credentials.json
-
-run command
-  -> orchestrator asks auth manager for connector auth
-  -> auth manager routes to correct provider (ADC vs API key)
-  -> provider refreshes if needed (ADC) or passes key (Jules)
-  -> auth injection into connector
-  -> connector executes
-```
-
-### 6.2 Auth interfaces
-
-```ts
-export interface ProjectProfile {
-  projectId: string;
-  defaultRegion?: string;
-  accountEmail: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface OAuthTokenBundle {
-  accessToken?: string;
-  refreshToken: string;
-  idToken?: string;
-  tokenType: 'Bearer';
-  scope: readonly string[];
-  expiryDate?: number;
-}
-
-export interface CredentialFile {
-  version: 1;
-  profile: ProjectProfile;
-  token: OAuthTokenBundle;
-  grantedScopes: readonly string[];
-  updatedAt: string;
-}
-
-export type AuthInjection =
-  | {
-      target: 'rest-header';
-      headers: {
-        Authorization: string;
-      };
-    }
-  | {
-      target: 'api-key-header';
-      headers: {
-        'x-goog-api-key': string;
-      };
-    }
-  | {
-      target: 'google-client';
-      accessToken: string;
-      projectId: string;
-    }
-  | {
-      target: 'gcloud-env';
-      env: {
-        CLOUDSDK_AUTH_ACCESS_TOKEN: string;
-        CLOUDSDK_CORE_PROJECT: string;
-        GOOGLE_CLOUD_PROJECT: string;
-      };
-    }
-  | {
-      target: 'firebase-env';
-      env: {
-        GOOGLE_APPLICATION_CREDENTIALS?: string;
-        GOOGLE_CLOUD_PROJECT: string;
-        FIREBASE_TOKEN?: string;
-      };
-      tempCredentialFile?: string;
-    };
-
-export interface AuthSession {
-  profile: ProjectProfile;
-  token: OAuthTokenBundle;
-  grantedScopes: readonly string[];
-  expiresAt: string;
-}
-
-export interface ServiceScopeDescriptor {
-  connectorId: ConnectorId;
-  requiredScopes: readonly string[];
-  optionalScopes?: readonly string[];
-  preferredTargets: readonly AuthInjectionTarget[];
-}
-
-export interface CredentialStore {
-  read(): Promise<CredentialFile | null>;
-  write(file: CredentialFile): Promise<void>;
-  delete(): Promise<void>;
-}
-
-export interface ScopeBroker {
-  getDescriptor(connectorId: ConnectorId): ServiceScopeDescriptor;
-  ensureScopes(current: AuthSession, requiredScopes: readonly string[]): Promise<AuthSession>;
-}
-
-export interface AuthManager {
-  setup(profile: Pick<ProjectProfile, 'projectId' | 'defaultRegion'>): Promise<ProjectProfile>;
-  getSession(connectorId: ConnectorId): Promise<AuthSession>;
-  refreshIfNeeded(session: AuthSession, minTtlMs: number): Promise<AuthSession>;
-  buildInjection(
-    session: AuthSession,
-    requirement: ConnectorAuthRequirement
-  ): Promise<AuthInjection>;
-  revoke(): Promise<void>;
-}
-```
-
-### 6.3 Scope and token strategy
-
-Recommended initial scope registry:
-
-```ts
-export const SERVICE_SCOPE_MAP: Record<ConnectorId, ServiceScopeDescriptor> = {
-  stitch: {
-    connectorId: 'stitch',
-    requiredScopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    preferredTargets: ['rest-header', 'google-client']
-  },
-  jules: {
-    connectorId: 'jules',
-    requiredScopes: [],  // Jules uses API key, not OAuth scopes
-    preferredTargets: ['api-key-header'],
-    notes: 'Jules REST API (v1alpha) uses x-goog-api-key header. Key issued at jules.google.com/settings.'
-  },
-  'cloud-run': {
-    connectorId: 'cloud-run',
-    requiredScopes: ['https://www.googleapis.com/auth/cloud-platform'],
-    preferredTargets: ['gcloud-env']
-  },
-  firebase: {
-    connectorId: 'firebase',
-    requiredScopes: [
-      'https://www.googleapis.com/auth/cloud-platform',
-      'https://www.googleapis.com/auth/firebase'
-    ],
-    preferredTargets: ['firebase-env']
-  }
-};
-```
-
-Storage and refresh rules:
-
-- Persist `CredentialFile` at `~/.omg/credentials.json`.
-- Lock permissions to current user only.
-- Refresh when `expiryDate` is within five minutes of the current time.
-- If a connector needs scopes not already granted, the auth broker initiates a scope upgrade flow and then rewrites `credentials.json`.
-
-### 6.4 Concrete implementation notes
-
-- Use `google-auth-library` `OAuth2Client` as the primary refresh engine.
-- Keep the refresh token in `credentials.json` for MVP consistency with the PRD. Abstract it behind `CredentialStore` so a future OS-keychain backend can replace file storage without touching connectors or the orchestrator.
-- For `gcloud`, inject `CLOUDSDK_AUTH_ACCESS_TOKEN` and project vars into the spawned process environment.
-- For `firebase`, prefer an ephemeral ADC file written to a temp directory and referenced via `GOOGLE_APPLICATION_CREDENTIALS`. Use `FIREBASE_TOKEN` only when ADC is not supported by the execution path.
-- Never let connectors call login flows themselves. They must fail with a normalized `auth` error and let the CLI or adapter surface the remediation.
-
-## 7. Safety guardrails
-
-### 7.1 Error type hierarchy
-
-```ts
-export class OmgError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly recoverable: boolean,
-  ) {
-    super(message);
-    this.name = this.constructor.name;
-  }
-}
-
-export class AuthError extends OmgError {}        // Auth failure/expired/missing
-export class ApiError extends OmgError {}          // Google API error (4xx/5xx)
-export class QuotaError extends OmgError {}        // Rate limit / quota exceeded
-export class ValidationError extends OmgError {}   // Pre/post validation failure
-export class TimeoutError extends OmgError {}      // Operation timeout
-export class CliRunnerError extends OmgError {}    // gcloud/firebase CLI error
-export class PolicyError extends OmgError {}       // 2-hop violation, forbidden action
-```
-
-### 7.2 Retry and recovery policy
-
-```text
-Error occurs in connector
-  │
-  ├─ AuthError → halt entire pipeline, surface "omg setup" / "omg auth refresh"
-  ├─ QuotaError (recoverable) → exponential backoff, max 3 retries
-  ├─ ApiError 5xx (recoverable) → 1 retry after 2s
-  ├─ ApiError 4xx → halt, show error cause
-  ├─ TimeoutError → 1 retry
-  └─ ValidationError → rollback if possible, then halt
-```
-
-### 7.3 Cost and deployment protection
-
-| Guardrail | Applies to | Behavior |
-|---|---|---|
-| `--dry-run` | deploy, pipeline | Show execution plan, no actual calls |
-| User confirmation prompt | deploy, pipeline deploy steps | "Deploy <service> to <region>? (y/N)" |
-| `--yes` / `-y` flag | All confirmable actions | Skip confirmation (CI/CD use) |
-| Timeout | All connectors | Default 5min, configurable per connector |
-| Rollback on failure | Pipeline steps with `rollbackPolicy != 'none'` | Auto-rollback completed reversible steps |
-
-### 7.4 Connector-specific rollback capability
-
-| Connector | Rollback? | Mechanism |
-|---|---|---|
-| Cloud Run | ✅ | Restore previous revision |
-| Jules | ⚠️ partial | Cancel session (PR must be closed manually) |
-| Firebase | ✅ | Restore previous deployment |
-| Stitch | ❌ | Generated designs cannot be auto-deleted |
-
-## Recommended initial file layout
-
-This keeps the boundaries above explicit:
-
-```text
-src/
-  cli/
-    bootstrap.ts
-    commands/
-  auth/
-    auth-manager.ts
-    credential-store.ts
-    scope-broker.ts
-  connectors/
-    base-connector.ts
-    stitch-connector.ts
-    jules-connector.ts
-    cloud-run-connector.ts
-    firebase-connector.ts
-  orchestrator/
-    pipeline-orchestrator.ts
-    execution-repository.ts
-    hop-policy.ts
-    validators.ts
-  adapters/
-    claude-code/
-    codex/
-    gemini-cli/
-    antigravity/
-  skills/
-    loader.ts
-    registry.ts
-skills/
-  omg-setup/SKILL.md
-  stitch/SKILL.md
-  jules/SKILL.md
-  deploy/SKILL.md
-  pipeline/SKILL.md
-```
-
-## Implementation order
-
-### MVP-alpha: CLI + Auth + Cloud Run
-
-1. Build `auth/` (AuthManager, GcpAuthProvider, CredentialStore) and `ConnectorRegistry`.
-2. Implement generic connector base contract + `CloudRunConnector` only.
-3. Build CLI commands: `omg setup`, `omg auth`, `omg doctor`, `omg deploy`.
-4. Unit tests for auth + Cloud Run connector (mock API responses).
-5. Acceptance: `omg deploy --dry-run` shows plan, `omg deploy` deploys to real Cloud Run.
-
-### MVP-beta: Jules + Pipeline
-
-6. Add `ApiKeyProvider` for Jules, `omg jules setup`.
-7. Implement `JulesConnector` (AsyncConnector: submit → poll → result).
-8. Implement `PipelineOrchestrator` with ExecutionRepository and rollback.
-9. Build `omg jules` and `omg pipeline` commands.
-10. Add Claude Code adapter (SKILL.md + bash wrapper).
-11. Add `SkillLoader` and `SkillRegistry`.
-
-### Phase 2
-
-12. `StitchConnector` (when MCP auth is confirmed).
-13. `FirebaseConnector` on the same contract.
-14. Gemini CLI, Antigravity adapters.
-15. Additional pipelines (design-code-deploy when Stitch is ready).
+*v1.0.0 — Planner 중심, Pipeline/Adapter 제거. Vercel-killer 포지셔닝에 맞춘 최소 아키텍처.*
