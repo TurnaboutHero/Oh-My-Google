@@ -87,6 +87,8 @@ src/
     tools/
       doctor.ts
       approvals-list.ts
+      approve.ts
+      reject.ts
       types.ts
 ```
 
