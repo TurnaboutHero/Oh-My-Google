@@ -35,6 +35,10 @@ CLI
 
 ```text
 src/
+  approval/
+    types.ts
+    hash.ts
+    queue.ts
   auth/
     auth-manager.ts
   cli/
@@ -48,6 +52,9 @@ src/
       link.ts
       deploy.ts
       firebase.ts
+      approve.ts
+      reject.ts
+      approvals.ts
   connectors/
     cloud-run.ts
     firebase.ts
@@ -208,10 +215,10 @@ src/
 
 - `auto` -> 바로 허용
 - `require_confirm` -> human에서는 진행 가능, JSON에서는 `--yes` 필요
-- `require_approval` -> 현재는 구조화 에러로 차단
+- `require_approval` -> 승인 워크플로. `.omg/approvals/<id>.yaml` 파일 기반 큐를 사용합니다. `omg deploy`가 처음 만나면 approval 파일을 자동 생성하고 `APPROVAL_REQUIRED` + approvalId + next 힌트를 반환합니다. 사람이 `omg approve <id>`로 승인한 뒤 `omg deploy --approval <id>`로 재실행합니다. TTL 기본 1시간. `argsHash`로 승인 후 배포 인자 조작을 막습니다. 통과한 approval은 `consumed`로 마킹되어 1회만 사용됩니다.
 - `deny` -> 항상 차단
 
-즉, `require_approval`에 대한 별도 승인 워크플로는 아직 없습니다.
+`PermissionCheck.reasonCode`는 8종 구조화 에러를 분기합니다: `DENIED`, `REQUIRES_CONFIRM`, `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_CONSUMED`.
 
 ## Connector 모델
 
@@ -308,7 +315,6 @@ backend가 Cloud Run이고 frontend가 Firebase Hosting일 때:
 
 - MCP server runtime
 - admin surface
-- 세밀한 approval workflow
 - 고급 rollback orchestration
 - Next.js SSR 지원
 

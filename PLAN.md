@@ -134,17 +134,21 @@
 
 구현 범위:
 
-- trust/planner/wiring/init/deploy 테스트 보강
-- connector 단위 테스트
+- trust의 `require_approval` 경로를 end-to-end로 구현한다
+  - `.omg/approvals/` 파일 기반 approval queue
+  - `omg approve`, `omg reject`, `omg approvals list` CLI
+  - `omg deploy`가 approval을 자동 생성하고 `argsHash`로 조작을 막는다
+  - `PermissionCheck.reasonCode`로 에러 경로를 8종으로 구조화한다
+- trust/planner/wiring/init/deploy/connector 테스트 보강
 - CI 고정
 - line-ending 및 경로 안정화
-- trust의 `require_approval` 경로를 현재 설계상 어디까지 구현할지 명확화
 
 완료 기준:
 
 - 핵심 경로가 테스트로 잠겨 있어야 한다.
+- `require_approval` 워크플로가 테스트로 잠겨 있어야 한다.
 - CI에서 `typecheck`, `build`, `vitest`가 기본 검증으로 동작해야 한다.
-- 현재 trust 모델의 미구현 영역이 TODO와 문서에 명확히 드러난다.
+- trust 모델의 남은 미구현 영역이 TODO와 문서에 명확히 드러난다.
 
 ## Phase 2
 
