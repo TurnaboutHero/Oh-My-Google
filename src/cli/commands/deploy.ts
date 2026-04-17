@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { Command } from "commander";
 import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
-import { applyPlan } from "../../executor/apply.js";
+import { applyPlan, type ApplyResult } from "../../executor/apply.js";
 import { loadPlan } from "../../planner/schema.js";
 import { checkPermission } from "../../trust/check.js";
 import { loadProfile } from "../../trust/profile.js";
@@ -10,98 +10,162 @@ import { OmgError, ValidationError } from "../../types/errors.js";
 import type { Plan } from "../../types/plan.js";
 import { fail, getOutputFormat, success } from "../output.js";
 
+export interface RunDeployInput {
+  cwd: string;
+  dryRun?: boolean;
+  approval?: string;
+  yes?: boolean;
+  jsonMode?: boolean;
+  requester?: string;
+}
+
+export interface DeploySuccessPayload {
+  plan?: Plan;
+  urls?: ApplyResult["urls"];
+  steps?: ApplyResult["steps"];
+}
+
+export interface DeployErrorPayload {
+  code: string;
+  message: string;
+  recoverable: boolean;
+  hint?: string;
+  data?: Record<string, unknown>;
+  next?: string[];
+}
+
+export type RunDeployOutcome =
+  | { ok: true; data: DeploySuccessPayload; next?: string[] }
+  | { ok: false; error: DeployErrorPayload };
+
 export const deployCommand = new Command("deploy")
   .description("Deploy according to .omg/project.yaml")
   .option("--dry-run", "Show deployment plan without executing")
   .option("--approval <id>", "Manual approval request ID")
   .option("-y, --yes", "Approve trust-gated deployment actions")
   .action(async (opts) => {
-    try {
-      const plan = await loadPlan(process.cwd());
-      if (!plan) {
-        throw new OmgError("No project plan found. Run 'omg link' first.", "NO_PLAN", false);
+    const outcome = await runDeploy({
+      cwd: process.cwd(),
+      dryRun: !!opts.dryRun,
+      approval: opts.approval,
+      yes: !!opts.yes,
+      jsonMode: getOutputFormat() === "json",
+    });
+
+    if (outcome.ok) {
+      success(
+        "deploy",
+        outcome.data.plan ? "Deployment plan ready." : "Deployment completed.",
+        outcome.data as Record<string, unknown>,
+        outcome.next,
+      );
+      return;
+    }
+
+    fail(
+      "deploy",
+      outcome.error.code,
+      outcome.error.message,
+      outcome.error.recoverable,
+      outcome.error.hint,
+      outcome.error.data,
+      outcome.error.next,
+    );
+    process.exit(1);
+  });
+
+export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome> {
+  try {
+    const plan = await loadPlan(input.cwd);
+    if (!plan) {
+      throw new OmgError("No project plan found. Run 'omg link' first.", "NO_PLAN", false);
+    }
+
+    const profile = await loadProfile(input.cwd);
+    if (!profile) {
+      throw new OmgError("No trust profile found. Run 'omg init' first.", "NO_TRUST_PROFILE", false);
+    }
+
+    if (input.dryRun) {
+      return { ok: true, data: { plan }, next: ["omg deploy --yes"] };
+    }
+
+    const action = plan.targets.backend ? "deploy.cloud-run" : "deploy.firebase-hosting";
+    const deployArgs = extractDeployArgs(plan, action);
+    const argsHash = hashArgs(deployArgs);
+    const permission = await checkPermission(action, profile, {
+      approvalId: input.approval,
+      argsHash,
+      yes: !!input.yes,
+      jsonMode: !!input.jsonMode,
+      cwd: input.cwd,
+    });
+
+    if (!permission.allowed) {
+      if (permission.reasonCode === "APPROVAL_REQUIRED") {
+        const approval = await createApproval(input.cwd, {
+          action,
+          args: deployArgs,
+          projectId: profile.projectId,
+          environment: profile.environment,
+          requestedBy: input.requester ?? getRequester(),
+        });
+
+        return {
+          ok: false,
+          error: {
+            code: "APPROVAL_REQUIRED",
+            message: `Deploy requires manual approval. Approval ${approval.id} created.`,
+            recoverable: true,
+            data: { approvalId: approval.id, action, expiresAt: approval.expiresAt },
+            next: [`omg approve ${approval.id}`, `omg deploy --approval ${approval.id}`],
+          },
+        };
       }
 
-      const profile = await loadProfile(process.cwd());
-      if (!profile) {
-        throw new OmgError("No trust profile found. Run 'omg init' first.", "NO_TRUST_PROFILE", false);
-      }
-
-      if (opts.dryRun) {
-        success("deploy", "Deployment plan ready.", { plan }, ["omg deploy --yes"]);
-        return;
-      }
-
-      const action = plan.targets.backend ? "deploy.cloud-run" : "deploy.firebase-hosting";
-      const deployArgs = extractDeployArgs(plan, action);
-      const argsHash = hashArgs(deployArgs);
-      const permission = await checkPermission(action, profile, {
-        approvalId: opts.approval,
-        argsHash,
-        yes: !!opts.yes,
-        jsonMode: getOutputFormat() === "json",
-      });
-
-      if (!permission.allowed) {
-        if (permission.reasonCode === "APPROVAL_REQUIRED") {
-          const approval = await createApproval(process.cwd(), {
-            action,
-            args: deployArgs,
-            projectId: profile.projectId,
-            environment: profile.environment,
-            requestedBy: getRequester(),
-          });
-
-          fail(
-            "deploy",
-            "APPROVAL_REQUIRED",
-            `Deploy requires manual approval. Approval ${approval.id} created.`,
-            true,
-            undefined,
-            { approvalId: approval.id, action, expiresAt: approval.expiresAt },
-            [`omg approve ${approval.id}`, `omg deploy --approval ${approval.id}`],
-          );
-          process.exit(1);
-        }
-
-        const { code, hint } = mapPermissionFailure(permission);
-        fail(
-          "deploy",
+      const { code, hint } = mapPermissionFailure(permission);
+      return {
+        ok: false,
+        error: {
           code,
-          permission.reason ?? "Deployment blocked by trust profile.",
-          false,
+          message: permission.reason ?? "Deployment blocked by trust profile.",
+          recoverable: false,
           hint,
-        );
-        process.exit(1);
-      }
+        },
+      };
+    }
 
-      const result = await applyPlan(plan, {
-        cwd: process.cwd(),
-        profile,
-        dryRun: false,
-        yes: !!opts.yes,
-      });
+    const result = await applyPlan(plan, {
+      cwd: input.cwd,
+      profile,
+      dryRun: false,
+      yes: !!input.yes,
+    });
 
-      success("deploy", "Deployment completed.", {
+    return {
+      ok: true,
+      data: {
         urls: result.urls,
         steps: result.steps,
-      });
-    } catch (error) {
-      const omgError =
-        error instanceof OmgError
-          ? error
-          : new ValidationError(error instanceof Error ? error.message : "Unknown deploy error.");
+      },
+    };
+  } catch (error) {
+    const omgError =
+      error instanceof OmgError
+        ? error
+        : new ValidationError(error instanceof Error ? error.message : "Unknown deploy error.");
 
-      fail(
-        "deploy",
-        omgError.code,
-        omgError.message,
-        omgError.recoverable,
-        omgError.code === "NO_PLAN" ? "omg link" : undefined,
-      );
-      process.exit(1);
-    }
-  });
+    return {
+      ok: false,
+      error: {
+        code: omgError.code,
+        message: omgError.message,
+        recoverable: omgError.recoverable,
+        hint: omgError.code === "NO_PLAN" ? "omg link" : undefined,
+      },
+    };
+  }
+}
 
 deployCommand.addHelpText(
   "afterAll",

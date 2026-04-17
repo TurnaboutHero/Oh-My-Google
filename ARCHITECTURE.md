@@ -89,6 +89,7 @@ src/
       approvals-list.ts
       approve.ts
       reject.ts
+      deploy.ts
       types.ts
 ```
 

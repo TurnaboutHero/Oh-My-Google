@@ -1,11 +1,12 @@
 import readline from "node:readline";
 import { approveTool, handleApprove } from "./tools/approve.js";
 import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.js";
+import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
 import { rejectTool, handleReject } from "./tools/reject.js";
 import type { OmgResponse } from "./tools/types.js";
 
-const tools = [doctorTool, approvalsListTool, approveTool, rejectTool];
+const tools = [doctorTool, approvalsListTool, approveTool, rejectTool, deployTool];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
   if (opts.transport !== "stdio") {
@@ -43,6 +44,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === rejectTool.name) {
     return handleReject(args ?? {});
+  }
+  if (name === deployTool.name) {
+    return handleDeploy(args ?? {});
   }
 
   return {
