@@ -15,6 +15,17 @@ export async function checkPermission(
   profile: TrustProfile,
   opts: CheckOptions = {},
 ): Promise<PermissionCheck> {
+  const deniedBy = findDeniedPattern(action, profile.deny ?? []);
+  if (deniedBy) {
+    return {
+      allowed: false,
+      action: "deny",
+      reason: `Trust profile deny policy blocks ${action} via ${deniedBy}.`,
+      reasonCode: "DENIED",
+      deniedBy,
+    };
+  }
+
   const level = getLevel(action);
   const trustAction = profile.rules[level];
 
@@ -123,3 +134,15 @@ export async function checkPermission(
 }
 
 export { getLevel };
+
+function findDeniedPattern(action: string, patterns: string[]): string | undefined {
+  return patterns.find((pattern) => matchesActionPattern(action, pattern));
+}
+
+function matchesActionPattern(action: string, pattern: string): boolean {
+  const escaped = pattern
+    .split("*")
+    .map((part) => part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"))
+    .join(".*");
+  return new RegExp(`^${escaped}$`).test(action);
+}

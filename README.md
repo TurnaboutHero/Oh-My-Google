@@ -21,7 +21,9 @@
 - GCP 프로젝트 선택/생성, 빌링 연결, 필수 API 활성화, IAM 기본 바인딩
 - 리포 감지 후 `.omg/project.yaml` 생성
 - Trust Profile + 배포 게이트 (`auto` / `require_confirm` / `require_approval` / `deny`)
+- Trust Profile deny policy (`.omg/trust.yaml`의 action pattern 차단선)
 - `require_approval` end-to-end 워크플로 — `.omg/approvals/` 파일 큐, TTL, `argsHash` 조작 방지, `consumed` 마킹, 8종 `reasonCode`
+- `.omg/decisions.log.jsonl` decision log와 `.omg/handoff.md` handoff artifact
 - Cloud Run + Firebase Hosting 순차 배포 + rewrites 자동 주입
 - stdio MCP 서버가 CLI와 동일한 shared core 호출
 - `--output json` 구조화 출력
@@ -211,6 +213,8 @@ src/
 - [ARCHITECTURE.md](./ARCHITECTURE.md)
 - [PLAN.md](./PLAN.md)
 - [AGENTS.md](./AGENTS.md)
+- [MCP client smoke runbook](./docs/runbooks/mcp-client-smoke.md)
+- [GCP E2E runbook](./docs/runbooks/gcp-e2e.md)
 
 ## 참고
 

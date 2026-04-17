@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApproval, loadApproval, saveApproval } from "../src/approval/queue.js";
 import { deployCommand } from "../src/cli/commands/deploy.js";
 import { setOutputFormat } from "../src/cli/output.js";
+import { readDecisionLog } from "../src/harness/decision-log.js";
 import { savePlan } from "../src/planner/schema.js";
 import { generateDefaultProfile, saveProfile } from "../src/trust/profile.js";
 import type { Plan } from "../src/types/plan.js";
@@ -30,6 +31,8 @@ describe("deploy approval flow", () => {
     const approvalId = payload.data?.approvalId ?? "";
     const approvals = await fs.readdir(path.join(cwd, ".omg", "approvals"));
     const stored = await loadApproval(cwd, approvalId);
+    const decisions = await readDecisionLog(cwd);
+    const handoff = await fs.readFile(path.join(cwd, ".omg", "handoff.md"), "utf-8");
 
     expect(result.exitCode).toBe(1);
     expect(payload.ok).toBe(false);
@@ -40,6 +43,13 @@ describe("deploy approval flow", () => {
     expect(approvals).toHaveLength(1);
     expect(stored?.status).toBe("pending");
     expect(stored?.argsHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(decisions.at(-1)).toMatchObject({
+      command: "deploy",
+      phase: "trust",
+      status: "pending_approval",
+      approvalId,
+    });
+    expect(handoff).toContain(`approval ${approvalId} for deploy.cloud-run`);
   });
 
   it("expires an approved approval that is past its expiration", async () => {

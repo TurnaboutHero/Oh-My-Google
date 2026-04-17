@@ -37,6 +37,13 @@ export function generateDefaultProfile(
     budgetCapUsdMonthly: environment === "prod" ? 200 : 50,
     allowedServices: ["cloud-run", "firebase-hosting"],
     allowedRegions: ["asia-northeast3"],
+    deny: [
+      "project.delete",
+      "iam.role.*.owner",
+      "firestore.data.delete",
+      "storage.objects.delete",
+      "sql.instance.delete",
+    ],
     rules: getRulesForEnvironment(environment),
     createdAt: now,
     updatedAt: now,
@@ -112,6 +119,7 @@ function validateProfile(raw: unknown): TrustProfile {
         : undefined,
     allowedServices: normalizeStringArray(profile.allowedServices),
     allowedRegions: normalizeStringArray(profile.allowedRegions),
+    deny: normalizeStringArray(profile.deny),
     rules: {
       L0: validateRule(profile.rules.L0, "L0"),
       L1: validateRule(profile.rules.L1, "L1"),

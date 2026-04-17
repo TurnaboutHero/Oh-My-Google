@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { Command } from "commander";
 import { loadApproval, saveApproval } from "../../approval/queue.js";
+import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import type { ApprovalStatus } from "../../approval/types.js";
 import { fail, success } from "../output.js";
 
@@ -59,19 +60,29 @@ export const approveCommand = new Command("approve")
   });
 
 export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome> {
+  const runId = createRunId("approve");
   const approval = await loadApproval(input.cwd, input.approvalId);
   if (!approval) {
-    return {
+    const outcome: ApproveOutcome = {
       ok: false,
       error: {
         code: "APPROVAL_NOT_FOUND",
         message: `Approval ${input.approvalId} was not found.`,
       },
     };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "approve",
+      phase: "approval",
+      status: "failure",
+      approvalId: input.approvalId,
+      result: outcome.error,
+    });
+    return outcome;
   }
 
   if (approval.status !== "pending") {
-    return {
+    const outcome: ApproveOutcome = {
       ok: false,
       error: {
         code: "APPROVAL_ALREADY_FINALIZED",
@@ -79,17 +90,41 @@ export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome
         status: approval.status,
       },
     };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "approve",
+      phase: "approval",
+      status: "blocked",
+      action: approval.action,
+      projectId: approval.projectId,
+      environment: approval.environment,
+      approvalId: approval.id,
+      result: outcome.error,
+    });
+    return outcome;
   }
 
   if (new Date() > new Date(approval.expiresAt)) {
     await saveApproval(input.cwd, { ...approval, status: "expired" });
-    return {
+    const outcome: ApproveOutcome = {
       ok: false,
       error: {
         code: "APPROVAL_EXPIRED",
         message: `Approval ${approval.id} has expired.`,
       },
     };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "approve",
+      phase: "approval",
+      status: "failure",
+      action: approval.action,
+      projectId: approval.projectId,
+      environment: approval.environment,
+      approvalId: approval.id,
+      result: outcome.error,
+    });
+    return outcome;
   }
 
   const approvedBy = input.approver ?? getApprover();
@@ -102,7 +137,7 @@ export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome
     reason: input.reason ?? null,
   });
 
-  return {
+  const outcome: ApproveOutcome = {
     ok: true,
     data: {
       id: approval.id,
@@ -112,6 +147,19 @@ export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome
       approvedAt,
     },
   };
+  await tryAppendDecision(input.cwd, {
+    runId,
+    command: "approve",
+    phase: "approval",
+    status: "success",
+    action: approval.action,
+    projectId: approval.projectId,
+    environment: approval.environment,
+    approvalId: approval.id,
+    result: outcome.data,
+    next: [`omg deploy --approval ${approval.id}`],
+  });
+  return outcome;
 }
 
 function getApprover(): string {

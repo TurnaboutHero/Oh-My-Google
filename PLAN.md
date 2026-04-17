@@ -198,6 +198,38 @@ shared core 경계:
 - CLI와 MCP의 핵심 동작 계약이 일치한다.
 - dual surface 원칙이 문서와 구현 모두에서 성립한다.
 
+## Phase 2.5
+
+목표: admin surface로 권한 반경을 넓히기 전에 Google 도메인 하네스의 증거성, 세션 연속성, 정책 경계, 실사용 검증을 고정한다.
+
+구현 범위:
+
+- `.omg/decisions.log.jsonl` append-only decision log를 추가한다.
+  - `init`, `link`, `deploy`, `approve`, `reject`의 주요 결정과 실행 결과를 기록한다.
+  - trust 판단, approval 생성/소비, deploy 결과, rollback 결과를 같은 run 단위로 연결한다.
+  - secret/env 값은 기록하지 않고 redaction 규칙을 고정한다.
+- `.omg/handoff.md` 자동 생성 경로를 추가한다.
+  - 마지막 deploy 결과, URL, pending approval, 남은 위험, rollback 포인트, 다음 행동을 사람이 읽을 수 있게 요약한다.
+  - 파일은 사람이 직접 편집하는 상태 저장소가 아니라 latest run artifact로 다룬다.
+- Trust Profile에 명시적 deny policy를 추가한다.
+  - `.omg/trust.yaml`에서 action pattern 기반 deny list를 읽는다.
+  - deny는 trust level과 approval보다 먼저 적용한다.
+  - `project.delete`, `iam.role.*.owner`, destructive data delete 같은 위험 작업을 기본 예시로 둔다.
+- MCP client smoke를 추가한다.
+  - `omg mcp start`가 실제 MCP client에서 tool list와 최소 tool call까지 동작하는지 검증한다.
+  - stdio handshake만이 아니라 agent가 소비하는 응답 계약을 확인한다.
+- 실제 GCP E2E 검증 절차를 고정한다.
+  - 테스트용 프로젝트에서 `init -> link -> deploy -> doctor`를 한 번 끝까지 실행하는 runbook을 둔다.
+  - 실제 실행 결과는 decision log와 handoff에 남긴다.
+
+완료 기준:
+
+- 하네스가 실행한 주요 결정과 결과를 다음 세션이 파일만 보고 추적할 수 있다.
+- admin surface 없이도 "무엇을 왜 실행했고, 무엇이 남았는지"가 `.omg/` artifact에 남는다.
+- deny policy가 approval보다 강한 차단선으로 테스트된다.
+- MCP tool이 실제 client 소비 경로에서 최소 1회 검증된다.
+- 실제 GCP E2E runbook이 문서화되고, 성공/실패 결과를 재현 가능한 형태로 남길 수 있다.
+
 ## Phase 3
 
 목표: admin surface 중 실제 수요가 큰 것만 좁게 추가한다.

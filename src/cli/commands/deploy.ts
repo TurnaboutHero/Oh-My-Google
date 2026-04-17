@@ -3,6 +3,8 @@ import { Command } from "commander";
 import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
 import { applyPlan, type ApplyResult } from "../../executor/apply.js";
+import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
+import { tryWriteHandoff } from "../../harness/handoff.js";
 import { loadPlan } from "../../planner/schema.js";
 import { checkPermission } from "../../trust/check.js";
 import { loadProfile } from "../../trust/profile.js";
@@ -75,6 +77,11 @@ export const deployCommand = new Command("deploy")
   });
 
 export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome> {
+  const runId = createRunId("deploy");
+  let projectId: string | undefined;
+  let environment: string | undefined;
+  let action: string | undefined;
+
   try {
     const plan = await loadPlan(input.cwd);
     if (!plan) {
@@ -85,12 +92,24 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
     if (!profile) {
       throw new OmgError("No trust profile found. Run 'omg init' first.", "NO_TRUST_PROFILE", false);
     }
+    projectId = profile.projectId;
+    environment = profile.environment;
 
     if (input.dryRun) {
+      await tryAppendDecision(input.cwd, {
+        runId,
+        command: "deploy",
+        phase: "dry-run",
+        status: "success",
+        projectId,
+        environment,
+        result: { stack: plan.detected.stack, deploymentOrder: plan.deploymentOrder },
+        next: ["omg deploy --yes"],
+      });
       return { ok: true, data: { plan }, next: ["omg deploy --yes"] };
     }
 
-    const action = plan.targets.backend ? "deploy.cloud-run" : "deploy.firebase-hosting";
+    action = plan.targets.backend ? "deploy.cloud-run" : "deploy.firebase-hosting";
     const deployArgs = extractDeployArgs(plan, action);
     const argsHash = hashArgs(deployArgs);
     const permission = await checkPermission(action, profile, {
@@ -110,6 +129,31 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
           environment: profile.environment,
           requestedBy: input.requester ?? getRequester(),
         });
+        await tryAppendDecision(input.cwd, {
+          runId,
+          command: "deploy",
+          phase: "trust",
+          status: "pending_approval",
+          action,
+          projectId,
+          environment,
+          trustAction: permission.action,
+          reasonCode: permission.reasonCode,
+          approvalId: approval.id,
+          inputs: { args: deployArgs },
+          result: { expiresAt: approval.expiresAt },
+          next: [`omg approve ${approval.id}`, `omg deploy --approval ${approval.id}`],
+        });
+        await tryWriteHandoff(input.cwd, {
+          runId,
+          command: "deploy",
+          status: "pending_approval",
+          projectId,
+          environment,
+          pending: [`approval ${approval.id} for ${action}`],
+          risks: ["deployment is blocked until the approval is explicitly approved"],
+          next: [`omg approve ${approval.id}`, `omg deploy --approval ${approval.id}`],
+        });
 
         return {
           ok: false,
@@ -124,6 +168,28 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
       }
 
       const { code, hint } = mapPermissionFailure(permission);
+      await tryAppendDecision(input.cwd, {
+        runId,
+        command: "deploy",
+        phase: "trust",
+        status: "blocked",
+        action,
+        projectId,
+        environment,
+        trustAction: permission.action,
+        reasonCode: permission.reasonCode,
+        result: { code, message: permission.reason, deniedBy: permission.deniedBy },
+        next: hint ? [hint] : undefined,
+      });
+      await tryWriteHandoff(input.cwd, {
+        runId,
+        command: "deploy",
+        status: "blocked",
+        projectId,
+        environment,
+        risks: [permission.reason ?? "deployment blocked by trust profile"],
+        next: hint ? [hint] : ["adjust .omg/trust.yaml or rerun a safe command"],
+      });
       return {
         ok: false,
         error: {
@@ -141,6 +207,30 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
       dryRun: false,
       yes: !!input.yes,
     });
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "deploy",
+      phase: "execute",
+      status: "success",
+      action,
+      projectId,
+      environment,
+      result,
+      artifacts: { handoff: ".omg/handoff.md" },
+      next: ["omg doctor"],
+    });
+    await tryWriteHandoff(input.cwd, {
+      runId,
+      command: "deploy",
+      status: "success",
+      projectId,
+      environment,
+      urls: result.urls,
+      rollback: result.steps
+        .filter((step) => step.name.startsWith("rollback:"))
+        .map((step) => `${step.name}: ${step.state}`),
+      next: ["omg doctor"],
+    });
 
     return {
       ok: true,
@@ -154,6 +244,30 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
       error instanceof OmgError
         ? error
         : new ValidationError(error instanceof Error ? error.message : "Unknown deploy error.");
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "deploy",
+      phase: "execute",
+      status: "failure",
+      action,
+      projectId,
+      environment,
+      result: {
+        code: omgError.code,
+        message: omgError.message,
+        recoverable: omgError.recoverable,
+      },
+      next: omgError.code === "NO_PLAN" ? ["omg link"] : undefined,
+    });
+    await tryWriteHandoff(input.cwd, {
+      runId,
+      command: "deploy",
+      status: "failure",
+      projectId,
+      environment,
+      risks: [omgError.message],
+      next: omgError.code === "NO_PLAN" ? ["omg link"] : ["inspect the decision log and retry"],
+    });
 
     return {
       ok: false,

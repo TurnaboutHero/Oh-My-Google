@@ -2,6 +2,22 @@
 
 ## Active
 
+### Phase 2.5 harness foundation
+
+- [x] `.omg/decisions.log.jsonl` schema와 append writer 설계
+- [x] `init`, `link`, `deploy`, `approve`, `reject`에 decision event 기록 연결
+- [x] decision log redaction 규칙 추가
+- [x] `.omg/handoff.md` 생성기 추가
+- [x] deploy 성공/실패 후 handoff 갱신 연결
+- [x] `.omg/trust.yaml` deny policy schema 추가
+- [x] deny policy가 trust level과 approval보다 먼저 적용되도록 `checkPermission` 확장
+- [x] deny policy 테스트 추가
+- [x] MCP client smoke runbook 추가
+- [x] 실제 GCP E2E runbook 추가
+- [x] Phase 2.5 문서와 README/ARCHITECTURE 간 용어 정합성 점검
+- [ ] MCP client smoke를 실제 Claude Code/Codex 설정에서 실행
+- [ ] 테스트용 GCP 프로젝트로 실제 E2E 실행
+
 ### Phase 1.1 hardening
 
 - [x] `init` 테스트 추가

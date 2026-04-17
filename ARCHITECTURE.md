@@ -20,6 +20,7 @@ CLI + MCP  (dual surface — 동일 shared core를 각자 호출)
   -> planner
   -> trust
   -> approval
+  -> harness artifacts
   -> executor
   -> connectors
   -> wiring
@@ -41,6 +42,9 @@ src/
     types.ts
     hash.ts
     queue.ts
+  harness/
+    decision-log.ts
+    handoff.ts
   auth/
     auth-manager.ts
   cli/
@@ -204,6 +208,7 @@ src/
 - `environment`
 - `allowedServices`
 - `allowedRegions`
+- `deny`
 - `rules`
 
 `rules`는 `L0`~`L3` 액션 레벨별 정책을 가집니다.
@@ -228,6 +233,19 @@ src/
 - `require_confirm` -> human에서는 진행 가능, JSON에서는 `--yes` 필요
 - `require_approval` -> 승인 워크플로. `.omg/approvals/<id>.yaml` 파일 기반 큐를 사용합니다. `omg deploy`가 처음 만나면 approval 파일을 자동 생성하고 `APPROVAL_REQUIRED` + approvalId + next 힌트를 반환합니다. 사람이 `omg approve <id>`로 승인한 뒤 `omg deploy --approval <id>`로 재실행합니다. TTL 기본 1시간. `argsHash`로 승인 후 배포 인자 조작을 막습니다. 통과한 approval은 `consumed`로 마킹되어 1회만 사용됩니다.
 - `deny` -> 항상 차단
+
+추가 deny policy:
+
+- `.omg/trust.yaml`의 `deny` 배열은 action pattern을 받습니다.
+- deny policy는 trust level과 approval보다 먼저 적용됩니다.
+- 예: `project.delete`, `iam.role.*.owner`, `firestore.data.delete`
+
+## Harness Artifacts
+
+현재 하네스는 두 가지 세션 연결 artifact를 씁니다.
+
+- `.omg/decisions.log.jsonl`: `init`, `link`, `deploy`, `approve`, `reject`가 append-only JSONL 이벤트를 남깁니다. trust 판단, approval 생성/소비, deploy 결과, 실패 이유를 run 단위로 연결합니다. secret/token/password 계열 값은 기록 전에 redaction됩니다.
+- `.omg/handoff.md`: deploy 성공/실패/approval 대기 상태를 사람이 읽을 수 있게 요약합니다. URL, pending approval, risk, rollback 상태, next step을 담는 latest run artifact입니다.
 
 `PermissionCheck.reasonCode`는 8종 구조화 에러를 분기합니다: `DENIED`, `REQUIRES_CONFIRM`, `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_CONSUMED`.
 

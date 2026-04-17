@@ -25,6 +25,7 @@ export interface TrustProfile {
   budgetCapUsdMonthly?: number;
   allowedServices: string[]; // ex: ["cloud-run", "firebase-hosting", "firestore"]
   allowedRegions: string[];  // ex: ["asia-northeast3"]
+  deny?: string[];            // ex: ["project.delete", "iam.role.*.owner"]
   rules: {
     L0: TrustAction; // 읽기, 조회
     L1: TrustAction; // 배포, 설정 변경
@@ -49,4 +50,5 @@ export interface PermissionCheck {
     | "APPROVAL_MISMATCH"
     | "APPROVAL_CONSUMED";
   approvalId?: string;
+  deniedBy?: string;
 }

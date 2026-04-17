@@ -25,4 +25,33 @@ describe("trust profile defaults", () => {
     expect(result.action).toBe("require_approval");
     expect(result.reasonCode).toBe("APPROVAL_REQUIRED");
   });
+
+  it("applies explicit deny policy before trust levels", async () => {
+    const profile = generateDefaultProfile("demo-project", "dev");
+    profile.deny = ["deploy.*"];
+
+    const result = await checkPermission("deploy.cloud-run", profile, {
+      jsonMode: true,
+      yes: true,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.action).toBe("deny");
+    expect(result.reasonCode).toBe("DENIED");
+    expect(result.deniedBy).toBe("deploy.*");
+  });
+
+  it("matches wildcard deny patterns across action segments", async () => {
+    const profile = generateDefaultProfile("demo-project", "dev");
+    profile.deny = ["iam.role.*.owner"];
+
+    const result = await checkPermission("iam.role.grant.owner", profile, {
+      jsonMode: true,
+      yes: true,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.reasonCode).toBe("DENIED");
+    expect(result.deniedBy).toBe("iam.role.*.owner");
+  });
 });

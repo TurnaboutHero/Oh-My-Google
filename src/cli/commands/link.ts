@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
+import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { buildPlan } from "../../planner/plan-builder.js";
 import { detect } from "../../planner/detect.js";
 import { fetchGcpState } from "../../planner/gcp-state.js";
@@ -65,6 +66,7 @@ export const linkCommand = new Command("link")
   });
 
 export async function runLink(input: RunLinkInput): Promise<RunLinkOutcome> {
+  const runId = createRunId("link");
   try {
     const detected = await detect(input.cwd);
     if (detected.stack === "unknown") {
@@ -86,14 +88,29 @@ export async function runLink(input: RunLinkInput): Promise<RunLinkOutcome> {
 
     await savePlan(input.cwd, plan);
 
-    return { ok: true, data: { plan }, next: ["omg deploy --dry-run"] };
+    const outcome: RunLinkOutcome = { ok: true, data: { plan }, next: ["omg deploy --dry-run"] };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "link",
+      phase: "plan",
+      status: "success",
+      projectId,
+      result: {
+        stack: plan.detected.stack,
+        targets: Object.keys(plan.targets),
+        deploymentOrder: plan.deploymentOrder,
+      },
+      artifacts: { plan: ".omg/project.yaml" },
+      next: outcome.next,
+    });
+    return outcome;
   } catch (error) {
     const omgError =
       error instanceof OmgError
         ? error
         : new ValidationError(error instanceof Error ? error.message : "Unknown link error.");
 
-    return {
+    const outcome: RunLinkOutcome = {
       ok: false,
       error: {
         code: omgError.code,
@@ -105,6 +122,15 @@ export async function runLink(input: RunLinkInput): Promise<RunLinkOutcome> {
             : undefined,
       },
     };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "link",
+      phase: "plan",
+      status: "failure",
+      result: outcome.error,
+      next: outcome.error.hint ? [outcome.error.hint] : undefined,
+    });
+    return outcome;
   }
 }
 

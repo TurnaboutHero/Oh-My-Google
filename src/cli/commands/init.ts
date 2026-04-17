@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { confirm, input, select } from "@inquirer/prompts";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
+import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { DEFAULT_APIS, enableApis } from "../../setup/apis.js";
 import { getBillingStatus, linkBilling, listBillingAccounts } from "../../setup/billing.js";
 import { applyBindings, proposeDefaultRoles } from "../../setup/iam.js";
@@ -94,6 +95,7 @@ export const initCommand = new Command("init")
   });
 
 export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
+  const runId = createRunId("init");
   try {
     const structuredMode = input.jsonMode || input.interactive === false;
     const missing = getMissingRequiredInitFields(input);
@@ -102,7 +104,7 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
     }
     if (structuredMode && missing.length > 0) {
       const cliJsonMissingYes = missing.includes("yes");
-      return {
+      const outcome: RunInitOutcome = {
         ok: false,
         error: {
           code: "VALIDATION_ERROR",
@@ -116,6 +118,14 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
           data: { missing },
         },
       };
+      await tryAppendDecision(input.cwd, {
+        runId,
+        command: "init",
+        phase: "validate",
+        status: "failure",
+        result: outcome.error,
+      });
+      return outcome;
     }
 
     await ensureGcloudInstalled();
@@ -158,7 +168,7 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
         default: true,
       });
       if (!proceed) {
-        return {
+        const outcome: RunInitOutcome = {
           ok: false,
           error: {
             code: "CANCELLED",
@@ -166,6 +176,16 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
             recoverable: false,
           },
         };
+        await tryAppendDecision(input.cwd, {
+          runId,
+          command: "init",
+          phase: "confirm",
+          status: "blocked",
+          projectId: projectSelection.projectId,
+          environment,
+          result: outcome.error,
+        });
+        return outcome;
       }
     }
 
@@ -187,7 +207,7 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
       },
     });
 
-    return {
+    const outcome: RunInitOutcome = {
       ok: true,
       data: {
         projectId: projectSelection.projectId,
@@ -198,13 +218,28 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
       },
       next: ["omg link"],
     };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "init",
+      phase: "execute",
+      status: "success",
+      projectId: projectSelection.projectId,
+      environment,
+      result: {
+        region,
+        trustProfilePath: outcome.data.trustProfilePath,
+        configPath: outcome.data.configPath,
+      },
+      next: outcome.next,
+    });
+    return outcome;
   } catch (error) {
     const omgError =
       error instanceof OmgError
         ? error
         : new ValidationError(error instanceof Error ? error.message : "Unknown init error.");
 
-    return {
+    const outcome: RunInitOutcome = {
       ok: false,
       error: {
         code: omgError.code,
@@ -216,6 +251,15 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
             : undefined,
       },
     };
+    await tryAppendDecision(input.cwd, {
+      runId,
+      command: "init",
+      phase: "execute",
+      status: "failure",
+      result: outcome.error,
+      next: outcome.error.hint ? [outcome.error.hint] : undefined,
+    });
+    return outcome;
   }
 }
 
