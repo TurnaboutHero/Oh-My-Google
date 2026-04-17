@@ -7,9 +7,33 @@ import { detect } from "../../planner/detect.js";
 import { fetchGcpState } from "../../planner/gcp-state.js";
 import { savePlan } from "../../planner/schema.js";
 import { OmgError, ValidationError } from "../../types/errors.js";
+import type { Plan } from "../../types/plan.js";
 import { fail, success } from "../output.js";
 
 const execFileAsync = promisify(execFile);
+
+export interface RunLinkInput {
+  cwd: string;
+  region?: string;
+  service?: string;
+  site?: string;
+}
+
+export interface LinkPayload {
+  plan: Plan;
+}
+
+export interface LinkErrorPayload {
+  code: string;
+  message: string;
+  recoverable: boolean;
+  hint?: string;
+  data?: Record<string, unknown>;
+}
+
+export type RunLinkOutcome =
+  | { ok: true; data: LinkPayload; next?: string[] }
+  | { ok: false; error: LinkErrorPayload };
 
 export const linkCommand = new Command("link")
   .description("Analyze the repo and write .omg/project.yaml")
@@ -17,46 +41,72 @@ export const linkCommand = new Command("link")
   .option("--service-name <name>", "Override the Cloud Run service name")
   .option("--site-name <name>", "Override the Firebase Hosting site name")
   .action(async (opts) => {
-    try {
-      const detected = await detect(process.cwd());
-      if (detected.stack === "unknown") {
-        throw new OmgError("No deployable content detected.", "NO_DEPLOYABLE_CONTENT", false);
-      }
+    const outcome = await runLink({
+      cwd: process.cwd(),
+      region: opts.region as string | undefined,
+      service: opts.serviceName as string | undefined,
+      site: opts.siteName as string | undefined,
+    });
 
-      const config = await AuthManager.loadConfig();
-      const projectId = config?.profile.projectId ?? (await getActiveProjectId());
-      if (!projectId) {
-        throw new OmgError("No project configured. Run 'omg init' first.", "NO_PROJECT", false);
-      }
-
-      const gcpState = await fetchGcpState(projectId);
-      const plan = buildPlan(detected, gcpState, {
-        region: (opts.region as string | undefined) ?? config?.profile.defaultRegion,
-        serviceName: opts.serviceName as string | undefined,
-        siteName: opts.siteName as string | undefined,
-      });
-
-      await savePlan(process.cwd(), plan);
-
-      success("link", "Deployment plan created.", { plan }, ["omg deploy --dry-run"]);
-    } catch (error) {
-      const omgError =
-        error instanceof OmgError
-          ? error
-          : new ValidationError(error instanceof Error ? error.message : "Unknown link error.");
-
-      fail(
-        "link",
-        omgError.code,
-        omgError.message,
-        omgError.recoverable,
-        omgError.code === "NO_DEPLOYABLE_CONTENT"
-          ? "Add a Dockerfile, firebase.json, or a buildable frontend before linking."
-          : undefined,
-      );
-      process.exit(1);
+    if (outcome.ok) {
+      success("link", "Deployment plan created.", { plan: outcome.data.plan }, outcome.next);
+      return;
     }
+
+    fail(
+      "link",
+      outcome.error.code,
+      outcome.error.message,
+      outcome.error.recoverable,
+      outcome.error.hint,
+      outcome.error.data,
+    );
+    process.exit(1);
   });
+
+export async function runLink(input: RunLinkInput): Promise<RunLinkOutcome> {
+  try {
+    const detected = await detect(input.cwd);
+    if (detected.stack === "unknown") {
+      throw new OmgError("No deployable content detected.", "NO_DEPLOYABLE_CONTENT", false);
+    }
+
+    const config = await AuthManager.loadConfig();
+    const projectId = config?.profile.projectId ?? (await getActiveProjectId());
+    if (!projectId) {
+      throw new OmgError("No project configured. Run 'omg init' first.", "NO_PROJECT", false);
+    }
+
+    const gcpState = await fetchGcpState(projectId);
+    const plan = buildPlan(detected, gcpState, {
+      region: input.region ?? config?.profile.defaultRegion,
+      serviceName: input.service,
+      siteName: input.site,
+    });
+
+    await savePlan(input.cwd, plan);
+
+    return { ok: true, data: { plan }, next: ["omg deploy --dry-run"] };
+  } catch (error) {
+    const omgError =
+      error instanceof OmgError
+        ? error
+        : new ValidationError(error instanceof Error ? error.message : "Unknown link error.");
+
+    return {
+      ok: false,
+      error: {
+        code: omgError.code,
+        message: omgError.message,
+        recoverable: omgError.recoverable,
+        hint:
+          omgError.code === "NO_DEPLOYABLE_CONTENT"
+            ? "Add a Dockerfile, firebase.json, or a buildable frontend before linking."
+            : undefined,
+      },
+    };
+  }
+}
 
 async function getActiveProjectId(): Promise<string | undefined> {
   try {

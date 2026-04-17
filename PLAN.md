@@ -165,9 +165,10 @@
 
 1. 2.1: MCP runtime + read-only tools (`doctor`, `approvals.list`)
 2. 2.2b: MCP deploy tool (`omg.deploy`)
-2. CLI 전용 책임과 shared core 책임 분리
-3. MCP에서 human confirmation이 없는 상태에서 trust gate를 어떻게 표현할지 결정
-4. stdio 기준 서버 구동과 tool 응답 포맷 검증
+3. 2.3: MCP init + link tools (`omg.init`, `omg.link`)
+4. CLI 전용 책임과 shared core 책임 분리
+5. MCP에서 human confirmation이 없는 상태에서 trust gate를 어떻게 표현할지 결정
+6. stdio 기준 서버 구동과 tool 응답 포맷 검증
 
 shared core 경계:
 

@@ -90,10 +90,12 @@ src/
       approve.ts
       reject.ts
       deploy.ts
+      init.ts
+      link.ts
       types.ts
 ```
 
-`src/mcp/server.ts`는 stdio runtime과 read-only tool 2개를 노출합니다.
+`src/mcp/server.ts`는 stdio runtime과 `doctor`, `approvals.list`, `approve`, `reject`, `deploy`, `init`, `link` tool을 노출합니다.
 
 ## 명령 흐름
 
