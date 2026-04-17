@@ -1,9 +1,18 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthManager } from "../src/auth/auth-manager.js";
 import { handleLink } from "../src/mcp/tools/link.js";
+
+vi.mock("../src/planner/gcp-state.js", () => ({
+  fetchGcpState: async (projectId: string) => ({
+    projectId,
+    enabledApis: [],
+    cloudRunServices: [],
+    firebaseLinked: false,
+  }),
+}));
 
 const tempDirs: string[] = [];
 const originalLoadConfig = AuthManager.loadConfig;
