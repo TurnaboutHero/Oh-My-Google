@@ -3,9 +3,9 @@ import { checkPermission } from "../src/trust/check.js";
 import { generateDefaultProfile } from "../src/trust/profile.js";
 
 describe("trust profile defaults", () => {
-  it("allows low-risk deploys in dev by default", () => {
+  it("allows low-risk deploys in dev by default", async () => {
     const profile = generateDefaultProfile("demo-project", "dev");
-    const result = checkPermission("deploy.cloud-run", profile, {
+    const result = await checkPermission("deploy.cloud-run", profile, {
       jsonMode: true,
       yes: false,
     });
@@ -14,14 +14,15 @@ describe("trust profile defaults", () => {
     expect(result.action).toBe("auto");
   });
 
-  it("requires manual approval for prod deploys", () => {
+  it("requires manual approval for prod deploys", async () => {
     const profile = generateDefaultProfile("demo-project", "prod");
-    const result = checkPermission("deploy.cloud-run", profile, {
+    const result = await checkPermission("deploy.cloud-run", profile, {
       jsonMode: true,
       yes: true,
     });
 
     expect(result.allowed).toBe(false);
     expect(result.action).toBe("require_approval");
+    expect(result.reasonCode).toBe("APPROVAL_REQUIRED");
   });
 });

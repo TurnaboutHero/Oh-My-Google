@@ -39,4 +39,14 @@ export interface PermissionCheck {
   allowed: boolean;
   action: TrustAction;
   reason?: string;
+  reasonCode?:
+    | "DENIED"
+    | "REQUIRES_CONFIRM"
+    | "APPROVAL_REQUIRED"
+    | "APPROVAL_NOT_FOUND"
+    | "APPROVAL_EXPIRED"
+    | "APPROVAL_NOT_APPROVED"
+    | "APPROVAL_MISMATCH"
+    | "APPROVAL_CONSUMED";
+  approvalId?: string;
 }

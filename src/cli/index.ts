@@ -1,9 +1,12 @@
 import { Command } from "commander";
 import { authCommand } from "./auth.js";
+import { approvalsCommand } from "./commands/approvals.js";
+import { approveCommand } from "./commands/approve.js";
 import { deployCommand } from "./commands/deploy.js";
 import { firebaseCommand } from "./commands/firebase.js";
 import { initCommand } from "./commands/init.js";
 import { linkCommand } from "./commands/link.js";
+import { rejectCommand } from "./commands/reject.js";
 import { doctorCommand } from "./doctor.js";
 import { setOutputFormat } from "./output.js";
 import { setupCommand } from "./setup.js";
@@ -27,6 +30,9 @@ program
 program.addCommand(initCommand);
 program.addCommand(linkCommand);
 program.addCommand(deployCommand);
+program.addCommand(approveCommand);
+program.addCommand(rejectCommand);
+program.addCommand(approvalsCommand);
 program.addCommand(doctorCommand);
 program.addCommand(setupCommand);
 program.addCommand(authCommand);

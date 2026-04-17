@@ -61,3 +61,22 @@ export class PolicyError extends OmgError {
     super(message, "POLICY_VIOLATION", false);
   }
 }
+
+export type ApprovalErrorCode =
+  | "APPROVAL_REQUIRED"
+  | "APPROVAL_NOT_FOUND"
+  | "APPROVAL_EXPIRED"
+  | "APPROVAL_NOT_APPROVED"
+  | "APPROVAL_MISMATCH"
+  | "APPROVAL_CONSUMED";
+
+export class ApprovalError extends OmgError {
+  constructor(
+    public readonly approvalCode: ApprovalErrorCode,
+    message: string,
+    public readonly approvalId?: string,
+  ) {
+    super(message, approvalCode, false);
+    this.name = "ApprovalError";
+  }
+}

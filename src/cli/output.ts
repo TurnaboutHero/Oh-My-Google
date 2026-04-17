@@ -46,12 +46,16 @@ export function fail(
   message: string,
   recoverable: boolean,
   hint?: string,
+  data?: Record<string, unknown>,
+  next?: string[],
 ) {
   if (currentFormat === "json") {
     const output: OmgOutput = {
       ok: false,
       command,
+      data,
       error: { code, message, recoverable, hint },
+      next,
     };
     console.log(JSON.stringify(output));
     return;
@@ -61,6 +65,7 @@ export function fail(
   if (hint) {
     console.error(`Hint: ${hint}`);
   }
+  printNext(next);
 }
 
 export function info(command: string, data: Record<string, unknown>) {

@@ -1,16 +1,20 @@
 import type { PermissionCheck, TrustProfile } from "../types/trust.js";
+import { loadApproval, saveApproval } from "../approval/queue.js";
 import { getLevel } from "./levels.js";
 
 export interface CheckOptions {
   yes?: boolean;
   jsonMode?: boolean;
+  approvalId?: string;
+  argsHash?: string;
+  cwd?: string;
 }
 
-export function checkPermission(
+export async function checkPermission(
   action: string,
   profile: TrustProfile,
   opts: CheckOptions = {},
-): PermissionCheck {
+): Promise<PermissionCheck> {
   const level = getLevel(action);
   const trustAction = profile.rules[level];
 
@@ -23,6 +27,7 @@ export function checkPermission(
       allowed: false,
       action: trustAction,
       reason: `Trust profile denies ${action}.`,
+      reasonCode: "DENIED",
     };
   }
 
@@ -32,17 +37,89 @@ export function checkPermission(
         allowed: false,
         action: trustAction,
         reason: `Trust profile requires --yes for ${action} in JSON mode.`,
+        reasonCode: "REQUIRES_CONFIRM",
       };
     }
 
     return { allowed: true, action: trustAction };
   }
 
-  return {
-    allowed: false,
-    action: trustAction,
-    reason: `Trust profile requires manual approval for ${action}.`,
-  };
+  if (!opts.approvalId) {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Trust profile requires manual approval for ${action}.`,
+      reasonCode: "APPROVAL_REQUIRED",
+    };
+  }
+
+  const cwd = opts.cwd ?? process.cwd();
+  const approval = await loadApproval(cwd, opts.approvalId);
+
+  if (!approval) {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Approval ${opts.approvalId} was not found.`,
+      reasonCode: "APPROVAL_NOT_FOUND",
+      approvalId: opts.approvalId,
+    };
+  }
+
+  if (approval.status === "consumed") {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Approval ${approval.id} has already been consumed.`,
+      reasonCode: "APPROVAL_CONSUMED",
+      approvalId: approval.id,
+    };
+  }
+
+  if (approval.status !== "approved") {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Approval ${approval.id} is not approved.`,
+      reasonCode: "APPROVAL_NOT_APPROVED",
+      approvalId: approval.id,
+    };
+  }
+
+  if (approval.action !== action) {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Approval ${approval.id} does not match ${action}.`,
+      reasonCode: "APPROVAL_MISMATCH",
+      approvalId: approval.id,
+    };
+  }
+
+  if (opts.argsHash && approval.argsHash !== opts.argsHash) {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Approval ${approval.id} does not match command arguments.`,
+      reasonCode: "APPROVAL_MISMATCH",
+      approvalId: approval.id,
+    };
+  }
+
+  if (new Date() > new Date(approval.expiresAt)) {
+    await saveApproval(cwd, { ...approval, status: "expired" });
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: `Approval ${approval.id} has expired.`,
+      reasonCode: "APPROVAL_EXPIRED",
+      approvalId: approval.id,
+    };
+  }
+
+  await saveApproval(cwd, { ...approval, status: "consumed" });
+
+  return { allowed: true, action: trustAction };
 }
 
 export { getLevel };
