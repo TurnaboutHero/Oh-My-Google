@@ -163,7 +163,7 @@
 
 세부 작업 분해:
 
-1. `init`, `link`, `deploy`, `doctor`를 MCP로 그대로 노출할 최소 tool set 정의
+1. 2.1: MCP runtime + read-only tools (`doctor`, `approvals.list`)
 2. CLI 전용 책임과 shared core 책임 분리
 3. MCP에서 human confirmation이 없는 상태에서 trust gate를 어떻게 표현할지 결정
 4. stdio 기준 서버 구동과 tool 응답 포맷 검증

@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import { listApprovals } from "../../approval/queue.js";
-import type { ApprovalListFilter, ApprovalStatus } from "../../approval/types.js";
+import { listApprovals, validateStatus } from "../../approval/queue.js";
+import type { ApprovalListFilter } from "../../approval/types.js";
 import { OmgError, ValidationError } from "../../types/errors.js";
 import { fail, getOutputFormat, success } from "../output.js";
 
@@ -59,20 +59,4 @@ function buildFilter(opts: { status?: string; action?: string }): ApprovalListFi
   }
 
   return filter;
-}
-
-function validateStatus(value: string): ApprovalStatus {
-  if (
-    value === "pending"
-    || value === "approved"
-    || value === "rejected"
-    || value === "consumed"
-    || value === "expired"
-  ) {
-    return value;
-  }
-
-  throw new ValidationError(
-    "Approval status must be one of pending, approved, rejected, consumed, or expired.",
-  );
 }

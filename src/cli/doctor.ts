@@ -10,115 +10,137 @@ interface CheckResult {
   detail: string;
 }
 
+export interface DoctorResult {
+  ok: boolean;
+  checks: Record<string, CheckResult>;
+  next: string[];
+}
+
 export const doctorCommand = new Command("doctor")
   .description("Diagnose connection status")
   .action(async () => {
-    const manager = new AuthManager();
-    const status = await manager.status();
-
-    const checks: Record<string, CheckResult> = {};
-
-    checks.config = status.projectId
-      ? { ok: true, detail: `project ${status.projectId}` }
-      : { ok: false, detail: "no project configured" };
-
-    checks.adcCredentials = status.adcConfigured
-      ? { ok: true, detail: "application default credentials file found" }
-      : { ok: false, detail: "ADC credentials not found" };
-
-    checks.gcloudAccount = status.gcloudAccount
-      ? { ok: true, detail: status.gcloudAccount }
-      : { ok: false, detail: "no active gcloud account" };
-
-    if (status.projectId && status.gcloudAccount) {
-      try {
-        const result = execFileSync(
-          "gcloud",
-          [
-            "services",
-            "list",
-            `--project=${status.projectId}`,
-            "--filter=config.name:run.googleapis.com",
-            "--format=value(config.name)",
-          ],
-          { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
-        ).trim();
-        checks.cloudRun = result.includes("run.googleapis.com")
-          ? { ok: true, detail: "API enabled" }
-          : { ok: false, detail: "API not enabled" };
-      } catch {
-        checks.cloudRun = { ok: false, detail: "could not check" };
-      }
-    } else {
-      checks.cloudRun = { ok: false, detail: "requires an active gcloud account" };
-    }
-
-    try {
-      execFileSync("firebase", ["--version"], {
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      checks.firebaseCli = { ok: true, detail: "installed" };
-    } catch {
-      checks.firebaseCli = { ok: false, detail: "not found" };
-    }
-
-    try {
-      const version = execFileSync("gcloud", ["--version"], {
-        encoding: "utf-8",
-        stdio: ["pipe", "pipe", "pipe"],
-      }).split("\n")[0]?.trim();
-      checks.gcloudCli = { ok: true, detail: version ?? "installed" };
-    } catch {
-      checks.gcloudCli = { ok: false, detail: "not found" };
-    }
-
-    checks.firebaseProjectLink = await getFirebaseProjectLinkCheck(status.projectId);
-
-    const next: string[] = [];
-    if (!checks.config.ok || !checks.adcCredentials.ok || !checks.gcloudAccount.ok) {
-      next.push("omg init");
-    }
-    if (!checks.cloudRun.ok && checks.gcloudAccount.ok && status.projectId) {
-      next.push("gcloud services enable run.googleapis.com");
-    }
-    if (!checks.firebaseProjectLink.ok) {
-      next.push("link the Firebase project in .firebaserc");
-    }
-
-    const blockingChecks = [
-      "config",
-      "adcCredentials",
-      "gcloudAccount",
-      "cloudRun",
-      "firebaseCli",
-      "gcloudCli",
-      "firebaseProjectLink",
-    ];
-    const allOk = blockingChecks.every((name) => checks[name]?.ok);
+    const result = await runDoctor(process.cwd());
 
     if (getOutputFormat() === "json") {
-      console.log(JSON.stringify({ ok: allOk, command: "doctor", data: { checks }, next }));
+      console.log(
+        JSON.stringify({
+          ok: result.ok,
+          command: "doctor",
+          data: { checks: result.checks },
+          next: result.next,
+        }),
+      );
       return;
     }
 
     console.log("omg doctor");
     console.log("");
-    for (const [name, check] of Object.entries(checks)) {
+    for (const [name, check] of Object.entries(result.checks)) {
       console.log(`${name}: ${check.detail} (${check.ok ? "ok" : "needs attention"})`);
     }
-    if (next.length > 0) {
+    if (result.next.length > 0) {
       console.log("");
       console.log("Next:");
-      for (const step of next) {
+      for (const step of result.next) {
         console.log(`- ${step}`);
       }
     }
   });
 
-async function getFirebaseProjectLinkCheck(projectId: string | null): Promise<CheckResult> {
-  const firebaseJsonPath = path.join(process.cwd(), "firebase.json");
-  const firebasercPath = path.join(process.cwd(), ".firebaserc");
+export async function runDoctor(cwd: string): Promise<DoctorResult> {
+  const manager = new AuthManager();
+  const status = await manager.status();
+
+  const checks: Record<string, CheckResult> = {};
+
+  checks.config = status.projectId
+    ? { ok: true, detail: `project ${status.projectId}` }
+    : { ok: false, detail: "no project configured" };
+
+  checks.adcCredentials = status.adcConfigured
+    ? { ok: true, detail: "application default credentials file found" }
+    : { ok: false, detail: "ADC credentials not found" };
+
+  checks.gcloudAccount = status.gcloudAccount
+    ? { ok: true, detail: status.gcloudAccount }
+    : { ok: false, detail: "no active gcloud account" };
+
+  if (status.projectId && status.gcloudAccount) {
+    try {
+      const result = execFileSync(
+        "gcloud",
+        [
+          "services",
+          "list",
+          `--project=${status.projectId}`,
+          "--filter=config.name:run.googleapis.com",
+          "--format=value(config.name)",
+        ],
+        { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+      ).trim();
+      checks.cloudRun = result.includes("run.googleapis.com")
+        ? { ok: true, detail: "API enabled" }
+        : { ok: false, detail: "API not enabled" };
+    } catch {
+      checks.cloudRun = { ok: false, detail: "could not check" };
+    }
+  } else {
+    checks.cloudRun = { ok: false, detail: "requires an active gcloud account" };
+  }
+
+  try {
+    execFileSync("firebase", ["--version"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    checks.firebaseCli = { ok: true, detail: "installed" };
+  } catch {
+    checks.firebaseCli = { ok: false, detail: "not found" };
+  }
+
+  try {
+    const version = execFileSync("gcloud", ["--version"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).split("\n")[0]?.trim();
+    checks.gcloudCli = { ok: true, detail: version ?? "installed" };
+  } catch {
+    checks.gcloudCli = { ok: false, detail: "not found" };
+  }
+
+  checks.firebaseProjectLink = await getFirebaseProjectLinkCheck(cwd, status.projectId);
+
+  const next: string[] = [];
+  if (!checks.config.ok || !checks.adcCredentials.ok || !checks.gcloudAccount.ok) {
+    next.push("omg init");
+  }
+  if (!checks.cloudRun.ok && checks.gcloudAccount.ok && status.projectId) {
+    next.push("gcloud services enable run.googleapis.com");
+  }
+  if (!checks.firebaseProjectLink.ok) {
+    next.push("link the Firebase project in .firebaserc");
+  }
+
+  const blockingChecks = [
+    "config",
+    "adcCredentials",
+    "gcloudAccount",
+    "cloudRun",
+    "firebaseCli",
+    "gcloudCli",
+    "firebaseProjectLink",
+  ];
+  const allOk = blockingChecks.every((name) => checks[name]?.ok);
+
+  return { ok: allOk, checks, next };
+}
+
+async function getFirebaseProjectLinkCheck(
+  cwd: string,
+  projectId: string | null,
+): Promise<CheckResult> {
+  const firebaseJsonPath = path.join(cwd, "firebase.json");
+  const firebasercPath = path.join(cwd, ".firebaserc");
 
   const hasFirebaseJson = await fileExists(firebaseJsonPath);
   const hasFirebaserc = await fileExists(firebasercPath);

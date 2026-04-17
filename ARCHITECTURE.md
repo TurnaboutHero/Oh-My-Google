@@ -84,9 +84,13 @@ src/
     env-inject.ts
   mcp/
     server.ts
+    tools/
+      doctor.ts
+      approvals-list.ts
+      types.ts
 ```
 
-`src/mcp/server.ts`는 현재 stub입니다.
+`src/mcp/server.ts`는 stdio runtime과 read-only tool 2개를 노출합니다.
 
 ## 명령 흐름
 
@@ -313,7 +317,6 @@ backend가 Cloud Run이고 frontend가 Firebase Hosting일 때:
 
 아직 없는 것:
 
-- MCP server runtime
 - admin surface
 - 고급 rollback orchestration
 - Next.js SSR 지원

@@ -3,7 +3,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { parse, stringify } from "yaml";
 import { hashArgs } from "./hash.js";
-import type { ApprovalListFilter, ApprovalRequest } from "./types.js";
+import type { ApprovalListFilter, ApprovalRequest, ApprovalStatus } from "./types.js";
+import { ValidationError } from "../types/errors.js";
 
 const APPROVAL_DIR = ".omg/approvals";
 export const DEFAULT_TTL_MINUTES = 60;
@@ -93,6 +94,22 @@ export async function listApprovals(
       (a, b) =>
         new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(),
     );
+}
+
+export function validateStatus(value: string): ApprovalStatus {
+  if (
+    value === "pending"
+    || value === "approved"
+    || value === "rejected"
+    || value === "consumed"
+    || value === "expired"
+  ) {
+    return value;
+  }
+
+  throw new ValidationError(
+    "Approval status must be one of pending, approved, rejected, consumed, or expired.",
+  );
 }
 
 function createApprovalId(date: Date): string {

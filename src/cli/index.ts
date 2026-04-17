@@ -6,6 +6,7 @@ import { deployCommand } from "./commands/deploy.js";
 import { firebaseCommand } from "./commands/firebase.js";
 import { initCommand } from "./commands/init.js";
 import { linkCommand } from "./commands/link.js";
+import { mcpCommand } from "./commands/mcp.js";
 import { rejectCommand } from "./commands/reject.js";
 import { doctorCommand } from "./doctor.js";
 import { setOutputFormat } from "./output.js";
@@ -37,5 +38,6 @@ program.addCommand(doctorCommand);
 program.addCommand(setupCommand);
 program.addCommand(authCommand);
 program.addCommand(firebaseCommand);
+program.addCommand(mcpCommand);
 
 program.parse();
