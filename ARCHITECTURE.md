@@ -13,12 +13,13 @@
 ## 현재 계층
 
 ```text
-CLI
-  -> output
+CLI + MCP  (dual surface — 동일 shared core를 각자 호출)
+  -> output / tool serialization
   -> auth
   -> setup
   -> planner
   -> trust
+  -> approval
   -> executor
   -> connectors
   -> wiring
@@ -30,6 +31,7 @@ CLI
 - executor가 그 계획을 순서대로 실행한다
 - connector는 서비스별 실행 단위만 담당한다
 - output은 human/json 출력을 통일한다
+- CLI와 MCP는 runDoctor/runInit/runLink/runDeploy/runApprove/runReject 같은 shared core 함수를 공통으로 호출한다
 
 ## 실제 디렉터리 구조
 
@@ -315,14 +317,16 @@ backend가 Cloud Run이고 frontend가 Firebase Hosting일 때:
 
 현재 구현된 것:
 
-- CLI 중심
-- 4개 핵심 명령
-- Plan/Trust 파일 저장
-- Cloud Run/Firebase 배포 경로
+- CLI 4개 핵심 명령 (`init`, `link`, `deploy`, `doctor`)과 approval 보조 명령 3개 (`approve`, `reject`, `approvals list`)
+- stdio MCP 서버 + 7개 tool (`omg.doctor`, `omg.approvals.list`, `omg.approve`, `omg.reject`, `omg.deploy`, `omg.init`, `omg.link`)
+- CLI와 MCP가 공유하는 `runDoctor` / `runInit` / `runLink` / `runDeploy` / `runApprove` / `runReject` shared core
+- Plan / Trust / Approval 파일 저장
+- Cloud Run + Firebase Hosting 배포 경로
+- `require_approval` end-to-end 워크플로 (approval queue, `argsHash`, 8종 `reasonCode`)
 
 아직 없는 것:
 
-- admin surface
+- admin surface (`secret`, `iam`, `budget`, `notify`, `security`)
 - 고급 rollback orchestration
 - Next.js SSR 지원
 

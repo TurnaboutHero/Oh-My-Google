@@ -1,164 +1,121 @@
 # AGENTS.md — How AI Agents Should Use omg
 
-> 이 문서는 AI 코딩 에이전트(Claude Code, Codex, OpenCode, Gemini CLI, Antigravity 등)가
-> oh-my-google (omg) CLI를 사용하는 방법을 안내합니다.
+이 문서는 AI 코딩 에이전트(Claude Code, Codex, Gemini CLI, Antigravity 등)가 oh-my-google (`omg`)을 사용하는 방법을 안내합니다.
 
 ## omg란?
 
-omg는 AI 에이전트가 Google 생태계(Cloud Run, Firebase, Jules 등)를 **안전하게** 다루는 하네스입니다.
-gcloud/firebase CLI는 사람용이고, omg는 에이전트용입니다.
+omg는 AI 에이전트가 Google Cloud + Firebase를 **하나의 프로젝트**로 안전하게 다루는 하네스입니다. 두 서비스의 경계(별도 CLI, 별도 auth, 별도 console)를 통합 진입점으로 묶고, Trust Profile이 자동/승인 결정을 내립니다.
+
+**이중 surface**: 에이전트는 다음 둘 중 하나로 omg를 씁니다.
+
+1. **CLI** — `omg --output json <command>`
+2. **MCP** — `omg mcp start`로 stdio 서버를 띄우고 7개 tool 호출
+
+둘은 동일한 shared core를 호출하므로 응답 계약이 같습니다.
 
 ## 핵심 원칙
 
-1. **항상 `--output json` 사용** — 에이전트는 JSON 출력을 파싱해서 다음 액션을 결정
-2. **`--dry-run` 먼저** — 배포/변경 전에 항상 dry-run으로 계획 확인
-3. **`next` 필드 따라가기** — 모든 응답에 다음에 할 일이 포함됨
-4. **`error.code`로 분기** — 에러 메시지가 아닌 에러 코드로 대응 결정
+1. **JSON 모드 또는 MCP tool** — 사람용 human 출력은 파싱 금지.
+2. **Trust Profile이 결정** — 에이전트가 임의 판단 금지. `require_approval`을 만나면 사람 승인을 기다림.
+3. **`next` 필드 따라가기** — 모든 응답의 `next` 배열이 다음 행동.
+4. **`error.code`로 분기** — 에러 메시지가 아닌 코드 기준.
+5. **`--dry-run` 먼저** — 배포 전 반드시 계획 확인.
 
-## 출력 형식
+## 응답 형식
 
-모든 omg 명령어는 `--output json` 시 동일한 구조 반환:
+모든 응답은 동일한 구조를 사용합니다.
 
 ```json
 {
   "ok": true,
-  "command": "deploy:dry-run",
-  "data": {
-    "projectId": "my-project",
-    "service": "my-app",
-    "region": "asia-northeast3"
-  },
-  "next": [
-    "omg deploy --yes"
-  ]
+  "command": "<name>",
+  "data": { },
+  "error": { "code": "", "message": "", "recoverable": true, "hint": "" },
+  "next": [""]
 }
 ```
 
-에러 시:
+MCP tool 응답은 이 객체를 `content[0].text`에 JSON 문자열로 실어 반환합니다.
 
-```json
-{
-  "ok": false,
-  "command": "deploy",
-  "error": {
-    "code": "AUTH_ERROR",
-    "message": "Not authenticated.",
-    "recoverable": false,
-    "hint": "Run 'omg setup' first."
-  }
-}
+## MCP tool
+
+| Tool | Input | 의미 |
+|---|---|---|
+| `omg.init` | `projectId`, `billingAccount`, `environment`, `region` | 프로젝트/Trust Profile 초기화 |
+| `omg.link` | `region?`, `service?`, `site?` | 리포 감지 후 Plan 생성 |
+| `omg.deploy` | `dryRun?`, `approval?`, `yes?` | Trust gate + approval 경로를 거쳐 배포 |
+| `omg.doctor` | — | 연결 상태 진단 |
+| `omg.approve` | `approvalId`, `reason?`, `approver?` | Approval 승인 |
+| `omg.reject` | `approvalId`, `reason?`, `rejecter?` | Approval 거부 |
+| `omg.approvals.list` | `status?`, `action?` | Approval 목록 조회 |
+
+## 표준 워크플로우
+
+### 초기 설정
+
+```
+omg.doctor → 현재 상태 점검
+omg.init { projectId, billingAccount, environment, region } → 프로젝트 준비
+omg.link {} → 리포 감지 + Plan 생성
+```
+
+### 배포 (dev 환경, 승인 불필요)
+
+```
+omg.deploy { dryRun: true } → plan 확인
+omg.deploy { yes: true } → 실제 배포
+```
+
+### 배포 (prod 환경, require_approval)
+
+```
+omg.deploy {} → ok:false, error.code="APPROVAL_REQUIRED", data.approvalId 획득
+# 사람이 omg approve <id> 실행 (또는 .omg/approvals/<id>.yaml 직접 수정)
+omg.approvals.list { status: "approved" } → 승인 확인
+omg.deploy { approval: "<id>" } → 실행 (argsHash 검증 후 consumed)
 ```
 
 ## 에러 코드 대응표
 
-| error.code | 의미 | 에이전트 대응 |
+| `error.code` | 의미 | 대응 |
 |---|---|---|
-| `AUTH_ERROR` | 인증 안 됨 | `omg setup` 실행 요청 |
-| `NO_PROJECT` | 프로젝트 미설정 | `omg setup --project-id <id>` 실행 |
-| `DEPLOY_FAILED` | 배포 실패 | `omg deploy logs`로 원인 확인 |
-| `CANCELLED` | 사용자가 취소 | 다른 접근 제안 |
-| `REFRESH_FAILED` | 토큰 갱신 실패 | `omg setup` 재실행 요청 |
-| `STATUS_ERROR` | 상태 조회 실패 | 재시도 가능 (recoverable: true) |
-| `QUOTA_EXCEEDED` | API 할당량 초과 | 대기 후 재시도 |
-| `VALIDATION_ERROR` | 입력값 검증 실패 | 파라미터 수정 |
-| `POLICY_VIOLATION` | 2홉 규칙 위반 등 | 허용된 방식으로 재시도 |
+| `VALIDATION_ERROR` | 입력 검증 실패 | 파라미터 수정 |
+| `NO_PROJECT`, `NO_BILLING`, `NO_AUTH` | 설정 누락 | `omg.init` 실행 |
+| `NO_PLAN` | plan 파일 없음 | `omg.link` 먼저 |
+| `NO_TRUST_PROFILE` | trust profile 없음 | `omg.init` 먼저 |
+| `NO_DEPLOYABLE_CONTENT` | 감지 실패 | 리포에 Dockerfile/package.json 등 필요 |
+| `TRUST_DENIED` | Trust가 거부 | Trust Profile 조정 필요 |
+| `TRUST_REQUIRES_CONFIRM` | JSON 모드 `--yes` 필요 | `yes: true` 또는 `--yes` 재실행 |
+| `APPROVAL_REQUIRED` | 사람 승인 필요 | `data.approvalId` 보존 → 사람 승인 후 재실행 |
+| `APPROVAL_NOT_FOUND` | 전달한 id 파일 없음 | id 확인 |
+| `APPROVAL_NOT_APPROVED` | 아직 승인 전 | `omg.approve` 필요 |
+| `APPROVAL_EXPIRED` | TTL 경과 | 새 approval 생성 (deploy 재시도 시 자동) |
+| `APPROVAL_MISMATCH` | action/argsHash 불일치 | 승인받은 설정으로 배포하거나 새 approval |
+| `APPROVAL_CONSUMED` | 이미 사용된 id | 새 approval 필요 |
+| `APPROVAL_ALREADY_FINALIZED` | approve/reject 대상이 pending 아님 | 상태 확인 |
 
-## 표준 워크플로우
+## 안전 규칙
 
-### 1. 초기 설정
+- `require_approval` 단계의 approval은 **1회용**. 한 번 `consumed`되면 새 approval을 만들어야 함.
+- `argsHash`는 배포 인자 전체(service/region/image/port/runtime/envKeys 등)의 정규화 + sha256. 승인 후 인자 변경 시 `APPROVAL_MISMATCH`로 거부.
+- MCP는 stdio 기반이라 human confirmation 불가. `require_confirm`은 `yes: true` 명시로만 통과.
+- `deny` 규칙은 우회 불가 — Trust Profile 직접 수정이 필요.
 
-```bash
-# 1. 프로젝트 설정 + GCP 인증
-omg setup --project-id my-project
+## 커맨드/도구 레퍼런스
 
-# 2. 연결 상태 확인
-omg --output json doctor
-
-# 3. doctor 결과의 next 필드 따라가기
-```
-
-### 2. Cloud Run 배포
-
-```bash
-# 1. 항상 dry-run 먼저
-omg --output json deploy --dry-run --service my-app --region asia-northeast3
-
-# 2. ok: true 확인 후 실제 배포
-omg --output json deploy --yes --service my-app --region asia-northeast3
-
-# 3. 배포 확인
-omg --output json deploy status --service my-app
-```
-
-### 3. Firebase 배포
-
-```bash
-# 1. 프로젝트 초기화
-omg --output json firebase init
-
-# 2. 로컬 에뮬레이터로 테스트
-omg --output json firebase emulators
-
-# 3. dry-run
-omg --output json firebase deploy --dry-run
-
-# 4. 실제 배포
-omg --output json firebase deploy --yes
-```
-
-## 에이전트 통합 패턴
-
-### 패턴 1: 결과 기반 분기
+CLI:
 
 ```
-1. omg --output json <command> 실행
-2. JSON 파싱
-3. ok === true → data 활용, next 따라가기
-4. ok === false → error.code 매칭
-   - recoverable === true → 재시도 가능
-   - recoverable === false → 사용자에게 안내
+omg init [--project --billing --environment --region --yes]
+omg link [--region --service --site]
+omg deploy [--dry-run] [--yes] [--approval <id>]
+omg doctor
+omg approve <id> [--reason <text>]
+omg reject <id> [--reason <text>]
+omg approvals list [--status <s>] [--action <a>]
+omg mcp start
 ```
 
-### 패턴 2: 단계별 검증
+모든 CLI 명령에 `--output json` 글로벌 옵션 사용 가능.
 
-```
-1. omg --output json deploy --dry-run  → 계획 확인
-2. 사용자에게 계획 보여주고 승인 받기
-3. omg --output json deploy --yes      → 실행
-4. omg --output json deploy status     → 검증
-```
-
-### 패턴 3: 파이프라인
-
-```
-1. omg --output json pipeline --dry-run  → 전체 계획
-2. omg --output json pipeline --yes      → 단계별 실행 (하드 하네스가 통제)
-3. omg --output json status              → 결과 확인
-```
-
-## JSON 모드에서의 확인 게이트
-
-`--output json` 모드에서는 interactive confirmation이 자동 스킵됩니다.
-에이전트가 배포를 원하면 반드시 `--yes` 플래그를 명시적으로 추가해야 합니다.
-
-**안전 순서**: `--dry-run` → 결과 확인 → `--yes`
-
-## 커맨드 레퍼런스
-
-```
-omg setup [--project-id <id>]           GCP 프로젝트 설정 + 인증
-omg auth                                인증 상태 확인
-omg auth refresh                        토큰 갱신
-omg auth logout                         인증 정보 삭제
-omg doctor                              전체 연결 진단
-omg deploy [--dry-run] [--yes]          Cloud Run 배포
-omg deploy status                       배포 상태
-omg deploy logs                         배포 로그
-omg firebase init                       Firebase 프로젝트 초기화
-omg firebase deploy [--dry-run] [--yes] Firebase 배포
-omg firebase emulators                  로컬 에뮬레이터 실행
-omg pipeline [--dry-run] [--yes]        파이프라인 실행
-omg status                              현재 작업 상태
-```
-
-모든 커맨드에 `--output json` 글로벌 옵션 사용 가능.
+MCP: 위 MCP tool 표 참조. stdio 기반으로 `omg mcp start`가 서버를 기동합니다.
