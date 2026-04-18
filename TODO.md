@@ -10,7 +10,7 @@
 - [x] Secret value redaction in outputs and approval args
 - [x] Secret admin runbook with cost boundary
 - [x] MCP tool coverage for secret admin surface
-- [ ] Live Secret Manager smoke on an approved disposable project
+- [x] Live Secret Manager smoke on an approved disposable project
 
 ### Phase 3 project cleanup audit surface
 

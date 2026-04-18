@@ -104,3 +104,30 @@ If approval is required, rerun with the approval ID after approval:
 omg approve <approval-id>
 omg --output json secret set API_KEY --value-file .secrets/api-key.txt --approval <approval-id>
 ```
+
+## Smoke Record: 2026-04-18
+
+The user explicitly approved a live Secret Manager smoke on `<live-validation-project>`.
+
+Execution path:
+
+1. Enabled `secretmanager.googleapis.com` on `<live-validation-project>`.
+2. Created an isolated temporary workspace with `.omg/trust.yaml` targeting `<live-validation-project>`.
+3. Ran `omg --output json secret set OMG_SMOKE_SECRET --project <live-validation-project> --value-file <temp> --dry-run`.
+4. Ran `omg --output json secret set OMG_SMOKE_SECRET --project <live-validation-project> --value-file <temp> --yes`.
+5. Verified `omg --output json secret list --project <live-validation-project> --limit 20` returned `OMG_SMOKE_SECRET`.
+6. Deleted `OMG_SMOKE_SECRET` with `gcloud secrets delete OMG_SMOKE_SECRET --project=<live-validation-project> --quiet`.
+7. Verified final `gcloud secrets list --project=<live-validation-project> --format=json` returned `[]`.
+
+Result:
+
+| Check | Result |
+|---|---|
+| Secret Manager API | `secretmanager.googleapis.com` enabled |
+| Dry-run | passed |
+| Secret create/version add | passed |
+| Secret list visibility | passed |
+| Cleanup | `OMG_SMOKE_SECRET` deleted |
+| Remaining secrets | none |
+
+Note: the Secret Manager API remains enabled on `<live-validation-project>`; no secret versions remain active from this smoke.
