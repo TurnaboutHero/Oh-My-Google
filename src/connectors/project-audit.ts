@@ -30,6 +30,11 @@ export interface CleanupPlan {
   next: string[];
 }
 
+export interface ProjectDeleteResult {
+  projectId: string;
+  lifecycleState: string;
+}
+
 export type ProjectAuditExecutor = (
   args: string[],
 ) => Promise<{ stdout: string; stderr: string }>;
@@ -81,13 +86,15 @@ export async function auditProject(
     parent: parseParent(describe.parent),
     billingEnabled: booleanValue(billing.billingEnabled),
     billingAccountName: stringValue(billing.billingAccountName),
-    callerRoles: rolesResult.rows.map((row) => stringValue(getNested(row, ["bindings", "role"]))).filter(Boolean),
+    callerRoles: rolesResult.rows.map((row) => stringValue(getNested(row, ["bindings", "role"]))).filter(Boolean).sort(),
     enabledServices: servicesResult.rows
       .map((row) => stringValue(getNested(row, ["config", "name"])))
-      .filter(Boolean),
+      .filter(Boolean)
+      .sort(),
     serviceAccounts: serviceAccountsResult.rows
       .map((row) => stringValue(row.email))
-      .filter(Boolean),
+      .filter(Boolean)
+      .sort(),
     inaccessible: [
       ...rolesResult.inaccessible,
       ...servicesResult.inaccessible,
@@ -119,6 +126,24 @@ export function buildCleanupPlan(audit: ProjectAudit): CleanupPlan {
     risk: audit.risk,
     steps,
     next: ["No automated cleanup command is available."],
+  };
+}
+
+export async function deleteProject(
+  projectId: string,
+  executor: ProjectAuditExecutor = runGcloud,
+): Promise<ProjectDeleteResult> {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  await executor(["projects", "delete", normalizedProjectId, "--quiet"]);
+  const describe = await readJsonObject(
+    executor,
+    ["projects", "describe", normalizedProjectId, "--format=json"],
+    "project delete status",
+  );
+
+  return {
+    projectId: normalizedProjectId,
+    lifecycleState: stringValue(describe.lifecycleState),
   };
 }
 

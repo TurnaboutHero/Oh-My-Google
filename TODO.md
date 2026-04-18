@@ -17,8 +17,10 @@
 - [x] `omg project audit --project <id>` read-only risk classification
 - [x] `omg project cleanup --project <id> --dry-run` plan-only command
 - [x] MCP tool coverage for project audit/cleanup dry-run
-- [x] Destructive project deletion remains denied/not implemented
+- [x] `omg project delete --project <id>` approval-gated L3 workflow
+- [x] Protected/do-not-touch projects blocked before approval
 - [x] Read-only audit smoke against existing ambiguous projects
+- [ ] Live delete approved stale projects
 
 ### Phase 2.5 harness foundation
 
