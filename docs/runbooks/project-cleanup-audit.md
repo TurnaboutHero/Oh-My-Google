@@ -101,3 +101,38 @@ Read-only audit was run against the three ambiguous projects:
 
 Cleanup dry-run was also run for `quadratic-signifier-fmd0t` and `citric-optics-380903`.
 Both returned `allowedToExecute: false`; no live cleanup action was available or executed.
+
+## Live Deletion Record: 2026-04-18
+
+The user explicitly approved deletion of only these two stale projects:
+
+- `gen-lang-client-0379078037`
+- `citric-optics-380903`
+
+Excluded projects:
+
+- `quadratic-signifier-fmd0t`
+- `<live-validation-project>`
+- `review-program-system`
+
+Execution path:
+
+1. `omg --output json project delete --project <id>` created an approval request.
+2. `omg --output json approve <approval-id>` approved the request with an explicit reason.
+3. `omg --output json project delete --project <id> --approval <approval-id>` executed `gcloud projects delete <id> --quiet`.
+4. `gcloud projects describe <id> --format=value(lifecycleState)` verified `DELETE_REQUESTED`.
+
+Results:
+
+| Project | Approval ID | Verified Lifecycle State |
+|---|---|---|
+| `gen-lang-client-0379078037` | `apr_20260418_125505_b40e0f` | `DELETE_REQUESTED` |
+| `citric-optics-380903` | `apr_20260418_125543_925c3f` | `DELETE_REQUESTED` |
+
+Protected project verification after deletion:
+
+| Project | Lifecycle State |
+|---|---|
+| `quadratic-signifier-fmd0t` | `ACTIVE` |
+| `<live-validation-project>` | `ACTIVE` |
+| `review-program-system` | `ACTIVE` |
