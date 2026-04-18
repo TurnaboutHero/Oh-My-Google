@@ -248,6 +248,28 @@ shared core 경계:
 - 각 명령의 입력/출력 계약이 CLI와 JSON 모드에서 명확하다.
 - 배포 하네스보다 우선순위를 침범하지 않는다.
 
+Progress as of 2026-04-18:
+
+- Secret Manager surface is implemented for CLI and MCP:
+  - `omg secret list`
+  - `omg secret set <name>`
+  - `omg.secret.list`
+  - `omg.secret.set`
+  - `secret.list = L0`, `secret.set = L2`
+  - Secret payloads are not printed or stored in approval args.
+  - Approved live smoke on `<live-validation-project>` passed; `OMG_SMOKE_SECRET` was created, listed, and deleted. Final secret list was empty.
+- Project cleanup audit/delete surface is implemented for CLI and MCP:
+  - `omg project audit --project <id>`
+  - `omg project cleanup --project <id> --dry-run`
+  - `omg project delete --project <id>`
+  - `omg.project.audit`
+  - `omg.project.cleanup`
+  - `omg.project.delete`
+  - Project deletion is L3 approval-gated and blocks protected, do-not-touch, billing-enabled, and non-owner projects before approval.
+  - Approved stale projects `gen-lang-client-0379078037` and `citric-optics-380903` were verified as `DELETE_REQUESTED`.
+  - `quadratic-signifier-fmd0t`, `<live-validation-project>`, and `review-program-system` remain `ACTIVE`.
+- Next recommended Phase 3 surface is `budget` / billing guard, because the project now treats free-tier safety as a hard operating constraint.
+
 ## Phase 4
 
 목표: 추가 GCP 리소스를 `add` 계열로 점진적으로 붙인다.
