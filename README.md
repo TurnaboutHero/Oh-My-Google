@@ -6,7 +6,7 @@
 
 - 4개 핵심 명령: `omg init`, `omg link`, `omg deploy`, `omg doctor`
 - Approval 보조 명령: `omg approve`, `omg reject`, `omg approvals list`
-- MCP 서버: 9개 tool (`omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.secret.list`, `omg.secret.set`)
+- MCP 서버: 11개 tool (`omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.secret.list`, `omg.secret.set`, `omg.project.audit`, `omg.project.cleanup`)
 
 핵심 아이디어는 세 가지입니다.
 
@@ -120,9 +120,20 @@ omg --output json secret set API_KEY --value-file .secrets/api-key.txt --yes
 
 Live Secret Manager usage can affect billing once active secret versions or access operations exceed the Google Cloud free tier. Run dry-runs first and get explicit approval before live writes.
 
+### `omg project audit`, `omg project cleanup --dry-run`
+
+Read-only project cleanup audit surface.
+
+```bash
+omg --output json project audit --project citric-optics-380903
+omg --output json project cleanup --project citric-optics-380903 --dry-run
+```
+
+`project audit` classifies cleanup risk from available metadata. `project cleanup --dry-run` returns a plan only; it never deletes projects, disables APIs, changes billing, or removes IAM bindings.
+
 ### `omg mcp start`
 
-stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Codex 등)가 여기 붙어 9개 tool을 호출합니다.
+stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Codex 등)가 여기 붙어 11개 tool을 호출합니다.
 
 ## MCP tool 목록
 
@@ -137,6 +148,8 @@ stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Cod
 | `omg.approvals.list` | Approval 목록 조회 |
 | `omg.secret.list` | Secret Manager metadata-only listing |
 | `omg.secret.set` | Secret Manager create/update through trust gate |
+| `omg.project.audit` | Read-only project cleanup risk audit |
+| `omg.project.cleanup` | Dry-run-only cleanup plan |
 
 모든 tool은 CLI와 동일한 `{ok, command, data?, error?, next?}` 응답 구조를 사용합니다. MCP 응답은 이 객체를 `content[0].text`에 JSON 문자열로 감쌉니다.
 
@@ -233,6 +246,7 @@ src/
 - [GCP E2E runbook](./docs/runbooks/gcp-e2e.md)
 - [Phase 2.5 validation record](./docs/runbooks/phase-2.5-validation.md)
 - [Secret admin runbook](./docs/runbooks/secret-admin.md)
+- [Project cleanup audit runbook](./docs/runbooks/project-cleanup-audit.md)
 
 ## 참고
 

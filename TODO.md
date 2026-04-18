@@ -12,6 +12,14 @@
 - [x] MCP tool coverage for secret admin surface
 - [ ] Live Secret Manager smoke on an approved disposable project
 
+### Phase 3 project cleanup audit surface
+
+- [x] `omg project audit --project <id>` read-only risk classification
+- [x] `omg project cleanup --project <id> --dry-run` plan-only command
+- [x] MCP tool coverage for project audit/cleanup dry-run
+- [x] Destructive project deletion remains denied/not implemented
+- [x] Read-only audit smoke against existing ambiguous projects
+
 ### Phase 2.5 harness foundation
 
 - [x] `.omg/decisions.log.jsonl` schema와 append writer 설계

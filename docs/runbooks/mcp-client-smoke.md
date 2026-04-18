@@ -26,6 +26,8 @@ node bin/omg mcp start
 - `omg.link`
 - `omg.secret.list`
 - `omg.secret.set`
+- `omg.project.audit`
+- `omg.project.cleanup`
 
 ## Smoke Steps
 

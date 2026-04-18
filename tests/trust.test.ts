@@ -78,4 +78,16 @@ describe("trust profile defaults", () => {
     expect(result.action).toBe("require_approval");
     expect(result.reasonCode).toBe("APPROVAL_REQUIRED");
   });
+
+  it("keeps destructive project deletion denied", async () => {
+    const profile = generateDefaultProfile("demo-project", "dev");
+    const result = await checkPermission("gcp.project.delete", profile, {
+      jsonMode: true,
+      yes: true,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.action).toBe("deny");
+    expect(result.reasonCode).toBe("DENIED");
+  });
 });

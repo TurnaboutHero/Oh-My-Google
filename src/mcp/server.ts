@@ -5,6 +5,7 @@ import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
 import { initTool, handleInit } from "./tools/init.js";
 import { linkTool, handleLink } from "./tools/link.js";
+import { handleProjectAudit, handleProjectCleanup, projectAuditTool, projectCleanupTool } from "./tools/project.js";
 import { rejectTool, handleReject } from "./tools/reject.js";
 import { handleSecretList, handleSecretSet, secretListTool, secretSetTool } from "./tools/secret.js";
 import type { OmgResponse } from "./tools/types.js";
@@ -19,6 +20,8 @@ const tools = [
   linkTool,
   secretListTool,
   secretSetTool,
+  projectAuditTool,
+  projectCleanupTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -72,6 +75,12 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === secretSetTool.name) {
     return handleSecretSet(args ?? {});
+  }
+  if (name === projectAuditTool.name) {
+    return handleProjectAudit(args ?? {});
+  }
+  if (name === projectCleanupTool.name) {
+    return handleProjectCleanup(args ?? {});
   }
 
   return {
