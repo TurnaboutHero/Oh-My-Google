@@ -40,25 +40,43 @@ node bin/omg --output json init \
   --yes
 ```
 
-3. Link the fixture repo:
+3. Add Firebase resources to the disposable GCP project:
+
+```bash
+firebase projects:addfirebase <test-project-id> --non-interactive
+```
+
+4. Link the fixture repo to the Firebase project:
+
+```bash
+cat > .firebaserc <<'JSON'
+{
+  "projects": {
+    "default": "<test-project-id>"
+  }
+}
+JSON
+```
+
+5. Link the fixture repo:
 
 ```bash
 node bin/omg --output json link
 ```
 
-4. Dry-run the deployment:
+6. Dry-run the deployment:
 
 ```bash
 node bin/omg --output json deploy --dry-run
 ```
 
-5. Execute the deployment:
+7. Execute the deployment:
 
 ```bash
 node bin/omg --output json deploy --yes
 ```
 
-6. Diagnose the final state:
+8. Diagnose the final state:
 
 ```bash
 node bin/omg --output json doctor
@@ -67,6 +85,8 @@ node bin/omg --output json doctor
 ## Pass Criteria
 
 - `init` creates `.omg/trust.yaml` and `~/.omg/config.json`.
+- `firebase projects:addfirebase` creates Firebase resources and the default Hosting site.
+- `.firebaserc` links the fixture to the Firebase project.
 - `link` creates `.omg/project.yaml`.
 - `deploy --dry-run` returns the planned deployment order.
 - `deploy --yes` returns deployed URLs.

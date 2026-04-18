@@ -1,5 +1,5 @@
-import { execFile, type ExecFileException } from "node:child_process";
-import { promisify } from "node:util";
+import type { ExecFileException } from "node:child_process";
+import { execCliFile } from "../system/cli-runner.js";
 import {
   AuthError,
   CliRunnerError,
@@ -7,8 +7,6 @@ import {
   QuotaError,
   ValidationError,
 } from "../types/errors.js";
-
-const execFileAsync = promisify(execFile);
 
 export const DEFAULT_APIS = [
   "cloudbuild.googleapis.com",
@@ -67,7 +65,7 @@ async function runGcloudJson<T>(
 
 async function runGcloud(args: string[], message: string): Promise<string> {
   try {
-    const { stdout } = await execFileAsync("gcloud", [...args, "--format=json"], {
+    const { stdout } = await execCliFile("gcloud", [...args, "--format=json"], {
       encoding: "utf-8",
       windowsHide: true,
     });

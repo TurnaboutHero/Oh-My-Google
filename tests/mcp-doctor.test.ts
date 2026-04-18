@@ -1,10 +1,21 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleDoctor } from "../src/mcp/tools/doctor.js";
 
 const tempDirs: string[] = [];
+
+vi.mock("../src/cli/doctor.js", () => ({
+  runDoctor: vi.fn(async () => ({
+    ok: false,
+    checks: {
+      config: { ok: false, detail: "no project configured" },
+      adcCredentials: { ok: true, detail: "application default credentials file found" },
+    },
+    next: ["omg init"],
+  })),
+}));
 
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));

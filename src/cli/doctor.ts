@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { Command } from "commander";
 import { AuthManager } from "../auth/auth-manager.js";
+import { execCliFileSync } from "../system/cli-runner.js";
 import { getOutputFormat } from "./output.js";
 
 interface CheckResult {
@@ -67,7 +67,7 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
 
   if (status.projectId && status.gcloudAccount) {
     try {
-      const result = execFileSync(
+      const result = execCliFileSync(
         "gcloud",
         [
           "services",
@@ -89,7 +89,7 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
   }
 
   try {
-    execFileSync("firebase", ["--version"], {
+    execCliFileSync("firebase", ["--version"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -99,7 +99,7 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
   }
 
   try {
-    const version = execFileSync("gcloud", ["--version"], {
+    const version = execCliFileSync("gcloud", ["--version"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).split("\n")[0]?.trim();

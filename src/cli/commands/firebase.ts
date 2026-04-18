@@ -1,8 +1,8 @@
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
 import { firebaseConnector } from "../../connectors/firebase.js";
+import { spawnCliSync } from "../../system/cli-runner.js";
 import type {
   ConnectorResult,
   ConnectorConfig,
@@ -306,14 +306,14 @@ function toOmgError(error: unknown): OmgError {
 
 function runFirebaseCli(args: string[], cwd: string) {
   if (getOutputFormat() === "human") {
-    return spawnSync("firebase", args, {
+    return spawnCliSync("firebase", args, {
       cwd,
       stdio: "inherit",
       encoding: "utf-8",
     });
   }
 
-  return spawnSync("firebase", args, {
+  return spawnCliSync("firebase", args, {
     cwd,
     encoding: "utf-8",
   });

@@ -1,8 +1,7 @@
-import { execFile, type ExecFileException } from "node:child_process";
-import { promisify } from "node:util";
+import type { ExecFileException } from "node:child_process";
+import { execCliFile } from "../system/cli-runner.js";
 import { AuthError, CliRunnerError, OmgError, ValidationError } from "../types/errors.js";
 
-const execFileAsync = promisify(execFile);
 const SECRET_PATTERN = /^\$\{SECRET:([^}]+)\}$/;
 
 export async function resolveEnv(
@@ -30,7 +29,7 @@ async function accessSecret(projectId: string, secretName: string): Promise<stri
   }
 
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await execCliFile(
       "gcloud",
       [
         "secrets",

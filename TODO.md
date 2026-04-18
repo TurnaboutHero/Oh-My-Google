@@ -15,8 +15,8 @@
 - [x] MCP client smoke runbook 추가
 - [x] 실제 GCP E2E runbook 추가
 - [x] Phase 2.5 문서와 README/ARCHITECTURE 간 용어 정합성 점검
-- [ ] MCP client smoke를 실제 Claude Code/Codex 설정에서 실행
-- [ ] 테스트용 GCP 프로젝트로 실제 E2E 실행
+- [x] MCP client smoke를 실제 Claude Code/Codex 설정에서 실행
+- [x] 테스트용 GCP 프로젝트로 실제 E2E 실행
 
 ### Phase 1.1 hardening
 
