@@ -26,7 +26,8 @@ export function resolveCliCommand(
   options: ResolveCliCommandOptions = {},
 ): ResolvedCliCommand {
   const platform = options.platform ?? process.platform;
-  if (platform !== "win32" || path.isAbsolute(command)) {
+  const pathApi = platform === "win32" ? path.win32 : path;
+  if (platform !== "win32" || pathApi.isAbsolute(command)) {
     return { command, argsPrefix: [] };
   }
 
@@ -97,15 +98,16 @@ function findCommandOnPath(
   command: string,
   options: ResolveCliCommandOptions,
 ): string | undefined {
+  const pathApi = (options.platform ?? process.platform) === "win32" ? path.win32 : path;
   const pathValue = options.pathValue ?? process.env.PATH ?? "";
   const pathExt = options.pathExt ?? process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD";
   const fileExists = options.fileExists ?? fs.existsSync;
   const extensions = [...pathExt.split(";"), ".PS1"];
   const candidates = extensions.map((ext) => `${command}${ext.toLowerCase()}`);
 
-  for (const dir of pathValue.split(path.delimiter).filter(Boolean)) {
+  for (const dir of pathValue.split(pathApi.delimiter).filter(Boolean)) {
     for (const candidateName of candidates) {
-      const candidate = path.join(dir, candidateName);
+      const candidate = pathApi.join(dir, candidateName);
       if (fileExists(candidate)) {
         return candidate;
       }
