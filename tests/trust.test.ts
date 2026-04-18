@@ -54,4 +54,28 @@ describe("trust profile defaults", () => {
     expect(result.reasonCode).toBe("DENIED");
     expect(result.deniedBy).toBe("iam.role.*.owner");
   });
+
+  it("requires explicit confirmation for dev secret writes", async () => {
+    const profile = generateDefaultProfile("demo-project", "dev");
+    const result = await checkPermission("secret.set", profile, {
+      jsonMode: true,
+      yes: false,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.action).toBe("require_confirm");
+    expect(result.reasonCode).toBe("REQUIRES_CONFIRM");
+  });
+
+  it("requires manual approval for prod secret writes", async () => {
+    const profile = generateDefaultProfile("demo-project", "prod");
+    const result = await checkPermission("secret.set", profile, {
+      jsonMode: true,
+      yes: true,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.action).toBe("require_approval");
+    expect(result.reasonCode).toBe("APPROVAL_REQUIRED");
+  });
 });

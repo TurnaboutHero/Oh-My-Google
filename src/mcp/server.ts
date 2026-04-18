@@ -6,9 +6,20 @@ import { doctorTool, handleDoctor } from "./tools/doctor.js";
 import { initTool, handleInit } from "./tools/init.js";
 import { linkTool, handleLink } from "./tools/link.js";
 import { rejectTool, handleReject } from "./tools/reject.js";
+import { handleSecretList, handleSecretSet, secretListTool, secretSetTool } from "./tools/secret.js";
 import type { OmgResponse } from "./tools/types.js";
 
-const tools = [doctorTool, approvalsListTool, approveTool, rejectTool, deployTool, initTool, linkTool];
+const tools = [
+  doctorTool,
+  approvalsListTool,
+  approveTool,
+  rejectTool,
+  deployTool,
+  initTool,
+  linkTool,
+  secretListTool,
+  secretSetTool,
+];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
   if (opts.transport !== "stdio") {
@@ -55,6 +66,12 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === linkTool.name) {
     return handleLink(args ?? {});
+  }
+  if (name === secretListTool.name) {
+    return handleSecretList(args ?? {});
+  }
+  if (name === secretSetTool.name) {
+    return handleSecretSet(args ?? {});
   }
 
   return {
