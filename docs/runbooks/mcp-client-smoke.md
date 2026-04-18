@@ -24,6 +24,8 @@ node bin/omg mcp start
 - `omg.deploy`
 - `omg.init`
 - `omg.link`
+- `omg.secret.list`
+- `omg.secret.set`
 
 ## Smoke Steps
 

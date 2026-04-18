@@ -2,6 +2,16 @@
 
 ## Active
 
+### Phase 3 secret admin surface
+
+- [x] `omg secret list` metadata-only JSON/human command
+- [x] `omg secret set <name>` dry-run and write command
+- [x] Secret write trust mapping (`secret.set` as L2)
+- [x] Secret value redaction in outputs and approval args
+- [x] Secret admin runbook with cost boundary
+- [x] MCP tool coverage for secret admin surface
+- [ ] Live Secret Manager smoke on an approved disposable project
+
 ### Phase 2.5 harness foundation
 
 - [x] `.omg/decisions.log.jsonl` schema와 append writer 설계

@@ -6,7 +6,7 @@
 
 - 4개 핵심 명령: `omg init`, `omg link`, `omg deploy`, `omg doctor`
 - Approval 보조 명령: `omg approve`, `omg reject`, `omg approvals list`
-- MCP 서버: 7개 tool (`omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`)
+- MCP 서버: 9개 tool (`omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.secret.list`, `omg.secret.set`)
 
 핵심 아이디어는 세 가지입니다.
 
@@ -30,7 +30,7 @@
 
 아직 구현되지 않았거나 유보된 범위:
 
-- admin surface (`secret`, `iam`, `budget`, `notify`, `security`)
+- admin surface beyond Secret Manager (`iam`, `budget`, `notify`, `security`)
 - 고급 rollback orchestration
 - Next.js SSR 지원
 
@@ -106,9 +106,23 @@ omg reject apr_xxx --reason "args look wrong"
 omg approvals list --status pending
 ```
 
+### `omg secret list`, `omg secret set <name>`
+
+Phase 3 Secret Manager admin surface.
+
+```bash
+omg --output json secret list --limit 20
+omg --output json secret set API_KEY --value-file .secrets/api-key.txt --dry-run
+omg --output json secret set API_KEY --value-file .secrets/api-key.txt --yes
+```
+
+`secret list` returns metadata only. `secret set` creates a missing secret or adds a new version to an existing secret without printing the secret value. Prefer `--value-file` over `--value` to avoid shell history exposure.
+
+Live Secret Manager usage can affect billing once active secret versions or access operations exceed the Google Cloud free tier. Run dry-runs first and get explicit approval before live writes.
+
 ### `omg mcp start`
 
-stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Codex 등)가 여기 붙어 7개 tool을 호출합니다.
+stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Codex 등)가 여기 붙어 9개 tool을 호출합니다.
 
 ## MCP tool 목록
 
@@ -121,6 +135,8 @@ stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Cod
 | `omg.approve` | Approval 승인 |
 | `omg.reject` | Approval 거부 |
 | `omg.approvals.list` | Approval 목록 조회 |
+| `omg.secret.list` | Secret Manager metadata-only listing |
+| `omg.secret.set` | Secret Manager create/update through trust gate |
 
 모든 tool은 CLI와 동일한 `{ok, command, data?, error?, next?}` 응답 구조를 사용합니다. MCP 응답은 이 객체를 `content[0].text`에 JSON 문자열로 감쌉니다.
 
@@ -216,6 +232,7 @@ src/
 - [MCP client smoke runbook](./docs/runbooks/mcp-client-smoke.md)
 - [GCP E2E runbook](./docs/runbooks/gcp-e2e.md)
 - [Phase 2.5 validation record](./docs/runbooks/phase-2.5-validation.md)
+- [Secret admin runbook](./docs/runbooks/secret-admin.md)
 
 ## 참고
 

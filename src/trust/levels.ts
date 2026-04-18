@@ -13,6 +13,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "gcp.auth.status": "L0",
   "planner.detect": "L0",
   "doctor.run": "L0",
+  "secret.list": "L0",
 
   // L1 — 배포/설정 변경
   "deploy.cloud-run": "L1",
@@ -24,6 +25,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "iam.role.grant": "L2",
   "billing.link": "L2",
   "deploy.prod": "L2",
+  "secret.set": "L2",
 
   // L3 — 삭제/고위험
   "gcp.project.delete": "L3",
