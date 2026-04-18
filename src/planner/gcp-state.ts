@@ -1,16 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execFile, type ExecFileException } from "node:child_process";
-import { promisify } from "node:util";
+import type { ExecFileException } from "node:child_process";
 import { listEnabledApis } from "../setup/apis.js";
+import { execCliFile } from "../system/cli-runner.js";
 import {
   AuthError,
   CliRunnerError,
   OmgError,
   QuotaError,
 } from "../types/errors.js";
-
-const execFileAsync = promisify(execFile);
 
 export interface GcpState {
   projectId: string;
@@ -124,7 +122,7 @@ async function runGcloudJson<T>(
 
 async function runGcloud(args: string[], message: string): Promise<string> {
   try {
-    const { stdout } = await execFileAsync("gcloud", [...args, "--format=json"], {
+    const { stdout } = await execCliFile("gcloud", [...args, "--format=json"], {
       encoding: "utf-8",
       windowsHide: true,
     });

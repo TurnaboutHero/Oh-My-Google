@@ -1,10 +1,10 @@
-import { spawnSync } from "node:child_process";
 import type {
   Connector,
   ConnectorConfig,
   ConnectorResult,
   HealthStatus,
 } from "../types/connector.js";
+import { spawnCliSync } from "../system/cli-runner.js";
 import { CliRunnerError, ValidationError, type OmgError } from "../types/errors.js";
 
 export type CloudRunAction =
@@ -51,7 +51,7 @@ export class CloudRunConnector
     const projectId = config.project.projectId;
 
     // Check gcloud CLI
-    const gcloudCheck = spawnSync("gcloud", ["--version"], {
+    const gcloudCheck = spawnCliSync("gcloud", ["--version"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -65,7 +65,7 @@ export class CloudRunConnector
     }
 
     // Check Cloud Run API
-    const apiCheck = spawnSync(
+    const apiCheck = spawnCliSync(
       "gcloud",
       [
         "services", "list",
@@ -143,7 +143,7 @@ export class CloudRunConnector
     const projectId = config.project.projectId;
     const region = config.project.region ?? "asia-northeast3";
 
-    spawnSync(
+    spawnCliSync(
       "gcloud",
       ["run", "services", "update-traffic", "--to-revisions", "LATEST=0",
        "--region", region, "--project", projectId, "--quiet"],
@@ -168,7 +168,7 @@ export class CloudRunConnector
       args.push("--allow-unauthenticated");
     }
 
-    const run = spawnSync("gcloud", args, {
+    const run = spawnCliSync("gcloud", args, {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -205,7 +205,7 @@ export class CloudRunConnector
     base: CloudRunResult,
     startedAt: number,
   ): ConnectorResult<CloudRunResult> {
-    const run = spawnSync(
+    const run = spawnCliSync(
       "gcloud",
       [
         "run", "services", "describe", base.service,
@@ -249,7 +249,7 @@ export class CloudRunConnector
     base: CloudRunResult,
     startedAt: number,
   ): ConnectorResult<CloudRunResult> {
-    const run = spawnSync(
+    const run = spawnCliSync(
       "gcloud",
       [
         "run", "services", "update-traffic", base.service,
@@ -279,7 +279,7 @@ export class CloudRunConnector
     startedAt: number,
   ): ConnectorResult<CloudRunResult> {
     const limit = params.limit ?? 20;
-    const run = spawnSync(
+    const run = spawnCliSync(
       "gcloud",
       [
         "run", "services", "logs", "read", base.service,

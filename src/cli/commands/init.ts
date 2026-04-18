@@ -1,7 +1,6 @@
-import { execFile, type ExecFileException } from "node:child_process";
+import type { ExecFileException } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
 import { confirm, input, select } from "@inquirer/prompts";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
@@ -10,6 +9,7 @@ import { DEFAULT_APIS, enableApis } from "../../setup/apis.js";
 import { getBillingStatus, linkBilling, listBillingAccounts } from "../../setup/billing.js";
 import { applyBindings, proposeDefaultRoles } from "../../setup/iam.js";
 import { createProject, listProjects, setActiveProject } from "../../setup/project.js";
+import { execCliFile } from "../../system/cli-runner.js";
 import { generateDefaultProfile, saveProfile } from "../../trust/profile.js";
 import {
   AuthError,
@@ -19,8 +19,6 @@ import {
 } from "../../types/errors.js";
 import type { Environment } from "../../types/trust.js";
 import { fail, getOutputFormat, success } from "../output.js";
-
-const execFileAsync = promisify(execFile);
 
 export interface RunInitInput {
   cwd: string;
@@ -421,7 +419,7 @@ function validateEnvironment(value: string): Environment {
 
 async function ensureGcloudInstalled(): Promise<void> {
   try {
-    await execFileAsync("gcloud", ["--version"], {
+    await execCliFile("gcloud", ["--version"], {
       encoding: "utf-8",
       windowsHide: true,
     });
@@ -437,7 +435,7 @@ async function ensureGcloudInstalled(): Promise<void> {
 
 async function getActiveAccount(): Promise<string | undefined> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await execCliFile(
       "gcloud",
       ["config", "get-value", "account", "--format=json"],
       {

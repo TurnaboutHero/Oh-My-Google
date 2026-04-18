@@ -1,8 +1,7 @@
 import fs from "node:fs/promises";
-import { execFile } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
-import { promisify } from "node:util";
+import { execCliFile } from "../system/cli-runner.js";
 import { AuthError } from "../types/errors.js";
 
 export interface ProjectProfile {
@@ -51,7 +50,6 @@ export class GcpAuthProvider implements AuthProvider {
 
 const OMG_DIR = path.join(os.homedir(), ".omg");
 const CONFIG_PATH = path.join(OMG_DIR, "config.json");
-const execFileAsync = promisify(execFile);
 
 export class AuthManager {
   private gcpProvider = new GcpAuthProvider();
@@ -118,7 +116,7 @@ function getAdcPaths(): string[] {
 
 async function getActiveGcloudAccount(): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await execCliFile(
       "gcloud",
       [
         "auth",

@@ -1,8 +1,8 @@
 import path from "node:path";
-import { execFile, type ExecFileException } from "node:child_process";
-import { promisify } from "node:util";
+import type { ExecFileException } from "node:child_process";
 import { cloudRunConnector } from "../connectors/cloud-run.js";
 import { firebaseConnector } from "../connectors/firebase.js";
+import { execCliFile } from "../system/cli-runner.js";
 import {
   AuthError,
   CliRunnerError,
@@ -13,8 +13,6 @@ import type { Plan } from "../types/plan.js";
 import type { TrustProfile } from "../types/trust.js";
 import { resolveEnv } from "../wiring/env-inject.js";
 import { injectRewrite } from "../wiring/firebase-rewrites.js";
-
-const execFileAsync = promisify(execFile);
 
 export interface ApplyContext {
   cwd: string;
@@ -218,7 +216,7 @@ async function updateCloudRunEnv(
   env: Record<string, string>,
 ): Promise<void> {
   try {
-    await execFileAsync(
+    await execCliFile(
       "gcloud",
       [
         "run",

@@ -215,6 +215,7 @@ src/
 - [AGENTS.md](./AGENTS.md)
 - [MCP client smoke runbook](./docs/runbooks/mcp-client-smoke.md)
 - [GCP E2E runbook](./docs/runbooks/gcp-e2e.md)
+- [Phase 2.5 validation record](./docs/runbooks/phase-2.5-validation.md)
 
 ## 참고
 

@@ -1,11 +1,11 @@
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import type {
   Connector,
   ConnectorConfig,
   ConnectorResult,
   HealthStatus,
 } from "../types/connector.js";
+import { spawnCliSync } from "../system/cli-runner.js";
 import {
   CliRunnerError,
   type OmgError,
@@ -50,7 +50,7 @@ export class FirebaseConnector
 
   async healthCheck(config: ConnectorConfig): Promise<HealthStatus> {
     const projectId = config.project.projectId;
-    const check = spawnSync("firebase", ["--version"], {
+    const check = spawnCliSync("firebase", ["--version"], {
       encoding: "utf-8",
     });
 
@@ -120,7 +120,7 @@ export class FirebaseConnector
       return this.successResult(typedAction, startedAt, baseData);
     }
 
-    const run = spawnSync("firebase", args, {
+    const run = spawnCliSync("firebase", args, {
       cwd,
       encoding: "utf-8",
     });

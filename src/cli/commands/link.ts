@@ -1,5 +1,3 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
 import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
@@ -7,11 +5,10 @@ import { buildPlan } from "../../planner/plan-builder.js";
 import { detect } from "../../planner/detect.js";
 import { fetchGcpState } from "../../planner/gcp-state.js";
 import { savePlan } from "../../planner/schema.js";
+import { execCliFile } from "../../system/cli-runner.js";
 import { OmgError, ValidationError } from "../../types/errors.js";
 import type { Plan } from "../../types/plan.js";
 import { fail, success } from "../output.js";
-
-const execFileAsync = promisify(execFile);
 
 export interface RunLinkInput {
   cwd: string;
@@ -136,7 +133,7 @@ export async function runLink(input: RunLinkInput): Promise<RunLinkOutcome> {
 
 async function getActiveProjectId(): Promise<string | undefined> {
   try {
-    const { stdout } = await execFileAsync(
+    const { stdout } = await execCliFile(
       "gcloud",
       ["config", "get-value", "project", "--format=json"],
       {
