@@ -6,9 +6,11 @@ Commands:
 
 - `omg project audit --project <id>`
 - `omg project cleanup --project <id> --dry-run`
-- MCP tools `omg.project.audit` and `omg.project.cleanup`
+- `omg project delete --project <id>`
+- MCP tools `omg.project.audit`, `omg.project.cleanup`, and `omg.project.delete`
 
-No command in this surface deletes projects, disables APIs, changes billing, or removes IAM bindings.
+`project audit` and `project cleanup --dry-run` never delete projects, disable APIs, change billing, or remove IAM bindings.
+`project delete` is a separate L3 workflow and cannot execute without manual approval.
 
 ## Audit
 
@@ -38,10 +40,36 @@ omg --output json project cleanup --project citric-optics-380903 --dry-run
 
 This returns a plan only. `allowedToExecute` is always `false`.
 
+## Delete Workflow
+
+```bash
+omg --output json project delete --project citric-optics-380903
+omg approve <approval-id>
+omg --output json project delete --project citric-optics-380903 --approval <approval-id>
+```
+
+Deletion is blocked before approval when:
+
+- the project is protected: `review-program-system`, `<live-validation-project>`, or `quadratic-signifier-fmd0t`
+- audit risk is `do_not_touch`
+- the caller does not have `roles/owner`
+- billing is enabled
+
+When deletion is allowed, `omg project delete` first creates an approval request. Only an approved matching request can trigger `gcloud projects delete <id> --quiet`.
+
 ## MCP Examples
 
 ```json
 { "tool": "omg.project.audit", "arguments": { "project": "citric-optics-380903" } }
+```
+
+```json
+{
+  "tool": "omg.project.delete",
+  "arguments": {
+    "project": "citric-optics-380903"
+  }
+}
 ```
 
 ```json
@@ -59,7 +87,7 @@ This returns a plan only. `allowedToExecute` is always `false`.
 - Do not use this surface on `review-program-system`.
 - Do not clean up folder-backed projects or projects where IAM visibility is missing.
 - Billing-enabled projects are treated conservatively unless ownership and billing responsibility are confirmed.
-- Any future live delete workflow must be a separate L3 workflow with explicit user approval.
+- Live delete requires the L3 approval workflow and explicit user approval.
 
 ## Smoke Record: 2026-04-18
 

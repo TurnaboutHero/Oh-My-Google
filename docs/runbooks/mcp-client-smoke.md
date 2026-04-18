@@ -28,6 +28,7 @@ node bin/omg mcp start
 - `omg.secret.set`
 - `omg.project.audit`
 - `omg.project.cleanup`
+- `omg.project.delete`
 
 ## Smoke Steps
 

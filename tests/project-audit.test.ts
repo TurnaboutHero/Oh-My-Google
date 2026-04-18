@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { auditProject, buildCleanupPlan, type ProjectAuditExecutor } from "../src/connectors/project-audit.js";
+import {
+  auditProject,
+  buildCleanupPlan,
+  deleteProject,
+  type ProjectAuditExecutor,
+} from "../src/connectors/project-audit.js";
 
 describe("project audit connector", () => {
   it("classifies unknown folder-backed projects without owner role as do-not-touch", async () => {
@@ -68,6 +73,34 @@ describe("project audit connector", () => {
     expect(plan.steps).toContain("Review project ownership and enabled APIs in Google Cloud Console.");
     expect(JSON.stringify(plan)).not.toContain("projects delete");
     expect(JSON.stringify(plan)).not.toContain("services disable");
+  });
+
+  it("deletes a project and verifies delete requested state", async () => {
+    const calls: string[][] = [];
+    const executor: ProjectAuditExecutor = async (args) => {
+      calls.push(args);
+      if (args[0] === "projects" && args[1] === "delete") {
+        return { stdout: "", stderr: "" };
+      }
+      if (args[0] === "projects" && args[1] === "describe") {
+        return {
+          stdout: JSON.stringify({
+            projectId: "citric-optics-380903",
+            lifecycleState: "DELETE_REQUESTED",
+          }),
+          stderr: "",
+        };
+      }
+      return { stdout: "{}", stderr: "" };
+    };
+
+    const result = await deleteProject("citric-optics-380903", executor);
+
+    expect(calls[0]).toEqual(["projects", "delete", "citric-optics-380903", "--quiet"]);
+    expect(result).toEqual({
+      projectId: "citric-optics-380903",
+      lifecycleState: "DELETE_REQUESTED",
+    });
   });
 });
 

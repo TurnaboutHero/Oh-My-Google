@@ -5,6 +5,8 @@ vi.mock("../src/connectors/project-audit.js", () => ({
   auditProject: vi.fn(async (projectId: string) => ({
     projectId,
     risk: projectId === "quadratic-signifier-fmd0t" ? "do_not_touch" : "review",
+    callerRoles: ["roles/owner"],
+    billingEnabled: false,
     signals: ["Billing is enabled."],
     recommendedAction: "Do not modify this project until ownership and billing responsibility are confirmed.",
   })),
@@ -15,6 +17,10 @@ vi.mock("../src/connectors/project-audit.js", () => ({
     risk: audit.risk,
     steps: ["Review project ownership and enabled APIs in Google Cloud Console."],
     next: ["No automated cleanup command is available."],
+  })),
+  deleteProject: vi.fn(async (projectId: string) => ({
+    projectId,
+    lifecycleState: "DELETE_REQUESTED",
   })),
 }));
 
@@ -47,5 +53,15 @@ describe("omg.project MCP tools", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("requires approval for project deletion", async () => {
+    const { handleProjectDelete } = await import("../src/mcp/tools/project.js");
+
+    const result = await handleProjectDelete({ project: "citric-optics-380903" });
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe("APPROVAL_REQUIRED");
+    expect(result.data?.approvalId).toBeDefined();
   });
 });

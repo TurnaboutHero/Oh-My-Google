@@ -1,4 +1,9 @@
-import { runProjectAudit, runProjectCleanup, type RunProjectOutcome } from "../../cli/commands/project.js";
+import {
+  runProjectAudit,
+  runProjectCleanup,
+  runProjectDelete,
+  type RunProjectOutcome,
+} from "../../cli/commands/project.js";
 import type { OmgResponse } from "./types.js";
 
 export const projectAuditTool = {
@@ -28,6 +33,20 @@ export const projectCleanupTool = {
   },
 };
 
+export const projectDeleteTool = {
+  name: "omg.project.delete",
+  description: "Request or consume approval for Google Cloud project deletion.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      project: { type: "string" },
+      approval: { type: "string" },
+    },
+    required: ["project"],
+    additionalProperties: false,
+  },
+};
+
 export async function handleProjectAudit(args: unknown): Promise<OmgResponse> {
   const parsed = parseAuditArgs(args);
   if (!parsed.ok) {
@@ -44,6 +63,18 @@ export async function handleProjectCleanup(args: unknown): Promise<OmgResponse> 
   }
 
   return fromOutcome("project:cleanup", await runProjectCleanup(parsed.args));
+}
+
+export async function handleProjectDelete(args: unknown): Promise<OmgResponse> {
+  const parsed = parseDeleteArgs(args);
+  if (!parsed.ok) {
+    return parsed.response;
+  }
+
+  return fromOutcome("project:delete", await runProjectDelete({
+    cwd: process.cwd(),
+    ...parsed.args,
+  }));
 }
 
 function parseAuditArgs(args: unknown):
@@ -81,6 +112,26 @@ function parseCleanupArgs(args: unknown):
     return validationError("project:cleanup", "dryRun must be a boolean.");
   }
   return { ok: true, args: { project: args.project, dryRun: args.dryRun } };
+}
+
+function parseDeleteArgs(args: unknown):
+  | { ok: true; args: { project: string; approval?: string } }
+  | { ok: false; response: OmgResponse } {
+  if (!isRecord(args)) {
+    return validationError("project:delete", "Arguments must be an object.");
+  }
+  for (const key of Object.keys(args)) {
+    if (key !== "project" && key !== "approval") {
+      return validationError("project:delete", `Unknown argument: ${key}.`);
+    }
+  }
+  if (typeof args.project !== "string") {
+    return validationError("project:delete", "project is required and must be a string.");
+  }
+  if (args.approval !== undefined && typeof args.approval !== "string") {
+    return validationError("project:delete", "approval must be a string.");
+  }
+  return { ok: true, args: { project: args.project, approval: args.approval } };
 }
 
 function fromOutcome(command: string, outcome: RunProjectOutcome): OmgResponse {
