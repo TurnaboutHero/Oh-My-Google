@@ -207,7 +207,7 @@ describe("auth command core", () => {
     authFixtures.context = {
       ...authFixtures.context,
       gcloudAccount: "detected@example.com",
-      projectId: "C:\\Temp\\tmpfile",
+      projectId: "C:\\Temp\\omg\\tmpfile",
     };
     authFixtures.projects = [{ projectId: "real-project", name: "Real Project" }];
     const gcloudContext = await import("../src/auth/gcloud-context.js");

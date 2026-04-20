@@ -12,7 +12,7 @@ Date: 2026-04-18
 
 - Client surface: Codex MCP configuration
 - Server registered as: `oh-my-google`
-- Command: `node bin/omg mcp start`
+- Command from repo root: `node bin/omg mcp start`
 - Tools discovered:
   - `omg.approvals.list`
   - `omg.approve`
