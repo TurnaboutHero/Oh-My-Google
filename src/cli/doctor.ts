@@ -61,9 +61,17 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
     ? { ok: true, detail: "application default credentials file found" }
     : { ok: false, detail: "ADC credentials not found" };
 
+  checks.adcAccount = status.adcAccount
+    ? { ok: true, detail: status.adcAccount }
+    : status.adcConfigured
+      ? { ok: false, detail: "ADC account could not be resolved" }
+      : { ok: false, detail: "ADC credentials not found" };
+
   checks.gcloudAccount = status.gcloudAccount
     ? { ok: true, detail: status.gcloudAccount }
     : { ok: false, detail: "no active gcloud account" };
+
+  checks.accountContext = getAccountContextCheck(status.gcloudAccount, status.adcAccount);
 
   if (status.projectId && status.gcloudAccount) {
     try {
@@ -120,10 +128,14 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
   if (!checks.firebaseProjectLink.ok) {
     next.push("link the Firebase project in .firebaserc");
   }
+  if (!checks.accountContext.ok) {
+    next.push("align gcloud and ADC accounts or use explicit account expectations");
+  }
 
   const blockingChecks = [
     "config",
     "adcCredentials",
+    "adcAccount",
     "gcloudAccount",
     "cloudRun",
     "firebaseCli",
@@ -133,6 +145,30 @@ export async function runDoctor(cwd: string): Promise<DoctorResult> {
   const allOk = blockingChecks.every((name) => checks[name]?.ok);
 
   return { ok: allOk, checks, next };
+}
+
+function getAccountContextCheck(
+  gcloudAccount: string | null,
+  adcAccount: string | null,
+): CheckResult {
+  if (!gcloudAccount || !adcAccount) {
+    return {
+      ok: false,
+      detail: "requires both gcloud and ADC accounts",
+    };
+  }
+
+  if (gcloudAccount !== adcAccount) {
+    return {
+      ok: false,
+      detail: `gcloud account ${gcloudAccount} differs from ADC account ${adcAccount}`,
+    };
+  }
+
+  return {
+    ok: true,
+    detail: "gcloud and ADC accounts match",
+  };
 }
 
 async function getFirebaseProjectLinkCheck(

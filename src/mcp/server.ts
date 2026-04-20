@@ -1,4 +1,5 @@
 import readline from "node:readline";
+import { authContextTool, handleAuthContext } from "./tools/auth.js";
 import { approveTool, handleApprove } from "./tools/approve.js";
 import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.js";
 import { deployTool, handleDeploy } from "./tools/deploy.js";
@@ -20,6 +21,7 @@ import { handleSecretList, handleSecretSet, secretListTool, secretSetTool } from
 import type { OmgResponse } from "./tools/types.js";
 
 const tools = [
+  authContextTool,
   doctorTool,
   approvalsListTool,
   approveTool,
@@ -60,6 +62,9 @@ export async function startMcpServer(opts: { transport: "stdio" }): Promise<void
 }
 
 async function callTool(name: string, args: unknown): Promise<OmgResponse> {
+  if (name === authContextTool.name) {
+    return handleAuthContext(args ?? {});
+  }
   if (name === doctorTool.name) {
     return handleDoctor(args ?? {});
   }

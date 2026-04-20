@@ -17,6 +17,7 @@ export interface OmgConfig {
 export interface AuthStatus {
   projectId: string | null;
   adcConfigured: boolean;
+  adcAccount: string | null;
   gcloudAccount: string | null;
   gcp: boolean;
 }
@@ -88,11 +89,13 @@ export class AuthManager {
   async status(): Promise<AuthStatus> {
     const config = await AuthManager.loadConfig();
     const adcConfigured = await this.gcpProvider.isConfigured();
+    const adcAccount = adcConfigured ? await getAdcAccount() : null;
     const gcloudAccount = await getActiveGcloudAccount();
 
     return {
       projectId: config?.profile.projectId ?? null,
       adcConfigured,
+      adcAccount,
       gcloudAccount,
       gcp: adcConfigured && gcloudAccount !== null,
     };
@@ -132,6 +135,42 @@ async function getActiveGcloudAccount(): Promise<string | null> {
 
     const account = stdout.trim();
     return account.length > 0 ? account : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getAdcAccount(): Promise<string | null> {
+  try {
+    const { stdout } = await execCliFile(
+      "gcloud",
+      [
+        "auth",
+        "application-default",
+        "print-access-token",
+        "--scopes=openid,https://www.googleapis.com/auth/userinfo.email",
+      ],
+      {
+        encoding: "utf-8",
+        windowsHide: true,
+      },
+    );
+    const token = stdout.trim();
+    if (!token) {
+      return null;
+    }
+
+    const response = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?access_token=${encodeURIComponent(token)}`,
+    );
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json() as { email?: unknown };
+    return typeof payload.email === "string" && payload.email.length > 0
+      ? payload.email
+      : null;
   } catch {
     return null;
   }
