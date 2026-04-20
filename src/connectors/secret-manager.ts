@@ -29,6 +29,12 @@ export interface SetSecretInput {
   dryRun?: boolean;
 }
 
+export interface DeleteSecretInput {
+  projectId: string;
+  name: string;
+  dryRun?: boolean;
+}
+
 export type SetSecretResult =
   | {
       projectId: string;
@@ -42,6 +48,19 @@ export type SetSecretResult =
       dryRun: true;
       wouldCreateIfMissing: true;
       wouldAddVersion: true;
+    };
+
+export type DeleteSecretResult =
+  | {
+      projectId: string;
+      name: string;
+      deleted: true;
+    }
+  | {
+      projectId: string;
+      name: string;
+      dryRun: true;
+      wouldDelete: true;
     };
 
 export type SecretManagerExecutor = (
@@ -122,6 +141,41 @@ export async function setSecret(
     name,
     created: !exists,
     versionAdded: true,
+  };
+}
+
+export async function deleteSecret(
+  input: DeleteSecretInput,
+  executor: SecretManagerExecutor = runGcloud,
+): Promise<DeleteSecretResult> {
+  const projectId = normalizeProjectId(input.projectId);
+  const name = normalizeSecretName(input.name);
+
+  if (input.dryRun) {
+    return {
+      projectId,
+      name,
+      dryRun: true,
+      wouldDelete: true,
+    };
+  }
+
+  try {
+    await executor([
+      "secrets",
+      "delete",
+      name,
+      `--project=${projectId}`,
+      "--quiet",
+    ]);
+  } catch (error) {
+    throw mapGcloudError(error, `Failed to delete secret ${name}.`);
+  }
+
+  return {
+    projectId,
+    name,
+    deleted: true,
   };
 }
 
