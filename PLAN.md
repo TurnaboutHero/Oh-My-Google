@@ -262,10 +262,13 @@ Progress as of 2026-04-18:
   - `omg project audit --project <id>`
   - `omg project cleanup --project <id> --dry-run`
   - `omg project delete --project <id>`
+  - `omg project undelete --project <id>`
   - `omg.project.audit`
   - `omg.project.cleanup`
   - `omg.project.delete`
+  - `omg.project.undelete`
   - Project deletion is L3 approval-gated and blocks protected, do-not-touch, billing-enabled, and non-owner projects before approval.
+  - Project undeletion is L3 approval-gated and only executes for `DELETE_REQUESTED` projects.
   - Approved stale projects `gen-lang-client-0379078037` and `citric-optics-380903` were verified as `DELETE_REQUESTED`.
   - `quadratic-signifier-fmd0t`, `<live-validation-project>`, and `review-program-system` remain `ACTIVE`.
 - Next recommended Phase 3 surface is `budget` / billing guard, because the project now treats free-tier safety as a hard operating constraint.

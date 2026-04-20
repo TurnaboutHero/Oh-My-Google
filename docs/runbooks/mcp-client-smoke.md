@@ -18,6 +18,7 @@ node bin/omg mcp start
 ## Expected Tools
 
 - `omg.doctor`
+- `omg.auth.context`
 - `omg.approvals.list`
 - `omg.approve`
 - `omg.reject`
@@ -29,6 +30,7 @@ node bin/omg mcp start
 - `omg.project.audit`
 - `omg.project.cleanup`
 - `omg.project.delete`
+- `omg.project.undelete`
 
 ## Smoke Steps
 

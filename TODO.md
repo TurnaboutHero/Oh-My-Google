@@ -34,6 +34,7 @@
 - [x] `omg project cleanup --project <id> --dry-run` plan-only command.
 - [x] MCP tool coverage for project audit/cleanup dry-run.
 - [x] `omg project delete --project <id>` approval-gated L3 workflow.
+- [x] `omg project undelete --project <id>` approval-gated L3 recovery workflow.
 - [x] Protected/do-not-touch projects blocked before approval.
 - [x] Read-only audit smoke against existing ambiguous projects.
 - [x] Live delete approved stale projects.

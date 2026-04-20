@@ -6,7 +6,7 @@
 
 - 4개 핵심 명령: `omg init`, `omg link`, `omg deploy`, `omg doctor`
 - Approval 보조 명령: `omg approve`, `omg reject`, `omg approvals list`
-- MCP 서버: 12개 tool (`omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.secret.list`, `omg.secret.set`, `omg.project.audit`, `omg.project.cleanup`, `omg.project.delete`)
+- MCP 서버: 14개 tool (`omg.auth.context`, `omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.secret.list`, `omg.secret.set`, `omg.project.audit`, `omg.project.cleanup`, `omg.project.delete`, `omg.project.undelete`)
 
 핵심 아이디어는 세 가지입니다.
 
@@ -56,6 +56,20 @@ node bin/omg --help
 - 필요 시 `firebase` CLI
 - GCP ADC 인증
 
+### `omg setup`
+
+Local setup wizard for Google tooling and account context.
+
+```bash
+omg setup
+omg setup --configuration main --project-id my-project --align-adc
+omg --output json setup --configuration main --project-id my-project --login --align-adc
+```
+
+`setup` checks whether `gcloud` and `firebase` are installed, optionally activates a named gcloud configuration, can run `gcloud auth login` when explicitly requested, can run `gcloud auth application-default login` when explicitly requested or approved interactively, saves the local omg project config, and runs `doctor`.
+
+It does not silently switch ADC. In interactive mode it asks before running ADC login. In JSON/non-interactive mode, ADC alignment only happens with `--align-adc`.
+
 ## CLI 명령 개요
 
 ### `omg init`
@@ -95,6 +109,25 @@ trust 규칙이 `require_approval`이면 deploy가 approval 파일을 자동 생
 ### `omg doctor`
 
 연결 상태를 점검합니다 — config / ADC / gcloud / firebase / Cloud Run API / Firebase project link.
+`doctor` also reports the active gcloud account, the ADC account when resolvable, and an `accountContext` warning when they differ. It does not switch accounts automatically.
+
+### `omg auth list`, `omg auth create <configuration>`, `omg auth context`, `omg auth switch <configuration>`
+
+Create, inspect, and switch gcloud named configurations without changing ADC automatically unless explicitly requested.
+
+```bash
+omg --output json auth create main --account main@example.com --project main-project
+omg --output json auth create main --account main@example.com --project main-project --login --align-adc
+omg --output json auth create main --login --align-adc
+omg --output json auth list
+omg --output json auth context
+omg --output json auth switch main
+omg auth project
+omg --output json auth project --project main-project
+gcloud auth application-default login
+```
+
+`auth list` shows both credentialed gcloud accounts and named configurations. `auth create` runs `gcloud config configurations create <configuration>` and can set the account/project for that configuration. `--login` runs `gcloud auth login`; if `--account` is omitted, `omg` reads the account selected by the browser login and stores it in the new configuration. If `--project` is omitted, `omg` uses the active project after login, or auto-selects the only visible project. In interactive mode, multiple visible projects are shown as a selection prompt. `auth project` sets the active project for the current gcloud configuration; without `--project`, interactive mode prompts when multiple projects are visible. `--align-adc` runs `gcloud auth application-default login`. `auth context` shows the active gcloud configuration, active gcloud account, active project, ADC account when resolvable, and all known gcloud configurations. `auth switch` runs `gcloud config configurations activate <configuration>` and then prints the same context. If the gcloud and ADC accounts differ, `next` suggests `gcloud auth application-default login`.
 
 ### `omg approve <id>`, `omg reject <id>`, `omg approvals list`
 
@@ -120,7 +153,7 @@ omg --output json secret set API_KEY --value-file .secrets/api-key.txt --yes
 
 Live Secret Manager usage can affect billing once active secret versions or access operations exceed the Google Cloud free tier. Run dry-runs first and get explicit approval before live writes.
 
-### `omg project audit`, `omg project cleanup --dry-run`, `omg project delete`
+### `omg project audit`, `omg project cleanup --dry-run`, `omg project delete`, `omg project undelete`
 
 Read-only project cleanup audit surface.
 
@@ -128,20 +161,26 @@ Read-only project cleanup audit surface.
 omg --output json project audit --project citric-optics-380903
 omg --output json project cleanup --project citric-optics-380903 --dry-run
 omg --output json project delete --project citric-optics-380903
+omg --output json project delete --project citric-optics-380903 --expect-account owner@example.com
 omg approve <approval-id>
 omg --output json project delete --project citric-optics-380903 --approval <approval-id>
+omg --output json project undelete --project citric-optics-380903
+omg --output json project undelete --project citric-optics-380903 --expect-account owner@example.com
+omg approve <approval-id>
+omg --output json project undelete --project citric-optics-380903 --approval <approval-id>
 ```
 
-`project audit` classifies cleanup risk from available metadata. `project cleanup --dry-run` returns a plan only. `project delete` is an L3 workflow: it is blocked for protected or do-not-touch projects and requires a manual approval before `gcloud projects delete` can run.
+`project audit` classifies cleanup risk from available metadata. `project cleanup --dry-run` returns a plan only. `project delete` is an L3 workflow: it is blocked for protected or do-not-touch projects and requires a manual approval before `gcloud projects delete` can run. `project undelete` is also L3 approval-gated and only runs when the project lifecycle state is `DELETE_REQUESTED`. Project delete/undelete approvals record the active gcloud account; consuming the approval with a different active account returns `ACCOUNT_MISMATCH`. Use `--expect-account <email>` to require a specific active account before approval creation or execution. `omg` does not switch gcloud accounts automatically.
 
 ### `omg mcp start`
 
-stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Codex 등)가 여기 붙어 12개 tool을 호출합니다.
+stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Codex 등)가 여기 붙어 14개 tool을 호출합니다.
 
 ## MCP tool 목록
 
 | Tool | 설명 |
 |---|---|
+| `omg.auth.context` | Read-only gcloud/ADC account context |
 | `omg.init` | 프로젝트/빌링/환경/리전 초기화 + Trust Profile 생성 |
 | `omg.link` | 리포 감지 후 Plan 생성 |
 | `omg.deploy` | Trust gate + approval 경로를 거쳐 배포 (또는 dry-run) |
@@ -154,6 +193,7 @@ stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Cod
 | `omg.project.audit` | Read-only project cleanup risk audit |
 | `omg.project.cleanup` | Dry-run-only cleanup plan |
 | `omg.project.delete` | Approval-gated project deletion request/execution |
+| `omg.project.undelete` | Approval-gated project undeletion request/execution |
 
 모든 tool은 CLI와 동일한 `{ok, command, data?, error?, next?}` 응답 구조를 사용합니다. MCP 응답은 이 객체를 `content[0].text`에 JSON 문자열로 감쌉니다.
 
@@ -205,6 +245,7 @@ stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Cod
 - `NO_DEPLOYABLE_CONTENT`
 - `NO_PLAN`, `NO_TRUST_PROFILE`
 - `TRUST_DENIED`, `TRUST_REQUIRES_CONFIRM`, `TRUST_REQUIRES_APPROVAL`
+- Project/account safety: `PROJECT_ACCESS_DENIED`, `ACCOUNT_MISMATCH`
 - Approval 계열: `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_CONSUMED`, `APPROVAL_ALREADY_FINALIZED`
 
 ## 리포 구조

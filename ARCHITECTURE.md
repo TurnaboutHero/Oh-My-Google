@@ -224,6 +224,7 @@ src/
 - `billing.link` -> `L2`
 - `iam.role.grant` -> `L2`
 - destructive action -> `L3`
+- project lifecycle actions (`gcp.project.delete`, `gcp.project.undelete`) -> `L3`
 
 정책 해석은 `trust/check.ts`가 담당합니다.
 
@@ -247,7 +248,8 @@ src/
 - `.omg/decisions.log.jsonl`: `init`, `link`, `deploy`, `approve`, `reject`가 append-only JSONL 이벤트를 남깁니다. trust 판단, approval 생성/소비, deploy 결과, 실패 이유를 run 단위로 연결합니다. secret/token/password 계열 값은 기록 전에 redaction됩니다.
 - `.omg/handoff.md`: deploy 성공/실패/approval 대기 상태를 사람이 읽을 수 있게 요약합니다. URL, pending approval, risk, rollback 상태, next step을 담는 latest run artifact입니다.
 
-`PermissionCheck.reasonCode`는 8종 구조화 에러를 분기합니다: `DENIED`, `REQUIRES_CONFIRM`, `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_CONSUMED`.
+`PermissionCheck.reasonCode`는 9종 구조화 에러를 분기합니다: `DENIED`, `REQUIRES_CONFIRM`, `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `ACCOUNT_MISMATCH`, `APPROVAL_CONSUMED`.
+Project lifecycle approvals bind to the active gcloud account and fail with `ACCOUNT_MISMATCH` if consumed by another account.
 
 ## Connector 모델
 
