@@ -35,6 +35,16 @@ export interface ProjectDeleteResult {
   lifecycleState: string;
 }
 
+export interface ProjectUndeleteResult {
+  projectId: string;
+  lifecycleState: string;
+}
+
+export interface ProjectLifecycle {
+  projectId: string;
+  lifecycleState: string;
+}
+
 export type ProjectAuditExecutor = (
   args: string[],
 ) => Promise<{ stdout: string; stderr: string }>;
@@ -54,7 +64,7 @@ export async function auditProject(
     ["billing", "projects", "describe", normalizedProjectId, "--format=json"],
     "billing metadata",
   );
-  const activeAccount = await readActiveAccount(executor);
+  const activeAccount = await readActiveGcloudAccount(executor);
   const rolesResult = await readJsonArrayOrInaccessible(
     executor,
     [
@@ -147,6 +157,49 @@ export async function deleteProject(
   };
 }
 
+export async function readProjectLifecycle(
+  projectId: string,
+  executor: ProjectAuditExecutor = runGcloud,
+): Promise<ProjectLifecycle> {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  const describe = await readJsonObject(
+    executor,
+    ["projects", "describe", normalizedProjectId, "--format=json"],
+    "project lifecycle",
+  );
+
+  return {
+    projectId: normalizedProjectId,
+    lifecycleState: stringValue(describe.lifecycleState),
+  };
+}
+
+export async function undeleteProject(
+  projectId: string,
+  executor: ProjectAuditExecutor = runGcloud,
+): Promise<ProjectUndeleteResult> {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  await executor(["projects", "undelete", normalizedProjectId, "--quiet"]);
+  const lifecycle = await readProjectLifecycle(normalizedProjectId, executor);
+
+  return {
+    projectId: normalizedProjectId,
+    lifecycleState: lifecycle.lifecycleState,
+  };
+}
+
+export async function readActiveGcloudAccount(
+  executor: ProjectAuditExecutor = runGcloud,
+): Promise<string> {
+  try {
+    const { stdout } = await executor(["config", "get-value", "account"]);
+    const account = stdout.trim();
+    return account || "*";
+  } catch {
+    return "*";
+  }
+}
+
 function classifyAudit(audit: ProjectAudit): ProjectAudit {
   const signals: string[] = [];
 
@@ -196,16 +249,6 @@ async function runGcloud(args: string[]): Promise<{ stdout: string; stderr: stri
     });
   } catch (error) {
     throw mapGcloudError(error, "gcloud project audit command failed.");
-  }
-}
-
-async function readActiveAccount(executor: ProjectAuditExecutor): Promise<string> {
-  try {
-    const { stdout } = await executor(["config", "get-value", "account"]);
-    const account = stdout.trim();
-    return account || "*";
-  } catch {
-    return "*";
   }
 }
 
@@ -285,6 +328,10 @@ function mapGcloudError(error: unknown, message: string): OmgError {
     || text.includes("no active account")
   ) {
     return new AuthError("gcloud is not authenticated.", "NO_AUTH");
+  }
+
+  if (text.includes("does not have permission to access projects instance")) {
+    return new OmgError("Active gcloud account cannot access this project.", "PROJECT_ACCESS_DENIED", true);
   }
 
   const cliError = error as ExecFileException & { stderr?: string; exitCode?: number };

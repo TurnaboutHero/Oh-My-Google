@@ -7,6 +7,7 @@ export interface CheckOptions {
   jsonMode?: boolean;
   approvalId?: string;
   argsHash?: string;
+  activeAccount?: string;
   cwd?: string;
 }
 
@@ -113,6 +114,18 @@ export async function checkPermission(
       action: trustAction,
       reason: `Approval ${approval.id} does not match command arguments.`,
       reasonCode: "APPROVAL_MISMATCH",
+      approvalId: approval.id,
+    };
+  }
+
+  if (approval.requestedAccount && approval.requestedAccount !== opts.activeAccount) {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: opts.activeAccount
+        ? `Approval ${approval.id} was created for ${approval.requestedAccount}, but active account is ${opts.activeAccount}.`
+        : `Approval ${approval.id} was created for ${approval.requestedAccount}, but active account could not be verified.`,
+      reasonCode: "ACCOUNT_MISMATCH",
       approvalId: approval.id,
     };
   }

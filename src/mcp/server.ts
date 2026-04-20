@@ -9,9 +9,11 @@ import {
   handleProjectAudit,
   handleProjectCleanup,
   handleProjectDelete,
+  handleProjectUndelete,
   projectAuditTool,
   projectCleanupTool,
   projectDeleteTool,
+  projectUndeleteTool,
 } from "./tools/project.js";
 import { rejectTool, handleReject } from "./tools/reject.js";
 import { handleSecretList, handleSecretSet, secretListTool, secretSetTool } from "./tools/secret.js";
@@ -30,6 +32,7 @@ const tools = [
   projectAuditTool,
   projectCleanupTool,
   projectDeleteTool,
+  projectUndeleteTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -92,6 +95,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === projectDeleteTool.name) {
     return handleProjectDelete(args ?? {});
+  }
+  if (name === projectUndeleteTool.name) {
+    return handleProjectUndelete(args ?? {});
   }
 
   return {

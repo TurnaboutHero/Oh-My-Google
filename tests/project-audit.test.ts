@@ -3,8 +3,10 @@ import {
   auditProject,
   buildCleanupPlan,
   deleteProject,
+  readProjectLifecycle,
   type ProjectAuditExecutor,
 } from "../src/connectors/project-audit.js";
+import * as projectAuditConnector from "../src/connectors/project-audit.js";
 
 describe("project audit connector", () => {
   it("classifies unknown folder-backed projects without owner role as do-not-touch", async () => {
@@ -100,6 +102,56 @@ describe("project audit connector", () => {
     expect(result).toEqual({
       projectId: "citric-optics-380903",
       lifecycleState: "DELETE_REQUESTED",
+    });
+  });
+
+  it("undeletes a project and verifies active state", async () => {
+    const connector = projectAuditConnector as unknown as {
+      undeleteProject?: (
+        projectId: string,
+        executor: ProjectAuditExecutor,
+      ) => Promise<{ projectId: string; lifecycleState: string }>;
+    };
+    expect(connector.undeleteProject).toBeTypeOf("function");
+
+    const calls: string[][] = [];
+    const executor: ProjectAuditExecutor = async (args) => {
+      calls.push(args);
+      if (args[0] === "projects" && args[1] === "undelete") {
+        return { stdout: "", stderr: "" };
+      }
+      if (args[0] === "projects" && args[1] === "describe") {
+        return {
+          stdout: JSON.stringify({
+            projectId: "citric-optics-380903",
+            lifecycleState: "ACTIVE",
+          }),
+          stderr: "",
+        };
+      }
+      return { stdout: "{}", stderr: "" };
+    };
+
+    const result = await connector.undeleteProject!("citric-optics-380903", executor);
+
+    expect(calls[0]).toEqual(["projects", "undelete", "citric-optics-380903", "--quiet"]);
+    expect(result).toEqual({
+      projectId: "citric-optics-380903",
+      lifecycleState: "ACTIVE",
+    });
+  });
+
+  it("maps project permission failures to a stable access-denied code", async () => {
+    const executor: ProjectAuditExecutor = async () => {
+      throw Object.assign(new Error("permission denied"), {
+        stderr: "does not have permission to access projects instance",
+        exitCode: 1,
+      });
+    };
+
+    await expect(readProjectLifecycle("citric-optics-380903", executor)).rejects.toMatchObject({
+      code: "PROJECT_ACCESS_DENIED",
+      recoverable: true,
     });
   });
 });

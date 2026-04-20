@@ -113,6 +113,66 @@ describe("trust approval checks", () => {
     expect(result.approvalId).toBe(approval.id);
   });
 
+  it("rejects account-bound approvals when the active account changes", async () => {
+    const cwd = await tempDir();
+    const profile = generateDefaultProfile("demo-project", "prod");
+    const args = { service: "api" };
+    const approval = await createApproval(cwd, {
+      action: "deploy.cloud-run",
+      args,
+      projectId: "demo-project",
+      environment: "prod",
+      requestedBy: "agent",
+      requestedAccount: "owner@example.com",
+    } as Parameters<typeof createApproval>[1]);
+    await saveApproval(cwd, {
+      ...approval,
+      status: "approved",
+      approvedBy: "owner@example.com",
+      approvedAt: new Date().toISOString(),
+    });
+
+    const result = await checkPermission("deploy.cloud-run", profile, {
+      approvalId: approval.id,
+      argsHash: hashArgs(args),
+      activeAccount: "other@example.com",
+      cwd,
+    });
+
+    expect(result.allowed).toBe(false);
+    expect(result.reasonCode).toBe("ACCOUNT_MISMATCH");
+    expect(result.approvalId).toBe(approval.id);
+  });
+
+  it("accepts account-bound approvals when the active account matches", async () => {
+    const cwd = await tempDir();
+    const profile = generateDefaultProfile("demo-project", "prod");
+    const args = { service: "api" };
+    const approval = await createApproval(cwd, {
+      action: "deploy.cloud-run",
+      args,
+      projectId: "demo-project",
+      environment: "prod",
+      requestedBy: "agent",
+      requestedAccount: "owner@example.com",
+    } as Parameters<typeof createApproval>[1]);
+    await saveApproval(cwd, {
+      ...approval,
+      status: "approved",
+      approvedBy: "owner@example.com",
+      approvedAt: new Date().toISOString(),
+    });
+
+    const result = await checkPermission("deploy.cloud-run", profile, {
+      approvalId: approval.id,
+      argsHash: hashArgs(args),
+      activeAccount: "owner@example.com",
+      cwd,
+    });
+
+    expect(result.allowed).toBe(true);
+  });
+
   it("expires approved approvals after their expiry time", async () => {
     const cwd = await tempDir();
     const profile = generateDefaultProfile("demo-project", "prod");

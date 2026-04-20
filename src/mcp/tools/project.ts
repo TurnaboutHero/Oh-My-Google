@@ -2,6 +2,7 @@ import {
   runProjectAudit,
   runProjectCleanup,
   runProjectDelete,
+  runProjectUndelete,
   type RunProjectOutcome,
 } from "../../cli/commands/project.js";
 import type { OmgResponse } from "./types.js";
@@ -41,6 +42,22 @@ export const projectDeleteTool = {
     properties: {
       project: { type: "string" },
       approval: { type: "string" },
+      expectAccount: { type: "string" },
+    },
+    required: ["project"],
+    additionalProperties: false,
+  },
+};
+
+export const projectUndeleteTool = {
+  name: "omg.project.undelete",
+  description: "Request or consume approval for Google Cloud project undeletion.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      project: { type: "string" },
+      approval: { type: "string" },
+      expectAccount: { type: "string" },
     },
     required: ["project"],
     additionalProperties: false,
@@ -72,6 +89,18 @@ export async function handleProjectDelete(args: unknown): Promise<OmgResponse> {
   }
 
   return fromOutcome("project:delete", await runProjectDelete({
+    cwd: process.cwd(),
+    ...parsed.args,
+  }));
+}
+
+export async function handleProjectUndelete(args: unknown): Promise<OmgResponse> {
+  const parsed = parseUndeleteArgs(args);
+  if (!parsed.ok) {
+    return parsed.response;
+  }
+
+  return fromOutcome("project:undelete", await runProjectUndelete({
     cwd: process.cwd(),
     ...parsed.args,
   }));
@@ -115,13 +144,13 @@ function parseCleanupArgs(args: unknown):
 }
 
 function parseDeleteArgs(args: unknown):
-  | { ok: true; args: { project: string; approval?: string } }
+  | { ok: true; args: { project: string; approval?: string; expectedAccount?: string } }
   | { ok: false; response: OmgResponse } {
   if (!isRecord(args)) {
     return validationError("project:delete", "Arguments must be an object.");
   }
   for (const key of Object.keys(args)) {
-    if (key !== "project" && key !== "approval") {
+    if (key !== "project" && key !== "approval" && key !== "expectAccount") {
       return validationError("project:delete", `Unknown argument: ${key}.`);
     }
   }
@@ -131,7 +160,47 @@ function parseDeleteArgs(args: unknown):
   if (args.approval !== undefined && typeof args.approval !== "string") {
     return validationError("project:delete", "approval must be a string.");
   }
-  return { ok: true, args: { project: args.project, approval: args.approval } };
+  if (args.expectAccount !== undefined && typeof args.expectAccount !== "string") {
+    return validationError("project:delete", "expectAccount must be a string.");
+  }
+  return {
+    ok: true,
+    args: {
+      project: args.project,
+      approval: args.approval,
+      expectedAccount: args.expectAccount,
+    },
+  };
+}
+
+function parseUndeleteArgs(args: unknown):
+  | { ok: true; args: { project: string; approval?: string; expectedAccount?: string } }
+  | { ok: false; response: OmgResponse } {
+  if (!isRecord(args)) {
+    return validationError("project:undelete", "Arguments must be an object.");
+  }
+  for (const key of Object.keys(args)) {
+    if (key !== "project" && key !== "approval" && key !== "expectAccount") {
+      return validationError("project:undelete", `Unknown argument: ${key}.`);
+    }
+  }
+  if (typeof args.project !== "string") {
+    return validationError("project:undelete", "project is required and must be a string.");
+  }
+  if (args.approval !== undefined && typeof args.approval !== "string") {
+    return validationError("project:undelete", "approval must be a string.");
+  }
+  if (args.expectAccount !== undefined && typeof args.expectAccount !== "string") {
+    return validationError("project:undelete", "expectAccount must be a string.");
+  }
+  return {
+    ok: true,
+    args: {
+      project: args.project,
+      approval: args.approval,
+      expectedAccount: args.expectAccount,
+    },
+  };
 }
 
 function fromOutcome(command: string, outcome: RunProjectOutcome): OmgResponse {

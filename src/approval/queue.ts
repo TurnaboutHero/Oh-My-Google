@@ -15,6 +15,7 @@ export interface CreateApprovalInput {
   projectId: string;
   environment: ApprovalRequest["environment"];
   requestedBy: string;
+  requestedAccount?: string;
   ttlMinutes?: number;
 }
 
@@ -31,6 +32,7 @@ export async function createApproval(
     projectId: input.projectId,
     environment: input.environment,
     requestedBy: input.requestedBy,
+    requestedAccount: input.requestedAccount ?? null,
     requestedAt: requestedAt.toISOString(),
     expiresAt: new Date(requestedAt.getTime() + ttlMinutes * 60_000).toISOString(),
     status: "pending",

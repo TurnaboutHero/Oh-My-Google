@@ -48,6 +48,7 @@ export interface PermissionCheck {
     | "APPROVAL_EXPIRED"
     | "APPROVAL_NOT_APPROVED"
     | "APPROVAL_MISMATCH"
+    | "ACCOUNT_MISMATCH"
     | "APPROVAL_CONSUMED";
   approvalId?: string;
   deniedBy?: string;

@@ -28,7 +28,7 @@ export async function handleApprove(args: unknown): Promise<OmgResponse> {
       ok: true,
       command: "approve",
       data: { ...outcome.data },
-      next: [`omg deploy --approval ${outcome.data.id}`],
+      next: outcome.next,
     };
   }
 

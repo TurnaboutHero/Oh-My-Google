@@ -29,6 +29,24 @@ describe("omg.approve MCP tool", () => {
     expect(stored?.status).toBe("approved");
   });
 
+  it("returns project undelete next steps for project undelete approvals", async () => {
+    const cwd = await createTempWorkspace();
+    const approval = await writeApproval(cwd, {
+      id: "apr_project_undelete",
+      action: "gcp.project.undelete",
+      projectId: "omg-restore-260420-1107",
+    });
+
+    const result = await withCwd(cwd, () =>
+      handleApprove({ approvalId: approval.id, approver: "custom@test" }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.next).toContain(
+      `omg project undelete --project omg-restore-260420-1107 --approval ${approval.id}`,
+    );
+  });
+
   it("returns not found for a missing approval", async () => {
     const cwd = await createTempWorkspace();
 
