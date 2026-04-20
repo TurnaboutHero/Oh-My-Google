@@ -4,12 +4,14 @@ Phase 3 starts with the narrow Secret Manager admin surface:
 
 - `omg secret list`
 - `omg secret set <name>`
-- MCP tools `omg.secret.list` and `omg.secret.set`
+- `omg secret delete <name>`
+- MCP tools `omg.secret.list`, `omg.secret.set`, and `omg.secret.delete`
 
 This surface does not read or print secret payloads. Secret values are accepted only as write inputs and are redacted from command output, approval args, and test assertions.
 
-Both commands require `.omg/trust.yaml`; `--project` may only target the project recorded in that trust profile.
-Secret deletion is also available through `omg secret delete <name>` with `--dry-run` / `--yes`.
+Secret commands require `.omg/trust.yaml`; `--project` may only target the project recorded in that trust profile.
+Secret deletion is available through `omg secret delete <name>` with `--dry-run` / `--yes`.
+Live `secret set` is budget-guarded and exits with `BUDGET_GUARD_BLOCKED` unless `omg budget audit` returns `risk: configured`.
 
 ## Cost Boundary
 
@@ -88,6 +90,27 @@ Behavior:
 - The output reports `created` and `versionAdded`, not the secret value.
 
 Prefer `--value-file` over `--value` so the secret value is not stored in shell history.
+
+## Delete A Secret
+
+```bash
+omg --output json secret delete API_KEY --dry-run
+omg --output json secret delete API_KEY --yes
+```
+
+MCP equivalent:
+
+```json
+{
+  "tool": "omg.secret.delete",
+  "arguments": {
+    "name": "API_KEY",
+    "dryRun": true
+  }
+}
+```
+
+Live smoke on 2026-04-20 created `OMG_BUDGET_GUARD_SMOKE`, verified it with `secret list`, deleted it with `secret delete --yes`, and verified the final secret list was empty.
 
 ## Trust Rules
 

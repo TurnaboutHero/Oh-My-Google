@@ -1,6 +1,6 @@
 # Project Cleanup Audit Runbook
 
-This Phase 3 surface is intentionally read-only.
+This Phase 3 surface separates read-only inspection from approval-gated lifecycle actions.
 
 Commands:
 
@@ -13,6 +13,7 @@ Commands:
 `project audit` and `project cleanup --dry-run` never delete projects, disable APIs, change billing, or remove IAM bindings.
 `project delete` is a separate L3 workflow and cannot execute without manual approval.
 `project undelete` is also an L3 workflow. It only runs for projects whose lifecycle state is `DELETE_REQUESTED`.
+Both delete and undelete approvals record the active gcloud account and fail with `ACCOUNT_MISMATCH` if another account tries to consume the approval.
 
 ## Audit
 

@@ -1,6 +1,6 @@
 # Budget / Billing Guard Runbook
 
-This Phase 3 surface is read-only.
+This Phase 3 surface starts with a read-only audit and one explicit API-enablement helper.
 
 Commands:
 
@@ -10,7 +10,7 @@ Commands:
 - MCP tool `omg.budget.audit`
 
 `budget audit` never creates budgets, enables APIs, links billing, disables billing, or changes project state.
-`budget enable-api` is the only command in this surface that changes project state; it requires explicit `--yes` and should be run after `--dry-run`.
+`budget enable-api` is the only command in this surface that changes project state; it enables `billingbudgets.googleapis.com`, requires explicit `--yes`, and should be run after `--dry-run`.
 
 ## Audit
 
@@ -35,8 +35,9 @@ Risk classifications:
 
 - Run this before cost-bearing live operations.
 - Treat `missing_budget` and `review` as blockers for autonomous live writes.
-- If budgets are inaccessible because `billingbudgets.googleapis.com` is disabled, do not auto-enable it from this command.
-- Budget API enablement and budget creation should be explicit future workflows with trust gates.
+- If budgets are inaccessible because `billingbudgets.googleapis.com` is disabled, do not auto-enable it from `budget audit`.
+- Budget API enablement is explicit through `budget enable-api`.
+- Budget creation is not implemented yet and should remain an explicit future workflow if added.
 - Live `omg secret set` now runs this guard before writing. Dry-runs do not run the guard and do not write Secret Manager resources.
 
 ## MCP Example
