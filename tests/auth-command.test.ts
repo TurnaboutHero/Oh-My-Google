@@ -122,6 +122,16 @@ describe("auth command core", () => {
     expect(result.next).toContain("gcloud auth application-default login");
   });
 
+  it("can align ADC after switching gcloud configuration", async () => {
+    const gcloudContext = await import("../src/auth/gcloud-context.js");
+
+    const result = await runAuthSwitch({ configuration: "main", alignAdc: true });
+
+    expect(result.ok).toBe(true);
+    expect(gcloudContext.activateGcloudConfiguration).toHaveBeenCalledWith("main");
+    expect(gcloudContext.runGcloudAdcLogin).toHaveBeenCalled();
+  });
+
   it("creates a gcloud configuration with account and project", async () => {
     const gcloudContext = await import("../src/auth/gcloud-context.js");
 

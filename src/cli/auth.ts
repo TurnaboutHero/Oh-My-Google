@@ -105,8 +105,9 @@ authCommand
   .command("switch")
   .description("Activate a named gcloud configuration and show account context")
   .argument("<configuration>", "gcloud configuration name")
-  .action(async (configuration: string) => {
-    const outcome = await runAuthSwitch({ configuration });
+  .option("--align-adc", "Run gcloud auth application-default login after switching")
+  .action(async (configuration: string, opts: { alignAdc?: boolean }) => {
+    const outcome = await runAuthSwitch({ configuration, alignAdc: !!opts.alignAdc });
     emitAuthOutcome(outcome);
   });
 
@@ -184,12 +185,15 @@ export async function runAuthList(): Promise<AuthListOutcome> {
   }
 }
 
-export async function runAuthSwitch(input: { configuration: string }): Promise<AuthCommandOutcome> {
+export async function runAuthSwitch(input: { configuration: string; alignAdc?: boolean }): Promise<AuthCommandOutcome> {
   try {
     if (!input.configuration.trim()) {
       throw new ValidationError("Configuration name is required.");
     }
     await activateGcloudConfiguration(input.configuration);
+    if (input.alignAdc) {
+      await runGcloudAdcLogin();
+    }
     const context = await getGcloudContext();
     return {
       ok: true,
