@@ -234,7 +234,7 @@ async function runGcloud(args: string[]): Promise<{ stdout: string; stderr: stri
 }
 
 function parseSecrets(stdout: string): SecretMetadata[] {
-  const parsed = JSON.parse(stdout || "[]") as Array<Record<string, unknown>>;
+  const parsed = JSON.parse(extractJsonArray(stdout)) as Array<Record<string, unknown>>;
   return parsed.map((entry) => {
     const resourceName = String(entry.name ?? "");
     return {
@@ -243,6 +243,18 @@ function parseSecrets(stdout: string): SecretMetadata[] {
       replication: describeReplication(entry.replication),
     };
   });
+}
+
+function extractJsonArray(stdout: string): string {
+  const trimmed = stdout.trim();
+  if (!trimmed) {
+    return "[]";
+  }
+  const start = trimmed.indexOf("[");
+  if (start === -1) {
+    return trimmed;
+  }
+  return trimmed.slice(start);
 }
 
 function describeReplication(value: unknown): string | undefined {
