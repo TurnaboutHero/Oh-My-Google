@@ -346,7 +346,7 @@ function getExpectedAccountMismatch(
 }
 
 function getDeleteBlockReason(audit: Awaited<ReturnType<typeof auditProject>>): string | undefined {
-  const protectedProjects = new Set(["review-program-system", "<live-validation-project>", "quadratic-signifier-fmd0t"]);
+  const protectedProjects = getProtectedProjects();
   if (protectedProjects.has(audit.projectId)) {
     return `Project ${audit.projectId} is protected and cannot be deleted by omg.`;
   }
@@ -360,6 +360,16 @@ function getDeleteBlockReason(audit: Awaited<ReturnType<typeof auditProject>>): 
     return "Billing-enabled projects require manual console review before deletion.";
   }
   return undefined;
+}
+
+function getProtectedProjects(): Set<string> {
+  const builtIn = ["review-program-system", "quadratic-signifier-fmd0t"];
+  const local = (process.env.OMG_PROTECTED_PROJECTS ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  return new Set([...builtIn, ...local]);
 }
 
 function getDeleteTrustProfile(projectId: string): TrustProfile {

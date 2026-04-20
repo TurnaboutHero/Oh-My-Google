@@ -112,6 +112,8 @@ Completed:
 - MCP `omg.budget.audit`
 - Budget audit risk states: `configured`, `missing_budget`, `billing_disabled`, `review`
 - Live `secret set` blocked unless budget audit returns `configured`
+- Live `omg deploy` blocked unless budget audit returns `configured`
+- Live `omg firebase deploy --execute` blocked unless budget audit returns `configured`
 - Existing KRW budget visibility confirmed on the live validation project
 - Budget-guarded Secret Manager smoke created and deleted a test secret
 
@@ -123,21 +125,23 @@ Goal: connect cost/free-tier guardrails to the rest of live Google Cloud executi
 
 Recommended order:
 
-1. Identify all live operations that can affect cost:
-   - `deploy`
-   - API enablement
-   - `init`
-   - Firebase helper deploy
-   - future admin surfaces
-2. Classify which operations need budget guard and which need onboarding exceptions.
-3. Add budget guard to live `deploy` execution.
-4. Add tests for:
+Progress:
+
+- Live `omg deploy` is budget-guarded.
+- Live `omg firebase deploy --execute` is budget-guarded.
+- Live `omg secret set` is budget-guarded.
+
+Recommended next order:
+
+1. Classify setup/API-enable operations that need budget guard and which need onboarding exceptions.
+2. Add budget guard to setup/API-enable paths where it does not create a first-run deadlock.
+3. Add tests for:
    - configured budget allows live execution
    - `missing_budget` blocks live execution
    - `review` blocks live execution
    - dry-run bypasses live budget guard
    - onboarding exception behavior is explicit
-5. Update README, TODO, and runbooks after the behavior is implemented.
+4. Update README, TODO, and runbooks after the behavior is implemented.
 
 Important design point:
 

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createApproval, loadApproval, saveApproval } from "../src/approval/queue.js";
 import { secretCommand } from "../src/cli/commands/secret.js";
 import { setOutputFormat } from "../src/cli/output.js";
 import { saveProfile, generateDefaultProfile } from "../src/trust/profile.js";
@@ -139,6 +140,45 @@ describe("secret command", () => {
     expect(payload.ok).toBe(false);
     expect(payload.error?.code).toBe("BUDGET_GUARD_BLOCKED");
     expect(payload.data?.budgetRisk).toBe("review");
+    expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+  });
+
+  it("does not consume approved secret write approvals when budget guard blocks execution", async () => {
+    secretFixtures.budgetRisk = "review";
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "prod"));
+    const approval = await createApproval(cwd, {
+      action: "secret.set",
+      args: { projectId: "demo-project", name: "API_KEY", source: "inline-value" },
+      projectId: "demo-project",
+      environment: "prod",
+      requestedBy: "agent",
+    });
+    await saveApproval(cwd, {
+      ...approval,
+      status: "approved",
+      approvedBy: "owner@example.com",
+      approvedAt: new Date().toISOString(),
+    });
+
+    const result = await runSecretCli([
+      "set",
+      "API_KEY",
+      "--value",
+      "super-secret-value",
+      "--approval",
+      approval.id,
+    ], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string };
+    };
+    const stored = await loadApproval(cwd, approval.id);
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("BUDGET_GUARD_BLOCKED");
+    expect(stored?.status).toBe("approved");
     expect(JSON.stringify(payload)).not.toContain("super-secret-value");
   });
 

@@ -223,6 +223,7 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
       yes: !!input.yes,
       jsonMode: !!input.jsonMode,
       cwd: input.cwd,
+      consumeApproval: false,
     });
 
     if (!permission.allowed) {
@@ -263,6 +264,28 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
     const budgetGuard = await assertBudgetGuard(projectId);
     if (!budgetGuard.ok) {
       return budgetGuard;
+    }
+
+    if (input.approval && permission.action === "require_approval") {
+      const consumePermission = await checkPermission(action, profile, {
+        approvalId: input.approval,
+        argsHash: hashArgs(safeArgs),
+        yes: !!input.yes,
+        jsonMode: !!input.jsonMode,
+        cwd: input.cwd,
+      });
+      if (!consumePermission.allowed) {
+        const { code, hint } = mapPermissionFailure(consumePermission);
+        return {
+          ok: false,
+          error: {
+            code,
+            message: consumePermission.reason ?? "Secret write approval could not be consumed.",
+            recoverable: false,
+            hint,
+          },
+        };
+      }
     }
 
     const result = await setSecret(setInput);

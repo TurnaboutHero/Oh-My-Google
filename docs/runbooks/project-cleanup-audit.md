@@ -54,7 +54,7 @@ omg --output json project delete --project citric-optics-380903 --approval <appr
 
 Deletion is blocked before approval when:
 
-- the project is protected: `review-program-system`, `<live-validation-project>`, or `quadratic-signifier-fmd0t`
+- the project is protected by built-in rules or by `OMG_PROTECTED_PROJECTS`
 - audit risk is `do_not_touch`
 - the caller does not have `roles/owner`
 - billing is enabled

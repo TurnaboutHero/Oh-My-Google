@@ -9,6 +9,7 @@ export interface CheckOptions {
   argsHash?: string;
   activeAccount?: string;
   cwd?: string;
+  consumeApproval?: boolean;
 }
 
 export async function checkPermission(
@@ -141,7 +142,9 @@ export async function checkPermission(
     };
   }
 
-  await saveApproval(cwd, { ...approval, status: "consumed" });
+  if (opts.consumeApproval !== false) {
+    await saveApproval(cwd, { ...approval, status: "consumed" });
+  }
 
   return { allowed: true, action: trustAction };
 }

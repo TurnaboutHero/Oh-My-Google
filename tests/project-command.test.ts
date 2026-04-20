@@ -50,6 +50,7 @@ const tempDirs: string[] = [];
 afterEach(async () => {
   projectCommandFixtures.enabledServices = [];
   projectCommandFixtures.activeAccount = "owner@example.com";
+  delete process.env.OMG_PROTECTED_PROJECTS;
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
 });
 
@@ -133,6 +134,20 @@ describe("project command", () => {
 
   it("blocks protected projects before approval", async () => {
     const result = await runProjectCli(["delete", "--project", "quadratic-signifier-fmd0t"]);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string };
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("TRUST_DENIED");
+  });
+
+  it("blocks locally configured protected projects before approval", async () => {
+    process.env.OMG_PROTECTED_PROJECTS = "local-main-project";
+
+    const result = await runProjectCli(["delete", "--project", "local-main-project"]);
     const payload = JSON.parse(result.stdout) as {
       ok: boolean;
       error?: { code: string };

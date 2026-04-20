@@ -131,7 +131,7 @@ omg --output json secret set API_KEY --value-file .secrets/api-key.txt --approva
 
 ## Smoke Record: 2026-04-18
 
-The user explicitly approved a live Secret Manager smoke on `<live-validation-project>`.
+The user explicitly approved a live Secret Manager smoke on the live validation project.
 
 Execution path:
 
@@ -155,7 +155,7 @@ Result:
 
 ## Budget Guard Smoke: 2026-04-20
 
-After budget guard integration, the project `<live-validation-project>` was verified with `omg budget audit` as `risk: configured`.
+After budget guard integration, the live validation project was verified with `omg budget audit` as `risk: configured`.
 
 Smoke path:
 
@@ -168,4 +168,4 @@ Smoke path:
 Final state: no smoke secrets remained.
 | Remaining secrets | none |
 
-Note: the Secret Manager API remains enabled on `<live-validation-project>`; no secret versions remain active from this smoke.
+Note: the Secret Manager API remains enabled on the live validation project; no secret versions remain active from this smoke.

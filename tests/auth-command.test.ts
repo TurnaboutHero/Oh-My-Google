@@ -225,12 +225,12 @@ describe("auth command core", () => {
     const gcloudContext = await import("../src/auth/gcloud-context.js");
 
     const result = await runAuthProject({
-      projectId: "<live-validation-project>",
+      projectId: "selected-project",
       interactive: false,
     });
 
     expect(result.ok).toBe(true);
-    expect(gcloudContext.setGcloudConfigurationValue).toHaveBeenCalledWith("project", "<live-validation-project>");
+    expect(gcloudContext.setGcloudConfigurationValue).toHaveBeenCalledWith("project", "selected-project");
     expect(result.command).toBe("auth:project");
   });
 

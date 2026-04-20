@@ -13,6 +13,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Implement explicit Budget API enablement with `--dry-run` and `--yes`.
 - [x] Add MCP coverage for `omg.budget.audit`.
 - [x] Add budget guard before live `omg secret set`.
+- [x] Add budget guard before live `omg deploy`.
+- [x] Add budget guard before live `omg firebase deploy --execute`.
 - [x] Document budget guard live smoke in [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md).
 - [ ] Apply cost/free-tier guardrails before all cost-bearing live Google Cloud operations.
 - [ ] Decide whether `omg budget create` is needed, or whether budget creation should remain a documented console/manual step.
@@ -36,9 +38,9 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Wire budget guard into live `deploy` execution.
-2. Wire budget guard into other setup/API-enable paths where cost impact is possible.
-3. Add tests for deploy/setup budget guard branching.
+1. Design the setup/API-enable first-run exception path for budget guard.
+2. Wire budget guard into setup/API-enable paths where cost impact is possible.
+3. Add tests for setup/API-enable budget guard branching.
 4. Re-run the local verification suite.
 5. Only then consider additional admin surfaces.
 
@@ -191,7 +193,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 - Budget alerts do not enforce a hard spend cap.
 - Budget visibility depends on billing permissions and the Budget API.
-- Budget guard coverage is incomplete outside `secret set`.
+- Budget guard coverage is still incomplete for first-run setup/API-enable paths.
 - Live project lifecycle testing is intentionally narrow and should stay approval-gated.
 - gcloud configuration reads can be flaky if multiple gcloud commands are run concurrently; live auth/budget/doctor checks should run sequentially.
 - Next.js SSR remains out of scope.

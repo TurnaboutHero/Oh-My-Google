@@ -38,7 +38,9 @@ Risk classifications:
 - If budgets are inaccessible because `billingbudgets.googleapis.com` is disabled, do not auto-enable it from `budget audit`.
 - Budget API enablement is explicit through `budget enable-api`.
 - Budget creation is not implemented yet and should remain an explicit future workflow if added.
-- Live `omg secret set` now runs this guard before writing. Dry-runs do not run the guard and do not write Secret Manager resources.
+- Live `omg deploy`, `omg firebase deploy --execute`, and `omg secret set` run this guard before writing. Dry-runs do not run the guard and do not write cloud resources.
+
+Current gap: first-run setup/API-enable paths still need explicit budget guard design so onboarding does not deadlock before budget visibility exists.
 
 ## MCP Example
 
@@ -53,7 +55,7 @@ Risk classifications:
 
 ## Live Audit Record: 2026-04-20
 
-`<live-validation-project>` was audited with the active `main` configuration:
+The live validation project was audited with the active validation configuration:
 
 | Field | Value |
 |---|---|

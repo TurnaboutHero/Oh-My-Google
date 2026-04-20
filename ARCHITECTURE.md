@@ -405,6 +405,8 @@ Current behavior:
 - Budget audit is read-only.
 - Budget creation is not implemented.
 - Live `secret set` is blocked unless budget audit returns `risk: configured`.
+- Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
+- Live `omg firebase deploy --execute` is blocked unless budget audit returns `risk: configured`.
 
 Risk states:
 
@@ -415,7 +417,7 @@ Risk states:
 
 Known gap:
 
-- Budget guard is not yet enforced across all live Google Cloud operations. The next architecture change should connect it to deploy/init/API-enable paths while preserving first-run setup behavior.
+- Budget guard is not yet enforced across all live Google Cloud operations. The next architecture change should focus on init/API-enable paths while preserving first-run setup behavior.
 
 ## Project Lifecycle Safety
 
@@ -471,7 +473,7 @@ Implemented and verified:
 - auth context and setup helpers
 - approval workflow
 - Secret Manager admin surface
-- budget audit and Secret Manager budget guard
+- budget audit and budget guard for live deploy, Firebase helper deploy, and Secret Manager writes
 - project cleanup/delete/undelete safety surface
 
 Not implemented:

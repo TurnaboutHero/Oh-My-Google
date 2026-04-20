@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { Command } from "commander";
 import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
+import { auditBillingGuard } from "../../connectors/billing-audit.js";
 import { applyPlan, type ApplyResult } from "../../executor/apply.js";
 import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { tryWriteHandoff } from "../../harness/handoff.js";
@@ -118,6 +119,7 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
       yes: !!input.yes,
       jsonMode: !!input.jsonMode,
       cwd: input.cwd,
+      consumeApproval: false,
     });
 
     if (!permission.allowed) {
@@ -199,6 +201,76 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
           hint,
         },
       };
+    }
+
+    const budgetGuard = await auditBillingGuard(profile.projectId);
+    if (budgetGuard.risk !== "configured") {
+      const next = [`omg budget audit --project ${profile.projectId}`];
+      await tryAppendDecision(input.cwd, {
+        runId,
+        command: "deploy",
+        phase: "budget",
+        status: "blocked",
+        action,
+        projectId,
+        environment,
+        result: {
+          code: "BUDGET_GUARD_BLOCKED",
+          budgetRisk: budgetGuard.risk,
+          billingEnabled: budgetGuard.billingEnabled,
+          billingAccountId: budgetGuard.billingAccountId,
+          signals: budgetGuard.signals,
+        },
+        next,
+      });
+      await tryWriteHandoff(input.cwd, {
+        runId,
+        command: "deploy",
+        status: "blocked",
+        projectId,
+        environment,
+        risks: [`Budget guard blocked live deployment: ${budgetGuard.recommendedAction}`],
+        next,
+      });
+
+      return {
+        ok: false,
+        error: {
+          code: "BUDGET_GUARD_BLOCKED",
+          message: `Budget guard blocked live deployment: ${budgetGuard.recommendedAction}`,
+          recoverable: true,
+          data: {
+            projectId: profile.projectId,
+            budgetRisk: budgetGuard.risk,
+            billingEnabled: budgetGuard.billingEnabled,
+            billingAccountId: budgetGuard.billingAccountId,
+            signals: budgetGuard.signals,
+          },
+          next,
+        },
+      };
+    }
+
+    if (input.approval && permission.action === "require_approval") {
+      const consumePermission = await checkPermission(action, profile, {
+        approvalId: input.approval,
+        argsHash,
+        yes: !!input.yes,
+        jsonMode: !!input.jsonMode,
+        cwd: input.cwd,
+      });
+      if (!consumePermission.allowed) {
+        const { code, hint } = mapPermissionFailure(consumePermission);
+        return {
+          ok: false,
+          error: {
+            code,
+            message: consumePermission.reason ?? "Deployment approval could not be consumed.",
+            recoverable: false,
+            hint,
+          },
+        };
+      }
     }
 
     const result = await applyPlan(plan, {

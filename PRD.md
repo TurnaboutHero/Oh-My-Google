@@ -166,7 +166,7 @@ Implemented MCP tools:
 
 - Budget audit must be read-only.
 - Budget API enablement must require explicit `--yes` after a dry-run option.
-- `secret set` live writes must be blocked unless budget audit returns `risk: configured`.
+- Live deploys and `secret set` live writes must be blocked unless budget audit returns `risk: configured`.
 - Budget guard coverage must expand before additional broad live operations are added.
 
 ### Secret Safety
@@ -192,9 +192,8 @@ Completed validation:
 
 Current open validation need:
 
-- Budget guard integration on deploy/init/API-enable paths.
-- Regression tests for budget guard decisions outside Secret Manager.
-- Updated architecture doc after budget guard expansion.
+- Budget guard integration on first-run setup/API-enable paths.
+- Regression tests for setup/API-enable budget guard decisions.
 
 ## Success Criteria
 
@@ -203,7 +202,7 @@ Short-term:
 - Agents can inspect, initialize, link, dry-run, and deploy supported apps without parsing human text.
 - Agents can switch and inspect account context without silently mutating ADC.
 - Project cleanup/recovery operations are auditable and approval-gated.
-- Secret Manager writes are guarded by budget visibility.
+- Live deploys and Secret Manager writes are guarded by budget visibility.
 
 Medium-term:
 

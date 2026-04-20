@@ -132,7 +132,7 @@ omg --output json budget enable-api --project <project-id> --dry-run
 omg --output json budget enable-api --project <project-id> --yes
 ```
 
-Current limitation: budget guard is enforced before live `secret set`, but not yet across every live Google Cloud operation. Treat that as a known gap, not as proof that other live operations are cost-safe.
+Current limitation: budget guard is enforced before live `omg deploy`, `omg firebase deploy --execute`, and `omg secret set`, but not yet across every first-run setup/API-enable path. Treat that as a known gap, not as proof that setup operations are cost-safe.
 
 ### Secret Manager
 

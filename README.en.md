@@ -39,7 +39,7 @@ Implemented:
 - gcloud account vs ADC account mismatch detection and explicit ADC alignment
 - Secret Manager list/set/delete
 - Budget audit and Budget API enable workflow
-- budget guard before live Secret Manager writes
+- budget guard before live `omg deploy`, `omg firebase deploy --execute`, and Secret Manager writes
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
 - active account mismatch blocking for project delete/undelete approvals
 
@@ -54,8 +54,8 @@ Live validation completed:
 
 Still pending:
 
-- The budget guard is currently enforced only before live `secret set`.
-- Cloud Run/Firebase deploy, API enable, and init paths still need cost guard integration.
+- The budget guard is currently enforced before live `omg deploy`, `omg firebase deploy --execute`, and `omg secret set`.
+- `init` and API enablement still need first-run/setup cost guard design.
 - Budget creation and budget mutation are not implemented yet. Current support is audit plus Budget API enablement.
 - `iam`, `notify`, and `security` admin surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
