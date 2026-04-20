@@ -8,6 +8,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "doctor.run": "L0",
   "project.audit": "L0",
   "project.cleanup.plan": "L0",
+  "billing.audit": "L0",
   "secret.list": "L0",
 
   // L1 deployment and configuration changes

@@ -2,6 +2,7 @@ import readline from "node:readline";
 import { authContextTool, handleAuthContext } from "./tools/auth.js";
 import { approveTool, handleApprove } from "./tools/approve.js";
 import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.js";
+import { budgetAuditTool, handleBudgetAudit } from "./tools/budget.js";
 import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
 import { initTool, handleInit } from "./tools/init.js";
@@ -17,13 +18,21 @@ import {
   projectUndeleteTool,
 } from "./tools/project.js";
 import { rejectTool, handleReject } from "./tools/reject.js";
-import { handleSecretList, handleSecretSet, secretListTool, secretSetTool } from "./tools/secret.js";
+import {
+  handleSecretDelete,
+  handleSecretList,
+  handleSecretSet,
+  secretDeleteTool,
+  secretListTool,
+  secretSetTool,
+} from "./tools/secret.js";
 import type { OmgResponse } from "./tools/types.js";
 
 const tools = [
   authContextTool,
   doctorTool,
   approvalsListTool,
+  budgetAuditTool,
   approveTool,
   rejectTool,
   deployTool,
@@ -31,6 +40,7 @@ const tools = [
   linkTool,
   secretListTool,
   secretSetTool,
+  secretDeleteTool,
   projectAuditTool,
   projectCleanupTool,
   projectDeleteTool,
@@ -71,6 +81,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   if (name === approvalsListTool.name) {
     return handleApprovalsList(args ?? {});
   }
+  if (name === budgetAuditTool.name) {
+    return handleBudgetAudit(args ?? {});
+  }
   if (name === approveTool.name) {
     return handleApprove(args ?? {});
   }
@@ -91,6 +104,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === secretSetTool.name) {
     return handleSecretSet(args ?? {});
+  }
+  if (name === secretDeleteTool.name) {
+    return handleSecretDelete(args ?? {});
   }
   if (name === projectAuditTool.name) {
     return handleProjectAudit(args ?? {});
