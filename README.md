@@ -6,7 +6,7 @@
 
 - 4개 핵심 명령: `omg init`, `omg link`, `omg deploy`, `omg doctor`
 - Approval 보조 명령: `omg approve`, `omg reject`, `omg approvals list`
-- MCP 서버: 14개 tool (`omg.auth.context`, `omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.secret.list`, `omg.secret.set`, `omg.project.audit`, `omg.project.cleanup`, `omg.project.delete`, `omg.project.undelete`)
+- MCP 서버: 16개 tool (`omg.auth.context`, `omg.init`, `omg.link`, `omg.deploy`, `omg.doctor`, `omg.approve`, `omg.reject`, `omg.approvals.list`, `omg.budget.audit`, `omg.secret.list`, `omg.secret.set`, `omg.secret.delete`, `omg.project.audit`, `omg.project.cleanup`, `omg.project.delete`, `omg.project.undelete`)
 
 핵심 아이디어는 세 가지입니다.
 
@@ -122,12 +122,13 @@ omg --output json auth create main --login --align-adc
 omg --output json auth list
 omg --output json auth context
 omg --output json auth switch main
+omg --output json auth switch main --align-adc
 omg auth project
 omg --output json auth project --project main-project
 gcloud auth application-default login
 ```
 
-`auth list` shows both credentialed gcloud accounts and named configurations. `auth create` runs `gcloud config configurations create <configuration>` and can set the account/project for that configuration. `--login` runs `gcloud auth login`; if `--account` is omitted, `omg` reads the account selected by the browser login and stores it in the new configuration. If `--project` is omitted, `omg` uses the active project after login, or auto-selects the only visible project. In interactive mode, multiple visible projects are shown as a selection prompt. `auth project` sets the active project for the current gcloud configuration; without `--project`, interactive mode prompts when multiple projects are visible. `--align-adc` runs `gcloud auth application-default login`. `auth context` shows the active gcloud configuration, active gcloud account, active project, ADC account when resolvable, and all known gcloud configurations. `auth switch` runs `gcloud config configurations activate <configuration>` and then prints the same context. If the gcloud and ADC accounts differ, `next` suggests `gcloud auth application-default login`.
+`auth list` shows both credentialed gcloud accounts and named configurations. `auth create` runs `gcloud config configurations create <configuration>` and can set the account/project for that configuration. `--login` runs `gcloud auth login`; if `--account` is omitted, `omg` reads the account selected by the browser login and stores it in the new configuration. If `--project` is omitted, `omg` uses the active project after login, or auto-selects the only visible project. In interactive mode, multiple visible projects are shown as a selection prompt. `auth project` sets the active project for the current gcloud configuration; without `--project`, interactive mode prompts when multiple projects are visible. `--align-adc` runs `gcloud auth application-default login`. `auth context` shows the active gcloud configuration, active gcloud account, active project, ADC account when resolvable, and all known gcloud configurations. `auth switch` runs `gcloud config configurations activate <configuration>` and then prints the same context; add `--align-adc` to run ADC login immediately after switching. If the gcloud and ADC accounts differ, `next` suggests `gcloud auth application-default login`.
 
 ### `omg approve <id>`, `omg reject <id>`, `omg approvals list`
 
@@ -139,7 +140,7 @@ omg reject apr_xxx --reason "args look wrong"
 omg approvals list --status pending
 ```
 
-### `omg secret list`, `omg secret set <name>`
+### `omg secret list`, `omg secret set <name>`, `omg secret delete <name>`
 
 Phase 3 Secret Manager admin surface.
 
@@ -147,11 +148,26 @@ Phase 3 Secret Manager admin surface.
 omg --output json secret list --limit 20
 omg --output json secret set API_KEY --value-file .secrets/api-key.txt --dry-run
 omg --output json secret set API_KEY --value-file .secrets/api-key.txt --yes
+omg --output json secret delete API_KEY --dry-run
+omg --output json secret delete API_KEY --yes
 ```
 
 `secret list` returns metadata only. `secret set` creates a missing secret or adds a new version to an existing secret without printing the secret value. Prefer `--value-file` over `--value` to avoid shell history exposure.
 
 Live Secret Manager usage can affect billing once active secret versions or access operations exceed the Google Cloud free tier. Run dry-runs first and get explicit approval before live writes.
+Live `secret set` also requires the budget guard to return `risk: configured`; otherwise it exits with `BUDGET_GUARD_BLOCKED`.
+
+### `omg budget audit`
+
+Read-only billing budget guard audit.
+
+```bash
+omg --output json budget audit --project <live-validation-project>
+omg --output json budget enable-api --project <live-validation-project> --dry-run
+omg --output json budget enable-api --project <live-validation-project> --yes
+```
+
+`budget audit` checks whether billing is enabled, which billing account is linked, and whether budgets are visible for that billing account. It never creates budgets or changes billing state. `budget enable-api` enables the free Cloud Billing Budget API only when explicitly run with `--yes`; use `--dry-run` first. Use budget audit before cost-bearing live operations.
 
 ### `omg project audit`, `omg project cleanup --dry-run`, `omg project delete`, `omg project undelete`
 
@@ -188,8 +204,10 @@ stdio 기반 MCP 서버를 실행합니다. MCP 클라이언트(Claude Code, Cod
 | `omg.approve` | Approval 승인 |
 | `omg.reject` | Approval 거부 |
 | `omg.approvals.list` | Approval 목록 조회 |
+| `omg.budget.audit` | Read-only billing budget guard audit |
 | `omg.secret.list` | Secret Manager metadata-only listing |
 | `omg.secret.set` | Secret Manager create/update through trust gate |
+| `omg.secret.delete` | Secret Manager delete through explicit confirmation |
 | `omg.project.audit` | Read-only project cleanup risk audit |
 | `omg.project.cleanup` | Dry-run-only cleanup plan |
 | `omg.project.delete` | Approval-gated project deletion request/execution |
@@ -291,6 +309,7 @@ src/
 - [GCP E2E runbook](./docs/runbooks/gcp-e2e.md)
 - [Phase 2.5 validation record](./docs/runbooks/phase-2.5-validation.md)
 - [Secret admin runbook](./docs/runbooks/secret-admin.md)
+- [Budget / billing guard runbook](./docs/runbooks/budget-billing-guard.md)
 - [Project cleanup audit runbook](./docs/runbooks/project-cleanup-audit.md)
 
 ## 참고

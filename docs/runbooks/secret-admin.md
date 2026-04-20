@@ -9,6 +9,7 @@ Phase 3 starts with the narrow Secret Manager admin surface:
 This surface does not read or print secret payloads. Secret values are accepted only as write inputs and are redacted from command output, approval args, and test assertions.
 
 Both commands require `.omg/trust.yaml`; `--project` may only target the project recorded in that trust profile.
+Secret deletion is also available through `omg secret delete <name>` with `--dry-run` / `--yes`.
 
 ## Cost Boundary
 
@@ -128,6 +129,20 @@ Result:
 | Secret create/version add | passed |
 | Secret list visibility | passed |
 | Cleanup | `OMG_SMOKE_SECRET` deleted |
+
+## Budget Guard Smoke: 2026-04-20
+
+After budget guard integration, the project `<live-validation-project>` was verified with `omg budget audit` as `risk: configured`.
+
+Smoke path:
+
+1. `omg secret set OMG_BUDGET_GUARD_SMOKE --value smoke --yes`
+2. `omg secret list --limit 20` showed `OMG_BUDGET_GUARD_SMOKE`
+3. `omg secret delete OMG_BUDGET_GUARD_SMOKE --dry-run`
+4. `omg secret delete OMG_BUDGET_GUARD_SMOKE --yes`
+5. `omg secret list --limit 20` returned an empty secret list
+
+Final state: no smoke secrets remained.
 | Remaining secrets | none |
 
 Note: the Secret Manager API remains enabled on `<live-validation-project>`; no secret versions remain active from this smoke.

@@ -272,6 +272,14 @@ Progress as of 2026-04-18:
   - Approved stale projects `gen-lang-client-0379078037` and `citric-optics-380903` were verified as `DELETE_REQUESTED`.
   - `quadratic-signifier-fmd0t`, `<live-validation-project>`, and `review-program-system` remain `ACTIVE`.
 - Next recommended Phase 3 surface is `budget` / billing guard, because the project now treats free-tier safety as a hard operating constraint.
+- Budget/billing guard progress:
+  - `omg budget audit --project <id>`
+  - `omg.budget.audit`
+  - `billing.audit = L0`
+  - `omg budget enable-api --project <id> --dry-run`
+  - `omg budget enable-api --project <id> --yes`
+  - Live read-only audit on `<live-validation-project>` first returned `risk: review` because billing was enabled but budgets could not be inspected without Cloud Billing Budget API.
+  - After explicit Budget API enablement through `omg budget enable-api --yes`, audit returned `risk: configured` with an existing KRW budget and 50/90/100% thresholds.
 
 ## Phase 4
 

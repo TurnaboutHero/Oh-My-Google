@@ -4,11 +4,13 @@
 
 ### Phase 3 budget / billing guard
 
-- [ ] Define `budget` command scope and trust levels.
-- [ ] Add read-only billing/budget audit command.
-- [ ] Add cost/free-tier guardrails before live Google Cloud operations.
-- [ ] Add CLI and MCP coverage for budget/billing guard.
-- [ ] Document live-operation approval rules for cost-bearing actions.
+- [x] Define `budget` command scope and trust levels.
+- [x] Add read-only billing/budget audit command.
+- [ ] Add cost/free-tier guardrails before all live Google Cloud operations.
+- [x] Add budget guard before live Secret Manager writes.
+- [x] Add Secret Manager delete command for cleanup-safe smoke tests.
+- [x] Add CLI and MCP coverage for budget/billing guard.
+- [x] Document live-operation approval rules for cost-bearing actions.
 
 ### Phase 3 remaining admin surfaces
 
