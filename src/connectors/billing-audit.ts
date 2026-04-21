@@ -77,6 +77,34 @@ export async function auditBillingGuard(
   };
 }
 
+export async function auditBillingAccountGuard(
+  projectId: string,
+  billingAccountId: string,
+  executor: BillingAuditExecutor = runGcloud,
+): Promise<BillingGuardAudit> {
+  const normalizedProjectId = normalizeProjectId(projectId);
+  const normalizedBillingAccountId = normalizeBillingAccountId(billingAccountId);
+  const budgetsResult = await readBudgets(executor, normalizedBillingAccountId);
+  const signals = buildSignals(budgetsResult.budgets, budgetsResult.inaccessible);
+  const risk: BillingGuardRisk =
+    budgetsResult.inaccessible.length > 0
+      ? "review"
+      : budgetsResult.budgets.length > 0
+        ? "configured"
+        : "missing_budget";
+
+  return {
+    projectId: normalizedProjectId,
+    billingEnabled: true,
+    billingAccountId: normalizedBillingAccountId,
+    budgets: budgetsResult.budgets,
+    inaccessible: budgetsResult.inaccessible.length > 0 ? budgetsResult.inaccessible : undefined,
+    signals,
+    risk,
+    recommendedAction: getRecommendedAction(risk),
+  };
+}
+
 async function readBudgets(
   executor: BillingAuditExecutor,
   billingAccountId: string,
@@ -182,6 +210,14 @@ function normalizeProjectId(projectId: string): string {
   const trimmed = projectId.trim();
   if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(trimmed)) {
     throw new ValidationError("A valid project ID is required.");
+  }
+  return trimmed;
+}
+
+function normalizeBillingAccountId(billingAccountId: string): string {
+  const trimmed = stripBillingAccountPrefix(billingAccountId.trim());
+  if (!trimmed) {
+    throw new ValidationError("Billing account ID is required.");
   }
   return trimmed;
 }

@@ -417,7 +417,7 @@ Risk states:
 
 Known gap:
 
-- Budget guard is not yet enforced across all live Google Cloud operations. The next architecture change should focus on init/API-enable paths while preserving first-run setup behavior.
+- Budget guard is now enforced for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup. Coverage still needs review as new live Google Cloud operations are added.
 
 ## Project Lifecycle Safety
 
@@ -473,13 +473,12 @@ Implemented and verified:
 - auth context and setup helpers
 - approval workflow
 - Secret Manager admin surface
-- budget audit and budget guard for live deploy, Firebase helper deploy, and Secret Manager writes
+- budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
 - project cleanup/delete/undelete safety surface
 
 Not implemented:
 
 - budget creation/mutation
-- budget guard across every live Google Cloud operation
 - `iam`, `notify`, `security` admin surfaces
 - advanced rollback orchestration
 - Next.js SSR deployment

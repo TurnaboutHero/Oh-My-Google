@@ -65,11 +65,11 @@ Important implemented guards:
 - `--expect-account` guard for project delete/undelete.
 - Project deletion blocks protected, billing-enabled, do-not-touch, and non-owner cases before approval.
 - Project undeletion only runs for `DELETE_REQUESTED`.
-- Live `omg deploy`, `omg firebase deploy --execute`, and `secret set` require budget audit `risk: configured`.
+- Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
 
 Important remaining gaps:
 
-- Budget guard is not yet connected to first-run setup/API-enable paths.
+- `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 - Budget creation/mutation is not implemented.
 - `iam`, `notify`, and `security` admin surfaces are not implemented.
 - Advanced rollback orchestration is not implemented.

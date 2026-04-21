@@ -130,22 +130,19 @@ Progress:
 - Live `omg deploy` is budget-guarded.
 - Live `omg firebase deploy --execute` is budget-guarded.
 - Live `omg secret set` is budget-guarded.
+- `omg init` audits the selected billing account before billing link, default API enablement, and IAM setup.
+- `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 
 Recommended next order:
 
-1. Classify setup/API-enable operations that need budget guard and which need onboarding exceptions.
-2. Add budget guard to setup/API-enable paths where it does not create a first-run deadlock.
-3. Add tests for:
-   - configured budget allows live execution
-   - `missing_budget` blocks live execution
-   - `review` blocks live execution
-   - dry-run bypasses live budget guard
-   - onboarding exception behavior is explicit
-4. Update README, TODO, and runbooks after the behavior is implemented.
+1. Decide whether `omg budget create` is needed, or leave budget creation as a documented manual console step.
+2. Continue adding budget/free-tier guardrails to any remaining cost-bearing live operations.
+3. Add tests for each new live-operation guard before implementation.
+4. Keep README, TODO, and runbooks synchronized with implemented behavior.
 
 Important design point:
 
-`omg init` may be the first command that enables the Budget API or links billing. It cannot blindly require a budget that is not inspectable yet. The implementation needs a clear first-run path, not a circular dependency.
+`omg init` may be the first command that links billing. It now audits the selected billing account before linking so a missing or inaccessible budget blocks cost-expanding setup. `budget enable-api` remains the explicit bootstrap path when budget visibility itself is unavailable.
 
 ## Candidate Future Phases
 

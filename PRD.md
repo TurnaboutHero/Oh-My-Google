@@ -189,11 +189,12 @@ Completed validation:
 - Budget audit returning configured budget state.
 - Secret Manager smoke secret creation and deletion under budget guard.
 - History cleanup for local machine paths.
+- Regression tests for first-run `init` budget guard decisions.
 
 Current open validation need:
 
-- Budget guard integration on first-run setup/API-enable paths.
-- Regression tests for setup/API-enable budget guard decisions.
+- Budget guard coverage review for any remaining cost-bearing live operation.
+- Decision on whether budget creation should be implemented or remain manual.
 
 ## Success Criteria
 
@@ -202,7 +203,7 @@ Short-term:
 - Agents can inspect, initialize, link, dry-run, and deploy supported apps without parsing human text.
 - Agents can switch and inspect account context without silently mutating ADC.
 - Project cleanup/recovery operations are auditable and approval-gated.
-- Live deploys and Secret Manager writes are guarded by budget visibility.
+- Live deploys, Secret Manager writes, Firebase helper deploys, and `init` billing/API/IAM setup are guarded by budget visibility.
 
 Medium-term:
 

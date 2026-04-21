@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  auditBillingAccountGuard,
   auditBillingGuard,
   type BillingAuditExecutor,
 } from "../src/connectors/billing-audit.js";
@@ -90,6 +91,34 @@ describe("billing guard audit connector", () => {
     expect(calls).toEqual([["billing", "projects", "describe", "demo-project", "--format=json"]]);
     expect(audit.risk).toBe("billing_disabled");
     expect(audit.budgets).toEqual([]);
+  });
+
+  it("audits a selected billing account before it is linked to the project", async () => {
+    const calls: string[][] = [];
+    const audit = await auditBillingAccountGuard("demo-project", "ABC-123", async (args) => {
+      calls.push(args);
+      return {
+        stdout: JSON.stringify([
+          {
+            name: "billingAccounts/ABC-123/budgets/budget-1",
+            displayName: "Monthly cap",
+            thresholdRules: [{ thresholdPercent: 0.5 }],
+          },
+        ]),
+        stderr: "",
+      };
+    });
+
+    expect(calls).toEqual([
+      ["billing", "budgets", "list", "--billing-account=ABC-123", "--format=json", "--quiet"],
+    ]);
+    expect(audit).toMatchObject({
+      projectId: "demo-project",
+      billingEnabled: true,
+      billingAccountId: "ABC-123",
+      risk: "configured",
+    });
+    expect(audit.budgets).toHaveLength(1);
   });
 });
 
