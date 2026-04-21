@@ -4,6 +4,11 @@ import path from "node:path";
 import { confirm, input, select } from "@inquirer/prompts";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
+import {
+  auditBillingAccountGuard,
+  auditBillingGuard,
+  type BillingGuardAudit,
+} from "../../connectors/billing-audit.js";
 import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { DEFAULT_APIS, enableApis } from "../../setup/apis.js";
 import { getBillingStatus, linkBilling, listBillingAccounts } from "../../setup/billing.js";
@@ -45,6 +50,7 @@ export interface InitErrorPayload {
   recoverable: boolean;
   hint?: string;
   data?: Record<string, unknown>;
+  next?: string[];
 }
 
 export type RunInitOutcome =
@@ -88,6 +94,7 @@ export const initCommand = new Command("init")
       outcome.error.recoverable,
       outcome.error.hint,
       outcome.error.data,
+      outcome.error.next,
     );
     process.exit(1);
   });
@@ -156,7 +163,45 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
       structuredMode,
     );
     const billingStatus = await getBillingStatus(projectSelection.projectId);
-    if (!billingStatus.linked || billingStatus.billingAccountId !== billingAccountId) {
+
+    const budgetGuard = await auditInitBudgetGuard(
+      projectSelection.projectId,
+      billingAccountId,
+      billingStatus,
+    );
+    if (budgetGuard.risk !== "configured") {
+      const next = getBudgetGuardNext(projectSelection.projectId, budgetGuard);
+      const outcome: RunInitOutcome = {
+        ok: false,
+        error: {
+          code: "BUDGET_GUARD_BLOCKED",
+          message: `Budget guard blocked initialization: ${budgetGuard.recommendedAction}`,
+          recoverable: true,
+          hint: budgetGuard.recommendedAction,
+          data: {
+            ...budgetGuard,
+            budgetRisk: budgetGuard.risk,
+          },
+          next,
+        },
+      };
+      await tryAppendDecision(input.cwd, {
+        runId,
+        command: "init",
+        phase: "budget",
+        status: "blocked",
+        projectId: projectSelection.projectId,
+        environment,
+        result: outcome.error,
+        next,
+      });
+      return outcome;
+    }
+
+    if (
+      !billingStatus.linked ||
+      !sameBillingAccount(billingStatus.billingAccountId, billingAccountId)
+    ) {
       await linkBilling(projectSelection.projectId, billingAccountId);
     }
 
@@ -259,6 +304,44 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
     });
     return outcome;
   }
+}
+
+async function auditInitBudgetGuard(
+  projectId: string,
+  billingAccountId: string,
+  billingStatus: { linked: boolean; billingAccountId?: string },
+): Promise<BillingGuardAudit> {
+  if (
+    billingStatus.linked &&
+    sameBillingAccount(billingStatus.billingAccountId, billingAccountId)
+  ) {
+    return auditBillingGuard(projectId);
+  }
+
+  return auditBillingAccountGuard(projectId, billingAccountId);
+}
+
+function sameBillingAccount(left: string | undefined, right: string): boolean {
+  return normalizeBillingAccountId(left) === normalizeBillingAccountId(right);
+}
+
+function normalizeBillingAccountId(value: string | undefined): string {
+  return value?.trim().replace(/^billingAccounts\//, "") ?? "";
+}
+
+function getBudgetGuardNext(projectId: string, audit: BillingGuardAudit): string[] {
+  if (audit.risk === "review") {
+    return [
+      `omg budget enable-api --project ${projectId} --dry-run`,
+      `omg budget audit --project ${projectId}`,
+    ];
+  }
+
+  if (audit.risk === "missing_budget" && audit.billingAccountId) {
+    return [`Create a billing budget for billing account ${audit.billingAccountId}.`];
+  }
+
+  return [`omg budget audit --project ${projectId}`];
 }
 
 function getMissingRequiredInitFields(input: RunInitInput): string[] {

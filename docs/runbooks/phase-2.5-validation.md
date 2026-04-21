@@ -12,8 +12,8 @@ Date: 2026-04-18
 
 - Client surface: Codex MCP configuration
 - Server registered as: `oh-my-google`
-- Command: `node D:\<repo-root>\bin\omg mcp start`
-- Tools discovered:
+- Command from repo root: `node bin/omg mcp start`
+- Tools discovered at the time of the 2026-04-18 Phase 2.5 smoke:
   - `omg.approvals.list`
   - `omg.approve`
   - `omg.deploy`
@@ -22,6 +22,8 @@ Date: 2026-04-18
   - `omg.link`
   - `omg.reject`
 - `omg.doctor` tool call returned JSON text parseable from `content[0].text`.
+
+The MCP surface has since expanded. See [mcp-client-smoke.md](./mcp-client-smoke.md) for the current expected tool list.
 
 ## GCP E2E Smoke
 
@@ -56,3 +58,10 @@ Smoke checks:
 
 - Disposable GCP project `omg-e2e-260418-193712` was deleted after validation.
 - Local fixture directory was removed after evidence was recorded here.
+
+## Follow-Up Verification: 2026-04-20
+
+- `npm run typecheck`: passed
+- `npm run build`: passed
+- `npx vitest run`: passed, 32 test files and 156 tests
+- Later live smoke covered project delete/undelete/delete-again and budget-guarded Secret Manager create/delete. See the project cleanup, budget guard, and secret admin runbooks for those records.

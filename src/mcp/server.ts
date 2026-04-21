@@ -1,6 +1,8 @@
 import readline from "node:readline";
+import { authContextTool, handleAuthContext } from "./tools/auth.js";
 import { approveTool, handleApprove } from "./tools/approve.js";
 import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.js";
+import { budgetAuditTool, handleBudgetAudit } from "./tools/budget.js";
 import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
 import { initTool, handleInit } from "./tools/init.js";
@@ -9,17 +11,28 @@ import {
   handleProjectAudit,
   handleProjectCleanup,
   handleProjectDelete,
+  handleProjectUndelete,
   projectAuditTool,
   projectCleanupTool,
   projectDeleteTool,
+  projectUndeleteTool,
 } from "./tools/project.js";
 import { rejectTool, handleReject } from "./tools/reject.js";
-import { handleSecretList, handleSecretSet, secretListTool, secretSetTool } from "./tools/secret.js";
+import {
+  handleSecretDelete,
+  handleSecretList,
+  handleSecretSet,
+  secretDeleteTool,
+  secretListTool,
+  secretSetTool,
+} from "./tools/secret.js";
 import type { OmgResponse } from "./tools/types.js";
 
 const tools = [
+  authContextTool,
   doctorTool,
   approvalsListTool,
+  budgetAuditTool,
   approveTool,
   rejectTool,
   deployTool,
@@ -27,9 +40,11 @@ const tools = [
   linkTool,
   secretListTool,
   secretSetTool,
+  secretDeleteTool,
   projectAuditTool,
   projectCleanupTool,
   projectDeleteTool,
+  projectUndeleteTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -57,11 +72,17 @@ export async function startMcpServer(opts: { transport: "stdio" }): Promise<void
 }
 
 async function callTool(name: string, args: unknown): Promise<OmgResponse> {
+  if (name === authContextTool.name) {
+    return handleAuthContext(args ?? {});
+  }
   if (name === doctorTool.name) {
     return handleDoctor(args ?? {});
   }
   if (name === approvalsListTool.name) {
     return handleApprovalsList(args ?? {});
+  }
+  if (name === budgetAuditTool.name) {
+    return handleBudgetAudit(args ?? {});
   }
   if (name === approveTool.name) {
     return handleApprove(args ?? {});
@@ -84,6 +105,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   if (name === secretSetTool.name) {
     return handleSecretSet(args ?? {});
   }
+  if (name === secretDeleteTool.name) {
+    return handleSecretDelete(args ?? {});
+  }
   if (name === projectAuditTool.name) {
     return handleProjectAudit(args ?? {});
   }
@@ -92,6 +116,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === projectDeleteTool.name) {
     return handleProjectDelete(args ?? {});
+  }
+  if (name === projectUndeleteTool.name) {
+    return handleProjectUndelete(args ?? {});
   }
 
   return {

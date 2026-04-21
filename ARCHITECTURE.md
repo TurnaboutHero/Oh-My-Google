@@ -1,52 +1,62 @@
 # Architecture
 
-## 목표
+Last updated: 2026-04-20
 
-현재 `oh-my-google`의 구현 목표는 다음 세 단계를 안정적으로 연결하는 것입니다.
+This document describes the current `main` implementation. Product intent lives in [PRD.md](./PRD.md), execution sequencing lives in [PLAN.md](./PLAN.md), and checklist status lives in [TODO.md](./TODO.md).
 
-1. `init`
-2. `link`
-3. `deploy`
+## Architectural Goal
 
-즉, “Google Cloud/Firebase 전체를 추상화한다”가 아니라, 에이전트가 배포 가능한 최소 경로를 구조화된 출력과 안전 게이트로 실행하게 만드는 것이 현재 아키텍처의 중심입니다.
+`oh-my-google` is an agent-first harness over Google Cloud and Firebase.
 
-## 현재 계층
+The architecture is intentionally not a general cloud abstraction layer. It is a narrow orchestration layer that gives AI agents:
+
+- one CLI surface
+- one MCP surface
+- one structured response envelope
+- one Trust Profile safety model
+- auditable approvals and artifacts
+- explicit account, project, and budget checks before risky operations
+
+## High-Level Shape
 
 ```text
-CLI + MCP  (dual surface — 동일 shared core를 각자 호출)
-  -> output / tool serialization
-  -> auth
-  -> setup
-  -> planner
-  -> trust
-  -> approval
-  -> harness artifacts
-  -> executor
-  -> connectors
-  -> wiring
+CLI surface                 MCP surface
+    |                           |
+    +-----------+---------------+
+                |
+          shared command core
+                |
+  +-------------+-------------+----------------+
+  |                           |                |
+auth/setup/planner       trust/approval       connectors
+  |                           |                |
+  +-------------+-------------+----------------+
+                |
+           executor/wiring
+                |
+        gcloud + firebase CLI
 ```
 
-핵심 원칙:
+Core principles:
 
-- planner가 무엇을 할지 결정한다
-- executor가 그 계획을 순서대로 실행한다
-- connector는 서비스별 실행 단위만 담당한다
-- output은 human/json 출력을 통일한다
-- CLI와 MCP는 runDoctor/runInit/runLink/runDeploy/runApprove/runReject 같은 shared core 함수를 공통으로 호출한다
+- CLI and MCP do not implement separate business logic.
+- Planner decides what should happen before executor runs anything.
+- Trust checks run before live operations.
+- Approval artifacts are one-use and hash-bound.
+- Connectors are thin service execution adapters over existing CLIs/APIs.
+- Output is always shaped as human text or the shared JSON envelope.
 
-## 실제 디렉터리 구조
+## Source Layout
 
 ```text
 src/
   approval/
-    types.ts
     hash.ts
     queue.ts
-  harness/
-    decision-log.ts
-    handoff.ts
+    types.ts
   auth/
     auth-manager.ts
+    gcloud-context.ts
   cli/
     index.ts
     output.ts
@@ -54,137 +64,200 @@ src/
     doctor.ts
     setup.ts
     commands/
-      init.ts
-      link.ts
+      approvals.ts
+      approve.ts
+      budget.ts
       deploy.ts
       firebase.ts
-      approve.ts
+      init.ts
+      link.ts
+      mcp.ts
+      project.ts
       reject.ts
-      approvals.ts
+      secret.ts
   connectors/
+    billing-audit.ts
     cloud-run.ts
     firebase.ts
+    project-audit.ts
+    secret-manager.ts
   executor/
     apply.ts
+  harness/
+    decision-log.ts
+    handoff.ts
+  mcp/
+    server.ts
+    tools/
+      approvals-list.ts
+      approve.ts
+      auth.ts
+      budget.ts
+      deploy.ts
+      doctor.ts
+      init.ts
+      link.ts
+      project.ts
+      reject.ts
+      secret.ts
+      types.ts
   planner/
     detect.ts
     gcp-state.ts
     plan-builder.ts
     schema.ts
   setup/
-    project.ts
-    billing.ts
     apis.ts
+    billing.ts
     iam.ts
+    project.ts
+  system/
+    cli-runner.ts
   trust/
-    profile.ts
-    levels.ts
     check.ts
+    levels.ts
+    profile.ts
   types/
     connector.ts
     errors.ts
+    index.ts
     plan.ts
     trust.ts
   wiring/
-    firebase-rewrites.ts
     env-inject.ts
-  mcp/
-    server.ts
-    tools/
-      doctor.ts
-      approvals-list.ts
-      approve.ts
-      reject.ts
-      deploy.ts
-      init.ts
-      link.ts
-      types.ts
+    firebase-rewrites.ts
 ```
 
-`src/mcp/server.ts`는 stdio runtime과 `doctor`, `approvals.list`, `approve`, `reject`, `deploy`, `init`, `link` tool을 노출합니다.
+## Response Boundary
 
-## 명령 흐름
+All agent-facing commands should fit this envelope:
 
-### `omg init`
+```json
+{
+  "ok": true,
+  "command": "doctor",
+  "data": {},
+  "next": []
+}
+```
 
-입력:
+Failures use stable `error.code` values:
 
-- 프로젝트 ID
-- 빌링 계정
-- 환경
-- 리전
+```json
+{
+  "ok": false,
+  "command": "project:delete",
+  "error": {
+    "code": "APPROVAL_REQUIRED",
+    "message": "Project deletion requires manual approval.",
+    "recoverable": true
+  },
+  "next": []
+}
+```
 
-처리:
+The response envelope is used by:
 
-- `auth-manager`로 로컬 설정과 인증 상태 확인
-- `setup/project.ts`로 프로젝트 생성 또는 선택
-- `setup/billing.ts`로 빌링 연결
-- `setup/apis.ts`로 필수 API enable
-- `setup/iam.ts`로 기본 IAM 바인딩 적용
-- `trust/profile.ts`로 `.omg/trust.yaml` 생성
-- `AuthManager.saveConfig()`로 `~/.omg/config.json` 저장
+- CLI JSON mode
+- MCP tool responses
+- tests and runbooks
+- downstream agent logic
 
-출력:
+## CLI Surface
 
-- JSON 모드면 `{ ok, command, data, next }`
-- 다음 단계는 `omg link`
+The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 
-### `omg link`
+- Core: `init`, `link`, `deploy`, `doctor`, `setup`
+- Auth: `auth status/list/create/context/switch/project/refresh/logout`
+- Approval: `approve`, `reject`, `approvals list`
+- Budget: `budget audit`, `budget enable-api`
+- Secret Manager: `secret list/set/delete`
+- Project lifecycle: `project audit/cleanup/delete/undelete`
+- Firebase helpers: `firebase init/deploy/emulators`
+- MCP server: `mcp start`
 
-입력:
+CLI responsibilities:
 
-- 현재 작업 디렉터리
-- 선택적 region/service/site override
+- commander parsing
+- interactive prompts
+- human/json output formatting
+- process exit behavior
+- converting command options into shared core input
 
-처리:
+CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
-- `planner/detect.ts`가 리포를 감지
-- `planner/gcp-state.ts`가 현재 GCP 상태를 읽음
-- `planner/plan-builder.ts`가 Plan 생성
-- `planner/schema.ts`가 `.omg/project.yaml` 저장
+## MCP Surface
 
-주요 판단:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 16 tools:
 
-- `static`
-- `api-only`
-- `spa-plus-api`
-- `functions`
-- `unknown`
+- `omg.auth.context`
+- `omg.init`
+- `omg.link`
+- `omg.deploy`
+- `omg.doctor`
+- `omg.approve`
+- `omg.reject`
+- `omg.approvals.list`
+- `omg.budget.audit`
+- `omg.secret.list`
+- `omg.secret.set`
+- `omg.secret.delete`
+- `omg.project.audit`
+- `omg.project.cleanup`
+- `omg.project.delete`
+- `omg.project.undelete`
 
-`spa-plus-api`면 backend 먼저, frontend 나중 순서와 rewrites wiring을 생성합니다.
+MCP responsibilities:
 
-### `omg deploy`
+- tool schema
+- tool input validation
+- response serialization as JSON text
+- calling the same core functions as CLI commands
 
-입력:
+MCP is not a wrapper around shelling out to `omg`. It is a second surface over the same TypeScript implementation.
+
+## Auth And Setup
+
+Auth has two layers:
+
+- [src/auth/auth-manager.ts](./src/auth/auth-manager.ts): local `~/.omg/config.json` management and lightweight auth status
+- [src/auth/gcloud-context.ts](./src/auth/gcloud-context.ts): gcloud configuration/account/project/ADC discovery and mutation helpers
+
+Important account model:
+
+- active gcloud account and ADC account are separate
+- named gcloud configurations are supported
+- `omg` does not silently switch ADC
+- `--align-adc` is required for non-interactive ADC alignment
+- interactive `setup` may ask before running ADC login
+
+Setup flow:
+
+1. Check `gcloud`.
+2. Check `firebase`.
+3. Optionally activate a named gcloud configuration.
+4. Resolve or initiate gcloud login.
+5. Detect gcloud/ADC mismatch.
+6. Optionally align ADC.
+7. Save local project config.
+8. Run `doctor`.
+
+## Planner And Plan Contract
+
+Planner files:
+
+- [src/planner/detect.ts](./src/planner/detect.ts)
+- [src/planner/gcp-state.ts](./src/planner/gcp-state.ts)
+- [src/planner/plan-builder.ts](./src/planner/plan-builder.ts)
+- [src/planner/schema.ts](./src/planner/schema.ts)
+
+The plan is stored at:
 
 - `.omg/project.yaml`
-- `.omg/trust.yaml`
-- `--dry-run`
-- `--yes`
 
-처리:
+The plan is the contract between detection and execution.
 
-- plan 로드
-- trust profile 로드
-- `trust/check.ts`로 배포 허용 여부 판단
-- `executor/apply.ts`가 deployment order대로 순차 실행
-- 필요 시 `wiring/firebase-rewrites.ts` 적용
-- 필요 시 `wiring/env-inject.ts`로 Secret Manager 값 해석
-
-출력:
-
-- 배포 URL
-- step 목록
-
-## 핵심 데이터 구조
-
-### Plan
-
-현재 저장 경로:
-
-- `.omg/project.yaml`
-
-핵심 필드:
+Core fields:
 
 - `version`
 - `detected`
@@ -194,162 +267,222 @@ src/
 - `deploymentOrder`
 - `checks`
 
-이 구조는 planner와 executor 사이의 계약입니다.
+Supported detection classes include:
 
-### Trust Profile
+- `static`
+- `api-only`
+- `spa-plus-api`
+- `functions`
+- `unknown`
 
-현재 저장 경로:
+For `spa-plus-api`, the plan uses backend-first deployment and then wires Cloud Run into Firebase Hosting rewrites.
+
+## Executor And Wiring
+
+Executor file:
+
+- [src/executor/apply.ts](./src/executor/apply.ts)
+
+Wiring files:
+
+- [src/wiring/firebase-rewrites.ts](./src/wiring/firebase-rewrites.ts)
+- [src/wiring/env-inject.ts](./src/wiring/env-inject.ts)
+
+Executor responsibilities:
+
+- load deployment order from the plan
+- run connector actions sequentially
+- collect deployment URLs
+- update Firebase rewrites when Cloud Run backs a Firebase frontend
+- resolve `${SECRET:KEY}` values for backend env injection
+- update harness artifacts with outcomes
+
+The executor should remain simple. Complex choices belong in planner or trust checks.
+
+## Connectors
+
+Connector interface lives in [src/types/connector.ts](./src/types/connector.ts).
+
+Implemented connectors:
+
+- [src/connectors/cloud-run.ts](./src/connectors/cloud-run.ts)
+- [src/connectors/firebase.ts](./src/connectors/firebase.ts)
+- [src/connectors/secret-manager.ts](./src/connectors/secret-manager.ts)
+- [src/connectors/project-audit.ts](./src/connectors/project-audit.ts)
+- [src/connectors/billing-audit.ts](./src/connectors/billing-audit.ts)
+
+Connector responsibilities:
+
+- issue narrow service-specific commands
+- normalize outputs into structured payloads
+- avoid broad orchestration decisions
+- avoid printing secrets
+
+Most connectors intentionally rely on `gcloud` or Firebase CLI rather than duplicating large portions of cloud client behavior.
+
+## Trust Model
+
+Trust files:
+
+- [src/trust/levels.ts](./src/trust/levels.ts)
+- [src/trust/check.ts](./src/trust/check.ts)
+- [src/trust/profile.ts](./src/trust/profile.ts)
+
+Trust Profile path:
 
 - `.omg/trust.yaml`
 
-핵심 필드:
+Trust levels:
 
-- `projectId`
-- `environment`
-- `allowedServices`
-- `allowedRegions`
-- `deny`
-- `rules`
+| Level | Meaning | Examples |
+|---|---|---|
+| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `secret.list` |
+| L1 | normal setup/deploy changes | `deploy.cloud-run`, `deploy.firebase-hosting`, `apis.enable` |
+| L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `secret.set` |
+| L3 | destructive/lifecycle actions | `gcp.project.delete`, `gcp.project.undelete`, data delete |
 
-`rules`는 `L0`~`L3` 액션 레벨별 정책을 가집니다.
+Trust decisions:
 
-## Trust 모델
+- `auto`: allowed
+- `require_confirm`: human mode may confirm, JSON mode needs `--yes`
+- `require_approval`: creates or consumes approval
+- `deny`: blocked
 
-현재 액션 레벨 매핑은 `trust/levels.ts`에 있습니다.
+The `deny` action-pattern list in `.omg/trust.yaml` runs before trust level policy and before approvals.
 
-대표 예시:
+## Approval Model
 
-- `deploy.cloud-run` -> `L1`
-- `deploy.firebase-hosting` -> `L1`
-- `billing.link` -> `L2`
-- `iam.role.grant` -> `L2`
-- destructive action -> `L3`
+Approval files live under:
 
-정책 해석은 `trust/check.ts`가 담당합니다.
+- `.omg/approvals/`
 
-현재 동작:
+Approval properties:
 
-- `auto` -> 바로 허용
-- `require_confirm` -> human에서는 진행 가능, JSON에서는 `--yes` 필요
-- `require_approval` -> 승인 워크플로. `.omg/approvals/<id>.yaml` 파일 기반 큐를 사용합니다. `omg deploy`가 처음 만나면 approval 파일을 자동 생성하고 `APPROVAL_REQUIRED` + approvalId + next 힌트를 반환합니다. 사람이 `omg approve <id>`로 승인한 뒤 `omg deploy --approval <id>`로 재실행합니다. TTL 기본 1시간. `argsHash`로 승인 후 배포 인자 조작을 막습니다. 통과한 approval은 `consumed`로 마킹되어 1회만 사용됩니다.
-- `deny` -> 항상 차단
+- action
+- project ID
+- args hash
+- created/expiry timestamps
+- status
+- approver/rejecter data
+- requested account for account-sensitive lifecycle operations
+- consumed marker after use
 
-추가 deny policy:
+Approval safety:
 
-- `.omg/trust.yaml`의 `deny` 배열은 action pattern을 받습니다.
-- deny policy는 trust level과 approval보다 먼저 적용됩니다.
-- 예: `project.delete`, `iam.role.*.owner`, `firestore.data.delete`
+- approvals are one-use
+- args hash must match
+- expired approvals fail
+- unapproved approvals fail
+- consumed approvals fail
+- project delete/undelete approvals fail with `ACCOUNT_MISMATCH` if the active gcloud account differs from the recorded account
+
+Structured reason codes include:
+
+- `DENIED`
+- `REQUIRES_CONFIRM`
+- `APPROVAL_REQUIRED`
+- `APPROVAL_NOT_FOUND`
+- `APPROVAL_EXPIRED`
+- `APPROVAL_NOT_APPROVED`
+- `APPROVAL_MISMATCH`
+- `ACCOUNT_MISMATCH`
+- `APPROVAL_CONSUMED`
+
+## Budget Guard
+
+Budget connector:
+
+- [src/connectors/billing-audit.ts](./src/connectors/billing-audit.ts)
+
+Budget command:
+
+- [src/cli/commands/budget.ts](./src/cli/commands/budget.ts)
+
+Current behavior:
+
+- `budget audit` checks billing state and visible budgets.
+- `budget enable-api` explicitly enables `billingbudgets.googleapis.com`.
+- Budget audit is read-only.
+- Budget creation is not implemented.
+- Live `secret set` is blocked unless budget audit returns `risk: configured`.
+- Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
+- Live `omg firebase deploy --execute` is blocked unless budget audit returns `risk: configured`.
+
+Risk states:
+
+- `configured`
+- `missing_budget`
+- `billing_disabled`
+- `review`
+
+Known gap:
+
+- Budget guard is now enforced for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup. Coverage still needs review as new live Google Cloud operations are added.
+
+## Project Lifecycle Safety
+
+Project lifecycle command:
+
+- [src/cli/commands/project.ts](./src/cli/commands/project.ts)
+
+Project audit connector:
+
+- [src/connectors/project-audit.ts](./src/connectors/project-audit.ts)
+
+Safety behavior:
+
+- `project audit` is read-only.
+- `project cleanup --dry-run` is plan-only.
+- `project delete` is L3 approval-gated.
+- `project undelete` is L3 approval-gated.
+- protected projects are blocked before approval.
+- billing-enabled projects are blocked before deletion approval.
+- callers without owner role are blocked before deletion approval.
+- undelete only runs for `DELETE_REQUESTED`.
+- approval consumption is bound to the active gcloud account.
 
 ## Harness Artifacts
 
-현재 하네스는 두 가지 세션 연결 artifact를 씁니다.
+Harness files:
 
-- `.omg/decisions.log.jsonl`: `init`, `link`, `deploy`, `approve`, `reject`가 append-only JSONL 이벤트를 남깁니다. trust 판단, approval 생성/소비, deploy 결과, 실패 이유를 run 단위로 연결합니다. secret/token/password 계열 값은 기록 전에 redaction됩니다.
-- `.omg/handoff.md`: deploy 성공/실패/approval 대기 상태를 사람이 읽을 수 있게 요약합니다. URL, pending approval, risk, rollback 상태, next step을 담는 latest run artifact입니다.
+- [src/harness/decision-log.ts](./src/harness/decision-log.ts)
+- [src/harness/handoff.ts](./src/harness/handoff.ts)
 
-`PermissionCheck.reasonCode`는 8종 구조화 에러를 분기합니다: `DENIED`, `REQUIRES_CONFIRM`, `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_CONSUMED`.
+Runtime artifacts:
 
-## Connector 모델
+- `.omg/decisions.log.jsonl`
+- `.omg/handoff.md`
 
-공통 인터페이스는 `types/connector.ts`에 있습니다.
+Decision log:
 
-```ts
-interface Connector<TRequest, TResult> {
-  healthCheck(config): Promise<HealthStatus>;
-  execute(action, params, config): Promise<ConnectorResult<TResult>>;
-  validate(result): Promise<boolean>;
-  rollback?(action, config): Promise<void>;
-}
-```
+- append-only JSONL
+- records major `init`, `link`, `deploy`, `approve`, `reject` events
+- redacts secret-like values before writing
 
-현재 구현된 connector:
+Handoff:
 
-- `CloudRunConnector`
-- `FirebaseConnector`
+- latest run artifact
+- summarizes deploy result, URLs, pending approvals, risks, rollback state, and next steps
 
-역할 분리:
+## Current Boundaries
 
-- planner는 connector를 직접 쓰지 않음
-- executor가 connector를 호출함
+Implemented and verified:
 
-## MCP Prep Boundary
+- Core deploy harness
+- CLI + MCP dual surface
+- auth context and setup helpers
+- approval workflow
+- Secret Manager admin surface
+- budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
+- project cleanup/delete/undelete safety surface
 
-MCP를 붙일 때 새 business logic를 만들지 않는다.
+Not implemented:
 
-경계는 이렇게 고정한다.
+- budget creation/mutation
+- `iam`, `notify`, `security` admin surfaces
+- advanced rollback orchestration
+- Next.js SSR deployment
 
-- shared core
-  - `auth/`
-  - `setup/`
-  - `planner/`
-  - `trust/`
-  - `executor/`
-  - `connectors/`
-  - `wiring/`
-- CLI
-  - commander 명령 정의
-  - interactive prompt
-  - human/json 출력
-  - exit code 처리
-- MCP
-  - tool schema
-  - tool input validation
-  - tool result serialization
-  - shared core 호출
+## Documentation Rule
 
-즉 MCP는 CLI를 호출하는 layer가 아니라, CLI와 같은 core를 호출하는 별도 surface다.
-
-## Wiring
-
-현재 wiring은 두 개입니다.
-
-- `firebase-rewrites.ts`
-- `env-inject.ts`
-
-### Firebase rewrites
-
-backend가 Cloud Run이고 frontend가 Firebase Hosting일 때:
-
-- `firebase.json`의 rewrites를 수정
-- 동일한 pattern은 교체
-- 다른 rewrites는 유지
-
-### Secret env injection
-
-`${SECRET:KEY}` 형식의 값을 만나면:
-
-- `gcloud secrets versions access latest` 호출
-- 해석된 값을 backend env로 전달
-
-## Auth
-
-`auth/auth-manager.ts`는 현재 두 역할만 맡습니다.
-
-- `~/.omg/config.json` 로드/저장
-- ADC 존재 여부 확인
-
-현재는 ADC 존재 여부를 로컬 파일 기준으로 확인합니다.
-이 설계는 `doctor` JSON 출력에서 메타데이터 조회 경고를 줄이기 위한 선택입니다.
-
-## 현재 구현과 장기 비전의 차이
-
-현재 구현된 것:
-
-- CLI 4개 핵심 명령 (`init`, `link`, `deploy`, `doctor`)과 approval 보조 명령 3개 (`approve`, `reject`, `approvals list`)
-- stdio MCP 서버 + 7개 tool (`omg.doctor`, `omg.approvals.list`, `omg.approve`, `omg.reject`, `omg.deploy`, `omg.init`, `omg.link`)
-- CLI와 MCP가 공유하는 `runDoctor` / `runInit` / `runLink` / `runDeploy` / `runApprove` / `runReject` shared core
-- Plan / Trust / Approval 파일 저장
-- Cloud Run + Firebase Hosting 배포 경로
-- `require_approval` end-to-end 워크플로 (approval queue, `argsHash`, 8종 `reasonCode`)
-
-아직 없는 것:
-
-- admin surface (`secret`, `iam`, `budget`, `notify`, `security`)
-- 고급 rollback orchestration
-- Next.js SSR 지원
-
-즉, 지금 아키텍처는 “배포 하네스 MVP”이고, “Google 전체 운영 플랫폼”까지는 아직 아닙니다.
-
-## 문서 해석 원칙
-
-이 문서는 PRD 전체 비전이 아니라 현재 `main` 코드 기준의 구조를 설명합니다. PRD와 차이가 있을 때는 구현이 우선입니다.
+This document should reflect current implementation boundaries. When implementation changes module boundaries or safety behavior, update this file with the code change.

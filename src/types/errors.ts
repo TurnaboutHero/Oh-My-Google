@@ -68,6 +68,7 @@ export type ApprovalErrorCode =
   | "APPROVAL_EXPIRED"
   | "APPROVAL_NOT_APPROVED"
   | "APPROVAL_MISMATCH"
+  | "ACCOUNT_MISMATCH"
   | "APPROVAL_CONSUMED";
 
 export class ApprovalError extends OmgError {

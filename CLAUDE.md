@@ -1,65 +1,135 @@
 # oh-my-google (omg) — Project Instructions
 
+Last updated: 2026-04-20
+
 ## Identity
 
-**omg = AI 에이전트가 GCP + Firebase를 하나의 프로젝트로 통합해서 안전하게 다루는 하네스.**
+`omg` is an agent-first harness for safely operating Google Cloud and Firebase as one project workflow.
 
-핵심 존재 이유: Firebase 프로젝트 = GCP 프로젝트인데 현실은 **별도 CLI, 별도 auth, 별도 console**. 에이전트는 이 경계에서 자주 깨짐. omg가 통합 진입점.
+The reason this project exists: Firebase and GCP can refer to the same underlying project, but the real operational surface is split across separate CLIs, auth contexts, APIs, consoles, and billing boundaries. AI agents often fail at those boundaries. `omg` provides one structured entry point.
 
-타겟: AI 에이전트 (Claude Code, Codex, Antigravity 등). 사람이 직접 쓰는 경우는 소수.
+Primary users are AI coding agents such as Claude Code, Codex, Gemini CLI, Cursor-style agents, and similar tools. Human CLI usage is supported, but agent consumption is the main design target.
 
-MVP 4개 명령어: `omg init` → `omg link` → `omg deploy` (+ `omg doctor`).
+## Current Product Surface
 
-핵심 패턴: **Setup-time intense + Runtime hands-off** — init 1회 승인으로 Trust Profile 생성, 이후 profile이 자동/승인 결정. 에이전트 자체 판단 금지.
+Core workflow:
+
+- `omg setup`
+- `omg auth context/list/create/switch/project`
+- `omg init`
+- `omg link`
+- `omg deploy`
+- `omg doctor`
+- `omg approve/reject/approvals list`
+
+Safety/admin workflow:
+
+- `omg budget audit`
+- `omg budget enable-api`
+- `omg secret list/set/delete`
+- `omg project audit/cleanup/delete/undelete`
+
+MCP surface:
+
+- `omg mcp start`
+- 16 MCP tools over the same core implementation
 
 ## Coding Principles
 
-1. **GCP + Firebase 통합이 본질** — 두 CLI/auth를 하나로 묶는 게 omg의 존재 이유. 한쪽만 다루면 의미 없음.
-2. **4-command MVP** — `init`, `link`, `deploy`, `doctor`. admin surface (budget/secret/iam/notify/security)는 Phase 2.
-3. **Trust Profile이 결정** — 에이전트 자체 판단 금지. init에서 설정한 profile이 자동/승인 결정.
-4. **Dual surface** — CLI + MCP 서버 둘 다 같은 core 호출. 로직 중복 없음.
-5. **Planner > Executor** — 실행 전 "무엇을 어디에 어떻게"를 먼저 결정 (`link`). 실행기는 단순.
-6. **Cross-service wiring** — Cloud Run URL → Firebase rewrites 자동 연결이 MVP 킬러 기능.
-7. **No premature abstraction** — Pipeline/Adapter 추상화 금지. 동일 패턴 3회 반복 후에만 등장.
-8. **Agent-first output** — 모든 커맨드 `--output json` 지원. `{ok, command, data?, error?, next?}` 구조.
-9. **Safe defaults** — Cloud Run 기본 비공개, Firestore rules 변경 전 diff.
-10. **Service-specific auth** — GCP ADC + Firebase 토큰 + API 키 각자 프로바이더. AuthManager가 통합.
+1. **GCP + Firebase integration is the core value.** A feature that only wraps one CLI without planner, trust, or wiring value is usually not enough.
+2. **Agent-first output.** Every command used by agents must support `--output json` and the `{ ok, command, data?, error?, next? }` envelope.
+3. **Trust Profile decides.** Agents should not invent safety judgments. Run the trust check and follow the result.
+4. **CLI + MCP share core.** Do not implement separate business logic for MCP.
+5. **Planner before executor.** Decide what should happen before running cloud commands.
+6. **Dry-run first where possible.** Live writes/deletes need explicit flags, trust checks, or approvals.
+7. **No silent account mutation.** gcloud configuration switching and ADC alignment must be explicit.
+8. **Budget guard before cost expansion.** Expand budget guard coverage before adding broad live cloud operations.
+9. **Secrets stay secret.** Never print or store secret payloads in outputs, logs, approval args, or tests.
+10. **Prefer narrow surfaces.** Add admin commands only when the user workflow needs them.
+
+## Current Safety Model
+
+Trust levels:
+
+- L0: read-only
+- L1: normal setup/deploy changes
+- L2: cost, IAM, production, or secret-write impact
+- L3: destructive or lifecycle actions
+
+Important implemented guards:
+
+- Approval queue with args hash validation and one-use consumed markers.
+- Trust deny policy before approvals.
+- Active gcloud account vs ADC account mismatch reporting.
+- Project delete/undelete approvals bind to the active gcloud account.
+- `--expect-account` guard for project delete/undelete.
+- Project deletion blocks protected, billing-enabled, do-not-touch, and non-owner cases before approval.
+- Project undeletion only runs for `DELETE_REQUESTED`.
+- Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
+
+Important remaining gaps:
+
+- `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
+- Budget creation/mutation is not implemented.
+- `iam`, `notify`, and `security` admin surfaces are not implemented.
+- Advanced rollback orchestration is not implemented.
+- Next.js SSR deployment is not supported.
 
 ## Don'ts
 
-- Pipeline orchestrator 추상화 금지 (Phase 6에서 재고)
-- Adapter 레이어 금지 (CLI로 충분)
-- SKILL 로더 금지 (v1은 문서로)
-- `AsyncConnector` 부활 금지 (Jules 복귀 시 재도입)
-- gcloud/firebase 단순 래퍼 금지 — planner + wiring이 반드시 개입
-- 사람용 텍스트 출력만 금지 — 반드시 `output.ts`의 `success()`/`fail()`/`info()` 사용
-- Next.js SSR MVP 지원 금지 — 감지 시 경고만 (Vercel 권장)
+- Do not resurrect `pipeline.ts` or `AsyncConnector`.
+- Do not add a broad adapter layer before the concrete workflow needs it.
+- Do not add new dependencies without explicit need.
+- Do not implement MCP by shelling out to the CLI.
+- Do not silently switch ADC after switching gcloud configuration.
+- Do not auto-select among multiple visible projects in JSON mode.
+- Do not broaden destructive cloud actions without approval and tests.
+- Do not treat Google Cloud budgets as hard spend caps.
+- Do not claim live resources were cleaned up without verifying final state.
 
-## Project Structure (목표)
+## Project Structure
 
-```
+```text
 src/
-├── cli/         commander 진입 + commands/
-├── planner/     detect / gcp-state / plan-builder / schema
-├── executor/    apply (단순 순차 실행)
-├── setup/       project / billing / apis / iam
-├── wiring/      firebase-rewrites / env-inject / secret-link
-├── connectors/  cloud-run / firebase (+ Phase 2: firestore, storage, ...)
-├── auth/        auth-manager + providers
-└── types/       errors / connector / plan
+  approval/     approval hash, queue, and types
+  auth/         local config and gcloud/ADC context
+  cli/          commander commands and output formatting
+  connectors/   thin service-specific execution/audit adapters
+  executor/     sequential plan execution
+  harness/      decision log and handoff artifacts
+  mcp/          stdio MCP server and tools
+  planner/      repo detection, GCP state, plan builder/schema
+  setup/        project, billing, API, IAM setup helpers
+  system/       CLI process runner
+  trust/        Trust Profile, level mapping, checks
+  types/        shared TypeScript contracts
+  wiring/       Firebase rewrites and env injection
 ```
-
-MVP에서 **없음**: `orchestrator/`, `adapters/`, `skills/` (src 안), `pipeline.ts`.
 
 ## Documentation Map
 
-| 문서 | 내용 |
+| Document | Purpose |
 |---|---|
-| `PRD.md` | 포지셔닝, MVP 범위, 전체 비전 |
-| `ARCHITECTURE.md` | 모듈 구조, 인터페이스, 실행 흐름 |
-| `AGENTS.md` | AI 에이전트가 omg를 쓰는 방법 |
-| `PLAN.md` | Phase별 구현 계획 |
+| `README.md` | Korean overview, current status, CLI/MCP usage |
+| `README.en.md` | English overview |
+| `PRD.md` | Product purpose, goals, non-goals, safety requirements |
+| `PLAN.md` | Implementation phases and next work |
+| `TODO.md` | Current checklist and known risks |
+| `ARCHITECTURE.md` | Current module boundaries and execution flow |
+| `AGENTS.md` | Agent operating contract and omg usage contract |
+| `docs/runbooks/*` | Live validation and operational runbooks |
 
 ## Tech Stack
 
-TypeScript, Node.js >=20, tsup (ESM), commander, google-auth-library, @google-cloud/run, firebase-tools (CLI 호출), @inquirer/prompts, yaml, vitest.
+- TypeScript
+- Node.js >= 20
+- ESM
+- commander
+- `@modelcontextprotocol/sdk`
+- `google-auth-library`
+- `@google-cloud/run`
+- `@inquirer/prompts`
+- `yaml`
+- vitest
+
+Firebase and many GCP operations are intentionally invoked through their official CLIs rather than fully reimplemented in SDK code.

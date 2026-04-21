@@ -44,6 +44,28 @@ describe("Secret Manager connector", () => {
     expect(JSON.stringify(result)).not.toContain("super-secret-value");
   });
 
+  it("parses secret list output with leading non-json noise", async () => {
+    const executor: SecretManagerExecutor = async () => ({
+      stdout: `C:\\Temp\\omg\\tmpfile\r\n${JSON.stringify([
+        {
+          name: "projects/demo-project/secrets/API_KEY",
+          replication: { automatic: {} },
+        },
+      ])}`,
+      stderr: "",
+    });
+
+    const result = await listSecrets({ projectId: "demo-project", limit: 5 }, executor);
+
+    expect(result.secrets).toEqual([
+      {
+        name: "API_KEY",
+        resourceName: "projects/demo-project/secrets/API_KEY",
+        replication: "automatic",
+      },
+    ]);
+  });
+
   it("creates a missing secret without exposing the secret value in args or result", async () => {
     const calls: Array<{ args: string[] }> = [];
     const executor: SecretManagerExecutor = async (args) => {

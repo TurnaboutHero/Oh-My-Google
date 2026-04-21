@@ -19,7 +19,7 @@ export type ApproveError =
   | { code: "APPROVAL_EXPIRED"; message: string };
 
 export type ApproveOutcome =
-  | { ok: true; data: ApprovePayload }
+  | { ok: true; data: ApprovePayload; next: string[] }
   | { ok: false; error: ApproveError };
 
 export interface RunApproveInput {
@@ -55,7 +55,7 @@ export const approveCommand = new Command("approve")
       "approve",
       `Approved ${outcome.data.id}.`,
       { ...outcome.data },
-      [`omg deploy --approval ${outcome.data.id}`],
+      outcome.next,
     );
   });
 
@@ -137,6 +137,7 @@ export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome
     reason: input.reason ?? null,
   });
 
+  const next = getApprovalNext(approval);
   const outcome: ApproveOutcome = {
     ok: true,
     data: {
@@ -146,6 +147,7 @@ export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome
       approvedBy,
       approvedAt,
     },
+    next,
   };
   await tryAppendDecision(input.cwd, {
     runId,
@@ -157,9 +159,19 @@ export async function runApprove(input: RunApproveInput): Promise<ApproveOutcome
     environment: approval.environment,
     approvalId: approval.id,
     result: outcome.data,
-    next: [`omg deploy --approval ${approval.id}`],
+    next,
   });
   return outcome;
+}
+
+function getApprovalNext(approval: { action: string; id: string; projectId: string }): string[] {
+  if (approval.action === "gcp.project.delete") {
+    return [`omg project delete --project ${approval.projectId} --approval ${approval.id}`];
+  }
+  if (approval.action === "gcp.project.undelete") {
+    return [`omg project undelete --project ${approval.projectId} --approval ${approval.id}`];
+  }
+  return [`omg deploy --approval ${approval.id}`];
 }
 
 function getApprover(): string {

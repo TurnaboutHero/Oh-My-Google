@@ -7,7 +7,9 @@ export interface CheckOptions {
   jsonMode?: boolean;
   approvalId?: string;
   argsHash?: string;
+  activeAccount?: string;
   cwd?: string;
+  consumeApproval?: boolean;
 }
 
 export async function checkPermission(
@@ -117,6 +119,18 @@ export async function checkPermission(
     };
   }
 
+  if (approval.requestedAccount && approval.requestedAccount !== opts.activeAccount) {
+    return {
+      allowed: false,
+      action: trustAction,
+      reason: opts.activeAccount
+        ? `Approval ${approval.id} was created for ${approval.requestedAccount}, but active account is ${opts.activeAccount}.`
+        : `Approval ${approval.id} was created for ${approval.requestedAccount}, but active account could not be verified.`,
+      reasonCode: "ACCOUNT_MISMATCH",
+      approvalId: approval.id,
+    };
+  }
+
   if (new Date() > new Date(approval.expiresAt)) {
     await saveApproval(cwd, { ...approval, status: "expired" });
     return {
@@ -128,7 +142,9 @@ export async function checkPermission(
     };
   }
 
-  await saveApproval(cwd, { ...approval, status: "consumed" });
+  if (opts.consumeApproval !== false) {
+    await saveApproval(cwd, { ...approval, status: "consumed" });
+  }
 
   return { allowed: true, action: trustAction };
 }

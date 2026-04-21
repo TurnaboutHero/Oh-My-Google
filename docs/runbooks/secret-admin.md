@@ -4,11 +4,14 @@ Phase 3 starts with the narrow Secret Manager admin surface:
 
 - `omg secret list`
 - `omg secret set <name>`
-- MCP tools `omg.secret.list` and `omg.secret.set`
+- `omg secret delete <name>`
+- MCP tools `omg.secret.list`, `omg.secret.set`, and `omg.secret.delete`
 
 This surface does not read or print secret payloads. Secret values are accepted only as write inputs and are redacted from command output, approval args, and test assertions.
 
-Both commands require `.omg/trust.yaml`; `--project` may only target the project recorded in that trust profile.
+Secret commands require `.omg/trust.yaml`; `--project` may only target the project recorded in that trust profile.
+Secret deletion is available through `omg secret delete <name>` with `--dry-run` / `--yes`.
+Live `secret set` is budget-guarded and exits with `BUDGET_GUARD_BLOCKED` unless `omg budget audit` returns `risk: configured`.
 
 ## Cost Boundary
 
@@ -88,6 +91,27 @@ Behavior:
 
 Prefer `--value-file` over `--value` so the secret value is not stored in shell history.
 
+## Delete A Secret
+
+```bash
+omg --output json secret delete API_KEY --dry-run
+omg --output json secret delete API_KEY --yes
+```
+
+MCP equivalent:
+
+```json
+{
+  "tool": "omg.secret.delete",
+  "arguments": {
+    "name": "API_KEY",
+    "dryRun": true
+  }
+}
+```
+
+Live smoke on 2026-04-20 created `OMG_BUDGET_GUARD_SMOKE`, verified it with `secret list`, deleted it with `secret delete --yes`, and verified the final secret list was empty.
+
 ## Trust Rules
 
 `secret.list` is L0.
@@ -107,7 +131,7 @@ omg --output json secret set API_KEY --value-file .secrets/api-key.txt --approva
 
 ## Smoke Record: 2026-04-18
 
-The user explicitly approved a live Secret Manager smoke on `<live-validation-project>`.
+The user explicitly approved a live Secret Manager smoke on the live validation project.
 
 Execution path:
 
@@ -128,6 +152,20 @@ Result:
 | Secret create/version add | passed |
 | Secret list visibility | passed |
 | Cleanup | `OMG_SMOKE_SECRET` deleted |
+
+## Budget Guard Smoke: 2026-04-20
+
+After budget guard integration, the live validation project was verified with `omg budget audit` as `risk: configured`.
+
+Smoke path:
+
+1. `omg secret set OMG_BUDGET_GUARD_SMOKE --value smoke --yes`
+2. `omg secret list --limit 20` showed `OMG_BUDGET_GUARD_SMOKE`
+3. `omg secret delete OMG_BUDGET_GUARD_SMOKE --dry-run`
+4. `omg secret delete OMG_BUDGET_GUARD_SMOKE --yes`
+5. `omg secret list --limit 20` returned an empty secret list
+
+Final state: no smoke secrets remained.
 | Remaining secrets | none |
 
-Note: the Secret Manager API remains enabled on `<live-validation-project>`; no secret versions remain active from this smoke.
+Note: the Secret Manager API remains enabled on the live validation project; no secret versions remain active from this smoke.

@@ -1,6 +1,7 @@
 import path from "node:path";
 import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
+import { auditBillingGuard } from "../../connectors/billing-audit.js";
 import { firebaseConnector } from "../../connectors/firebase.js";
 import { spawnCliSync } from "../../system/cli-runner.js";
 import type {
@@ -10,7 +11,7 @@ import type {
 import {
   AuthError,
   CliRunnerError,
-  type OmgError,
+  OmgError,
   ValidationError,
 } from "../../types/errors.js";
 import {
@@ -128,6 +129,10 @@ firebaseCommand
           });
           return;
         }
+      }
+
+      if (!dryRun) {
+        await assertBudgetGuard(projectId, "Firebase deployment");
       }
 
       const config: ConnectorConfig = { project: { projectId } };
@@ -284,7 +289,24 @@ function emitCommandError(command: string, error: unknown): never {
   process.exit(1);
 }
 
+async function assertBudgetGuard(projectId: string, label: string): Promise<void> {
+  const audit = await auditBillingGuard(projectId);
+  if (audit.risk === "configured") {
+    return;
+  }
+
+  throw new OmgError(
+    `Budget guard blocked ${label}: ${audit.recommendedAction}`,
+    "BUDGET_GUARD_BLOCKED",
+    true,
+  );
+}
+
 function toOmgError(error: unknown): OmgError {
+  if (error instanceof OmgError) {
+    return error;
+  }
+
   if (error instanceof AuthError) {
     return error;
   }

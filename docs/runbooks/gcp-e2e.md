@@ -2,7 +2,7 @@
 
 Purpose: verify the real Google path for `omg init -> omg link -> omg deploy -> omg doctor`.
 
-Use a disposable test project. Do not run this against production until Phase 2.5 is complete.
+Use a disposable test project. Do not run this against production. This runbook intentionally exercises live Google Cloud and Firebase resources, so inspect account context, budget visibility, and cleanup steps before execution.
 
 ## Prerequisites
 
@@ -11,6 +11,7 @@ Use a disposable test project. Do not run this against production until Phase 2.
 - `firebase` CLI installed and authenticated when testing Firebase Hosting
 - A billing account that can be linked to a disposable project
 - A small deployable fixture repo or app
+- `omg auth context` should show the intended gcloud account, ADC account, and project context
 
 ## Recommended Fixture
 
@@ -27,6 +28,12 @@ Use a minimal `spa-plus-api` repo:
 ```bash
 npm install
 npm run build
+```
+
+Before creating or deploying resources, inspect the current account context:
+
+```bash
+node bin/omg --output json auth context
 ```
 
 2. Initialize a disposable project:

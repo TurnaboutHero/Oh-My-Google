@@ -1,4 +1,9 @@
-import { runSecretList, runSecretSet, type RunSecretOutcome } from "../../cli/commands/secret.js";
+import {
+  runSecretDelete,
+  runSecretList,
+  runSecretSet,
+  type RunSecretOutcome,
+} from "../../cli/commands/secret.js";
 import type { OmgResponse } from "./types.js";
 
 export const secretListTool = {
@@ -33,6 +38,22 @@ export const secretSetTool = {
   },
 };
 
+export const secretDeleteTool = {
+  name: "omg.secret.delete",
+  description: "Delete a Secret Manager secret.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      project: { type: "string" },
+      name: { type: "string" },
+      dryRun: { type: "boolean" },
+      yes: { type: "boolean" },
+    },
+    required: ["name"],
+    additionalProperties: false,
+  },
+};
+
 export async function handleSecretList(args: unknown): Promise<OmgResponse> {
   const parsed = parseListArgs(args);
   if (!parsed.ok) {
@@ -60,6 +81,20 @@ export async function handleSecretSet(args: unknown): Promise<OmgResponse> {
   });
 
   return fromOutcome("secret:set", outcome);
+}
+
+export async function handleSecretDelete(args: unknown): Promise<OmgResponse> {
+  const parsed = parseDeleteArgs(args);
+  if (!parsed.ok) {
+    return parsed.response;
+  }
+
+  const outcome = await runSecretDelete({
+    cwd: process.cwd(),
+    ...parsed.args,
+  });
+
+  return fromOutcome("secret:delete", outcome);
 }
 
 function parseListArgs(
@@ -158,6 +193,53 @@ function parseSetArgs(
       valueFile: args.valueFile,
       dryRun: args.dryRun,
       approval: args.approval,
+      yes: args.yes,
+    },
+  };
+}
+
+function parseDeleteArgs(
+  args: unknown,
+):
+  | {
+      ok: true;
+      args: {
+        project?: string;
+        name: string;
+        dryRun?: boolean;
+        yes?: boolean;
+      };
+    }
+  | { ok: false; response: OmgResponse } {
+  if (!isRecord(args)) {
+    return validationError("secret:delete", "Arguments must be an object.");
+  }
+
+  for (const key of Object.keys(args)) {
+    if (key !== "project" && key !== "name" && key !== "dryRun" && key !== "yes") {
+      return validationError("secret:delete", `Unknown argument: ${key}.`);
+    }
+  }
+
+  if (typeof args.name !== "string") {
+    return validationError("secret:delete", "name is required and must be a string.");
+  }
+  if (args.project !== undefined && typeof args.project !== "string") {
+    return validationError("secret:delete", "project must be a string.");
+  }
+  if (args.dryRun !== undefined && typeof args.dryRun !== "boolean") {
+    return validationError("secret:delete", "dryRun must be a boolean.");
+  }
+  if (args.yes !== undefined && typeof args.yes !== "boolean") {
+    return validationError("secret:delete", "yes must be a boolean.");
+  }
+
+  return {
+    ok: true,
+    args: {
+      project: args.project,
+      name: args.name,
+      dryRun: args.dryRun,
       yes: args.yes,
     },
   };

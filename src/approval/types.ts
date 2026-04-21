@@ -12,6 +12,7 @@ export interface ApprovalRequest {
   projectId: string;
   environment: "local" | "dev" | "staging" | "prod";
   requestedBy: string;
+  requestedAccount?: string | null;
   requestedAt: string;
   expiresAt: string;
   status: ApprovalStatus;

@@ -2,7 +2,8 @@ import fs from "node:fs/promises";
 import { Command } from "commander";
 import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
-import { listSecrets, setSecret } from "../../connectors/secret-manager.js";
+import { auditBillingGuard } from "../../connectors/billing-audit.js";
+import { deleteSecret, listSecrets, setSecret } from "../../connectors/secret-manager.js";
 import { checkPermission } from "../../trust/check.js";
 import { loadProfile } from "../../trust/profile.js";
 import { OmgError, ValidationError, type OmgError as OmgErrorType } from "../../types/errors.js";
@@ -26,6 +27,14 @@ export interface RunSecretSetInput {
   yes?: boolean;
   jsonMode?: boolean;
   requester?: string;
+}
+
+export interface RunSecretDeleteInput {
+  cwd: string;
+  project?: string;
+  name: string;
+  dryRun?: boolean;
+  yes?: boolean;
 }
 
 export type RunSecretOutcome =
@@ -101,6 +110,35 @@ secretCommand
     emitOutcomeError("secret:set", outcome.error);
   });
 
+secretCommand
+  .command("delete")
+  .description("Delete a Secret Manager secret")
+  .argument("<name>", "Secret name")
+  .option("--project <id>", "Google Cloud project ID")
+  .option("--dry-run", "Show the delete plan without calling gcloud")
+  .option("-y, --yes", "Delete the secret")
+  .action(async (name, opts) => {
+    const outcome = await runSecretDelete({
+      cwd: process.cwd(),
+      project: opts.project as string | undefined,
+      name: String(name),
+      dryRun: !!opts.dryRun,
+      yes: !!opts.yes,
+    });
+
+    if (outcome.ok) {
+      success(
+        "secret:delete",
+        outcome.data.dryRun ? "Secret delete plan ready." : "Secret deleted.",
+        outcome.data,
+        outcome.next,
+      );
+      return;
+    }
+
+    emitOutcomeError("secret:delete", outcome.error);
+  });
+
 secretCommand.addHelpText(
   "afterAll",
   `
@@ -108,6 +146,8 @@ Examples:
   omg secret list
   omg secret set API_KEY --value-file .secrets/api-key.txt --dry-run
   omg secret set API_KEY --value-file .secrets/api-key.txt --yes
+  omg secret delete API_KEY --dry-run
+  omg secret delete API_KEY --yes
   omg --output json secret list --limit 20
 `,
 );
@@ -183,6 +223,7 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
       yes: !!input.yes,
       jsonMode: !!input.jsonMode,
       cwd: input.cwd,
+      consumeApproval: false,
     });
 
     if (!permission.allowed) {
@@ -220,6 +261,33 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
       };
     }
 
+    const budgetGuard = await assertBudgetGuard(projectId);
+    if (!budgetGuard.ok) {
+      return budgetGuard;
+    }
+
+    if (input.approval && permission.action === "require_approval") {
+      const consumePermission = await checkPermission(action, profile, {
+        approvalId: input.approval,
+        argsHash: hashArgs(safeArgs),
+        yes: !!input.yes,
+        jsonMode: !!input.jsonMode,
+        cwd: input.cwd,
+      });
+      if (!consumePermission.allowed) {
+        const { code, hint } = mapPermissionFailure(consumePermission);
+        return {
+          ok: false,
+          error: {
+            code,
+            message: consumePermission.reason ?? "Secret write approval could not be consumed.",
+            recoverable: false,
+            hint,
+          },
+        };
+      }
+    }
+
     const result = await setSecret(setInput);
     return {
       ok: true,
@@ -229,6 +297,72 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
   } catch (error) {
     return { ok: false, error: toOutcomeError(error) };
   }
+}
+
+export async function runSecretDelete(input: RunSecretDeleteInput): Promise<RunSecretOutcome> {
+  try {
+    const profile = await resolveProfile(input.cwd);
+    const projectId = resolveProfileProject(profile, input.project);
+    const deleteInput = {
+      projectId,
+      name: input.name,
+      dryRun: !!input.dryRun,
+    };
+
+    if (deleteInput.dryRun) {
+      const result = await deleteSecret(deleteInput);
+      return {
+        ok: true,
+        data: { ...result },
+        next: [`omg secret delete ${deleteInput.name} --yes`],
+      };
+    }
+
+    if (!input.yes) {
+      return {
+        ok: false,
+        error: {
+          code: "TRUST_REQUIRES_CONFIRM",
+          message: "Secret deletion requires explicit --yes.",
+          recoverable: true,
+          hint: "--yes",
+          next: [`omg secret delete ${deleteInput.name} --dry-run`],
+        },
+      };
+    }
+
+    const result = await deleteSecret(deleteInput);
+    return {
+      ok: true,
+      data: { ...result },
+    };
+  } catch (error) {
+    return { ok: false, error: toOutcomeError(error) };
+  }
+}
+
+async function assertBudgetGuard(projectId: string): Promise<RunSecretOutcome | { ok: true }> {
+  const audit = await auditBillingGuard(projectId);
+  if (audit.risk === "configured") {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    error: {
+      code: "BUDGET_GUARD_BLOCKED",
+      message: `Budget guard blocked live secret write: ${audit.recommendedAction}`,
+      recoverable: true,
+      data: {
+        projectId,
+        budgetRisk: audit.risk,
+        billingEnabled: audit.billingEnabled,
+        billingAccountId: audit.billingAccountId,
+        signals: audit.signals,
+      },
+      next: [`omg budget audit --project ${projectId}`],
+    },
+  };
 }
 
 async function resolveProfile(cwd: string): Promise<TrustProfile> {

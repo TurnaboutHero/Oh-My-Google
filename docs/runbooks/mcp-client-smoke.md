@@ -18,17 +18,21 @@ node bin/omg mcp start
 ## Expected Tools
 
 - `omg.doctor`
+- `omg.auth.context`
 - `omg.approvals.list`
 - `omg.approve`
 - `omg.reject`
 - `omg.deploy`
+- `omg.budget.audit`
 - `omg.init`
 - `omg.link`
 - `omg.secret.list`
 - `omg.secret.set`
+- `omg.secret.delete`
 - `omg.project.audit`
 - `omg.project.cleanup`
 - `omg.project.delete`
+- `omg.project.undelete`
 
 ## Smoke Steps
 

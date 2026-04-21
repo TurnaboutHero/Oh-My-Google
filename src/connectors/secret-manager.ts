@@ -29,6 +29,12 @@ export interface SetSecretInput {
   dryRun?: boolean;
 }
 
+export interface DeleteSecretInput {
+  projectId: string;
+  name: string;
+  dryRun?: boolean;
+}
+
 export type SetSecretResult =
   | {
       projectId: string;
@@ -42,6 +48,19 @@ export type SetSecretResult =
       dryRun: true;
       wouldCreateIfMissing: true;
       wouldAddVersion: true;
+    };
+
+export type DeleteSecretResult =
+  | {
+      projectId: string;
+      name: string;
+      deleted: true;
+    }
+  | {
+      projectId: string;
+      name: string;
+      dryRun: true;
+      wouldDelete: true;
     };
 
 export type SecretManagerExecutor = (
@@ -125,6 +144,41 @@ export async function setSecret(
   };
 }
 
+export async function deleteSecret(
+  input: DeleteSecretInput,
+  executor: SecretManagerExecutor = runGcloud,
+): Promise<DeleteSecretResult> {
+  const projectId = normalizeProjectId(input.projectId);
+  const name = normalizeSecretName(input.name);
+
+  if (input.dryRun) {
+    return {
+      projectId,
+      name,
+      dryRun: true,
+      wouldDelete: true,
+    };
+  }
+
+  try {
+    await executor([
+      "secrets",
+      "delete",
+      name,
+      `--project=${projectId}`,
+      "--quiet",
+    ]);
+  } catch (error) {
+    throw mapGcloudError(error, `Failed to delete secret ${name}.`);
+  }
+
+  return {
+    projectId,
+    name,
+    deleted: true,
+  };
+}
+
 async function secretExists(
   projectId: string,
   name: string,
@@ -180,7 +234,7 @@ async function runGcloud(args: string[]): Promise<{ stdout: string; stderr: stri
 }
 
 function parseSecrets(stdout: string): SecretMetadata[] {
-  const parsed = JSON.parse(stdout || "[]") as Array<Record<string, unknown>>;
+  const parsed = JSON.parse(extractJsonArray(stdout)) as Array<Record<string, unknown>>;
   return parsed.map((entry) => {
     const resourceName = String(entry.name ?? "");
     return {
@@ -189,6 +243,18 @@ function parseSecrets(stdout: string): SecretMetadata[] {
       replication: describeReplication(entry.replication),
     };
   });
+}
+
+function extractJsonArray(stdout: string): string {
+  const trimmed = stdout.trim();
+  if (!trimmed) {
+    return "[]";
+  }
+  const start = trimmed.indexOf("[");
+  if (start === -1) {
+    return trimmed;
+  }
+  return trimmed.slice(start);
 }
 
 function describeReplication(value: unknown): string | undefined {

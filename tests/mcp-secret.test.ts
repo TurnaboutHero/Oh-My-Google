@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { handleSecretList, handleSecretSet } from "../src/mcp/tools/secret.js";
+import { handleSecretDelete, handleSecretList, handleSecretSet } from "../src/mcp/tools/secret.js";
 import { generateDefaultProfile, saveProfile } from "../src/trust/profile.js";
 
 vi.mock("../src/connectors/secret-manager.js", () => ({
@@ -24,6 +24,20 @@ vi.mock("../src/connectors/secret-manager.js", () => ({
           name: "API_KEY",
           created: false,
           versionAdded: true,
+        },
+  ),
+  deleteSecret: vi.fn(async (input: { name: string; dryRun?: boolean }) =>
+    input.dryRun
+      ? {
+          projectId: "demo-project",
+          name: input.name,
+          dryRun: true,
+          wouldDelete: true,
+        }
+      : {
+          projectId: "demo-project",
+          name: input.name,
+          deleted: true,
         },
   ),
 }));
@@ -100,6 +114,22 @@ describe("omg.secret MCP tools", () => {
     expect(result.ok).toBe(false);
     expect(result.command).toBe("secret:set");
     expect(result.error?.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("dry-runs secret deletion", async () => {
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "dev"));
+
+    const result = await withCwd(cwd, () =>
+      handleSecretDelete({
+        name: "API_KEY",
+        dryRun: true,
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.command).toBe("secret:delete");
+    expect(result.data?.wouldDelete).toBe(true);
   });
 });
 

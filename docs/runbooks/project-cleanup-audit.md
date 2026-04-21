@@ -1,16 +1,19 @@
 # Project Cleanup Audit Runbook
 
-This Phase 3 surface is intentionally read-only.
+This Phase 3 surface separates read-only inspection from approval-gated lifecycle actions.
 
 Commands:
 
 - `omg project audit --project <id>`
 - `omg project cleanup --project <id> --dry-run`
 - `omg project delete --project <id>`
-- MCP tools `omg.project.audit`, `omg.project.cleanup`, and `omg.project.delete`
+- `omg project undelete --project <id>`
+- MCP tools `omg.project.audit`, `omg.project.cleanup`, `omg.project.delete`, and `omg.project.undelete`
 
 `project audit` and `project cleanup --dry-run` never delete projects, disable APIs, change billing, or remove IAM bindings.
 `project delete` is a separate L3 workflow and cannot execute without manual approval.
+`project undelete` is also an L3 workflow. It only runs for projects whose lifecycle state is `DELETE_REQUESTED`.
+Both delete and undelete approvals record the active gcloud account and fail with `ACCOUNT_MISMATCH` if another account tries to consume the approval.
 
 ## Audit
 
@@ -44,18 +47,34 @@ This returns a plan only. `allowedToExecute` is always `false`.
 
 ```bash
 omg --output json project delete --project citric-optics-380903
+omg --output json project delete --project citric-optics-380903 --expect-account owner@example.com
 omg approve <approval-id>
 omg --output json project delete --project citric-optics-380903 --approval <approval-id>
 ```
 
 Deletion is blocked before approval when:
 
-- the project is protected: `review-program-system`, `<live-validation-project>`, or `quadratic-signifier-fmd0t`
+- the project is protected by built-in rules or by `OMG_PROTECTED_PROJECTS`
 - audit risk is `do_not_touch`
 - the caller does not have `roles/owner`
 - billing is enabled
 
 When deletion is allowed, `omg project delete` first creates an approval request. Only an approved matching request can trigger `gcloud projects delete <id> --quiet`.
+The approval records the active gcloud account and cannot be consumed from a different active account.
+
+## Undelete Workflow
+
+```bash
+omg --output json project undelete --project citric-optics-380903
+omg --output json project undelete --project citric-optics-380903 --expect-account owner@example.com
+omg approve <approval-id>
+omg --output json project undelete --project citric-optics-380903 --approval <approval-id>
+```
+
+Undeletion is blocked before approval unless `gcloud projects describe <id>` reports `DELETE_REQUESTED`.
+When undeletion is allowed, `omg project undelete` first creates an approval request. Only an approved matching request can trigger `gcloud projects undelete <id> --quiet`.
+The approval records the active gcloud account and cannot be consumed from a different active account.
+After a successful undelete, run `omg project audit --project <id>` to inspect the restored project before any follow-up deletion or cleanup.
 
 ## MCP Examples
 
@@ -82,12 +101,26 @@ When deletion is allowed, `omg project delete` first creates an approval request
 }
 ```
 
+```json
+{
+  "tool": "omg.project.undelete",
+  "arguments": {
+    "project": "citric-optics-380903"
+  }
+}
+```
+
 ## Safety Notes
 
 - Do not use this surface on `review-program-system`.
 - Do not clean up folder-backed projects or projects where IAM visibility is missing.
 - Billing-enabled projects are treated conservatively unless ownership and billing responsibility are confirmed.
+- Run `omg doctor` before live project lifecycle operations to inspect both active gcloud and ADC account context.
 - Live delete requires the L3 approval workflow and explicit user approval.
+- Live undelete requires the L3 approval workflow and explicit user approval.
+- If the active gcloud account changes between approval creation and execution, rerun the request with the intended account instead of reusing the stale approval.
+- Use `--expect-account <email>` or MCP `expectAccount` when the intended account is known. This verifies the active account and does not modify global gcloud config.
+- `PROJECT_ACCESS_DENIED` means the active gcloud account cannot access the target project; switch accounts or grant permissions before retrying.
 
 ## Smoke Record: 2026-04-18
 
@@ -136,3 +169,18 @@ Protected project verification after deletion:
 | `quadratic-signifier-fmd0t` | `ACTIVE` |
 | `<live-validation-project>` | `ACTIVE` |
 | `review-program-system` | `ACTIVE` |
+
+## Live Undelete Record: 2026-04-20
+
+The previously deleted stale projects `gen-lang-client-0379078037` and `citric-optics-380903` were not recoverable by the active gcloud account during this run; both `describe` and direct `projects undelete` returned permission errors.
+
+An isolated disposable project was created to verify the real lifecycle workflow:
+
+| Project | Step | Approval ID | Verified Lifecycle State |
+|---|---|---|---|
+| `omg-restore-260420-1107` | create | n/a | `ACTIVE` |
+| `omg-restore-260420-1107` | `omg project delete` | `apr_20260420_020752_5f9779` | `DELETE_REQUESTED` |
+| `omg-restore-260420-1107` | `omg project undelete` | `apr_20260420_020906_40fc18` | `ACTIVE` |
+| `omg-restore-260420-1107` | final `omg project delete` | `apr_20260420_021147_1c9ee9` | `DELETE_REQUESTED` |
+
+This run also exposed that delete approval hashes must not include volatile enabled-service metadata. The approval hash was narrowed to stable delete arguments so post-restore service activation does not invalidate an otherwise matching project delete approval.

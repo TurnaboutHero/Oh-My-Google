@@ -4,6 +4,7 @@ import { handleProjectAudit, handleProjectCleanup } from "../src/mcp/tools/proje
 vi.mock("../src/connectors/project-audit.js", () => ({
   auditProject: vi.fn(async (projectId: string) => ({
     projectId,
+    lifecycleState: "DELETE_REQUESTED",
     risk: projectId === "quadratic-signifier-fmd0t" ? "do_not_touch" : "review",
     callerRoles: ["roles/owner"],
     billingEnabled: false,
@@ -22,6 +23,15 @@ vi.mock("../src/connectors/project-audit.js", () => ({
     projectId,
     lifecycleState: "DELETE_REQUESTED",
   })),
+  readProjectLifecycle: vi.fn(async (projectId: string) => ({
+    projectId,
+    lifecycleState: "DELETE_REQUESTED",
+  })),
+  undeleteProject: vi.fn(async (projectId: string) => ({
+    projectId,
+    lifecycleState: "ACTIVE",
+  })),
+  readActiveGcloudAccount: vi.fn(async () => "owner@example.com"),
 }));
 
 describe("omg.project MCP tools", () => {
@@ -58,10 +68,65 @@ describe("omg.project MCP tools", () => {
   it("requires approval for project deletion", async () => {
     const { handleProjectDelete } = await import("../src/mcp/tools/project.js");
 
-    const result = await handleProjectDelete({ project: "citric-optics-380903" });
+    const result = await handleProjectDelete({
+      project: "citric-optics-380903",
+      expectAccount: "owner@example.com",
+    });
 
     expect(result.ok).toBe(false);
     expect(result.error?.code).toBe("APPROVAL_REQUIRED");
     expect(result.data?.approvalId).toBeDefined();
+    expect(result.data?.expectedAccount).toBe("owner@example.com");
+  });
+
+  it("blocks project deletion when expected account does not match active account", async () => {
+    const { handleProjectDelete } = await import("../src/mcp/tools/project.js");
+
+    const result = await handleProjectDelete({
+      project: "citric-optics-380903",
+      expectAccount: "other@example.com",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe("ACCOUNT_MISMATCH");
+  });
+
+  it("requires approval for project undeletion", async () => {
+    const projectTools = await import("../src/mcp/tools/project.js") as unknown as {
+      handleProjectUndelete?: (args: unknown) => Promise<{
+        ok: boolean;
+        error?: { code: string };
+        data?: Record<string, unknown>;
+      }>;
+    };
+    expect(projectTools.handleProjectUndelete).toBeTypeOf("function");
+
+    const result = await projectTools.handleProjectUndelete!({
+      project: "citric-optics-380903",
+      expectAccount: "owner@example.com",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe("APPROVAL_REQUIRED");
+    expect(result.data?.approvalId).toBeDefined();
+    expect(result.data?.expectedAccount).toBe("owner@example.com");
+  });
+
+  it("blocks project undeletion when expected account does not match active account", async () => {
+    const projectTools = await import("../src/mcp/tools/project.js") as unknown as {
+      handleProjectUndelete?: (args: unknown) => Promise<{
+        ok: boolean;
+        error?: { code: string };
+      }>;
+    };
+    expect(projectTools.handleProjectUndelete).toBeTypeOf("function");
+
+    const result = await projectTools.handleProjectUndelete!({
+      project: "citric-optics-380903",
+      expectAccount: "other@example.com",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe("ACCOUNT_MISMATCH");
   });
 });

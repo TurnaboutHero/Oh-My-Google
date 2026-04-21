@@ -2,9 +2,14 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createApproval, loadApproval, saveApproval } from "../src/approval/queue.js";
 import { secretCommand } from "../src/cli/commands/secret.js";
 import { setOutputFormat } from "../src/cli/output.js";
 import { saveProfile, generateDefaultProfile } from "../src/trust/profile.js";
+
+const secretFixtures = vi.hoisted(() => ({
+  budgetRisk: "configured",
+}));
 
 vi.mock("../src/connectors/secret-manager.js", () => ({
   listSecrets: vi.fn(async () => ({
@@ -17,12 +22,43 @@ vi.mock("../src/connectors/secret-manager.js", () => ({
     created: false,
     versionAdded: true,
   })),
+  deleteSecret: vi.fn(async (input: { name: string; dryRun?: boolean }) =>
+    input.dryRun
+      ? {
+          projectId: "demo-project",
+          name: input.name,
+          dryRun: true,
+          wouldDelete: true,
+        }
+      : {
+          projectId: "demo-project",
+          name: input.name,
+          deleted: true,
+        },
+  ),
+}));
+
+vi.mock("../src/connectors/billing-audit.js", () => ({
+  auditBillingGuard: vi.fn(async (projectId: string) => ({
+    projectId,
+    billingEnabled: true,
+    billingAccountId: "ABC-123",
+    budgets: secretFixtures.budgetRisk === "configured"
+      ? [{ name: "budget-1", displayName: "Budget", thresholdPercents: [0.5, 0.9, 1] }]
+      : [],
+    signals: [],
+    risk: secretFixtures.budgetRisk,
+    recommendedAction: secretFixtures.budgetRisk === "configured"
+      ? "Budget guard is configured for this billing account."
+      : "Review billing budget visibility before running cost-bearing live operations.",
+  })),
 }));
 
 const tempDirs: string[] = [];
 
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
+  secretFixtures.budgetRisk = "configured";
   vi.clearAllMocks();
 });
 
@@ -40,6 +76,9 @@ describe("secret command", () => {
     expect(result.exitCode).toBe(0);
     expect(payload.ok).toBe(true);
     expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+
+    const billingAudit = await import("../src/connectors/billing-audit.js");
+    expect(billingAudit.auditBillingGuard).not.toHaveBeenCalled();
   });
 
   it("requires --yes for dev secret writes in JSON mode", async () => {
@@ -80,6 +119,67 @@ describe("secret command", () => {
       versionAdded: true,
     });
     expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+
+    const billingAudit = await import("../src/connectors/billing-audit.js");
+    expect(billingAudit.auditBillingGuard).toHaveBeenCalledWith("demo-project");
+  });
+
+  it("blocks live secret writes when budget guard is not configured", async () => {
+    secretFixtures.budgetRisk = "review";
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "dev"));
+
+    const result = await runSecretCli(["set", "API_KEY", "--value", "super-secret-value", "--yes"], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string };
+      data?: { budgetRisk?: string };
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("BUDGET_GUARD_BLOCKED");
+    expect(payload.data?.budgetRisk).toBe("review");
+    expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+  });
+
+  it("does not consume approved secret write approvals when budget guard blocks execution", async () => {
+    secretFixtures.budgetRisk = "review";
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "prod"));
+    const approval = await createApproval(cwd, {
+      action: "secret.set",
+      args: { projectId: "demo-project", name: "API_KEY", source: "inline-value" },
+      projectId: "demo-project",
+      environment: "prod",
+      requestedBy: "agent",
+    });
+    await saveApproval(cwd, {
+      ...approval,
+      status: "approved",
+      approvedBy: "owner@example.com",
+      approvedAt: new Date().toISOString(),
+    });
+
+    const result = await runSecretCli([
+      "set",
+      "API_KEY",
+      "--value",
+      "super-secret-value",
+      "--approval",
+      approval.id,
+    ], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string };
+    };
+    const stored = await loadApproval(cwd, approval.id);
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("BUDGET_GUARD_BLOCKED");
+    expect(stored?.status).toBe("approved");
+    expect(JSON.stringify(payload)).not.toContain("super-secret-value");
   });
 
   it("lists secrets as metadata only", async () => {
@@ -97,6 +197,56 @@ describe("secret command", () => {
     expect(payload.ok).toBe(true);
     expect(payload.command).toBe("secret:list");
     expect(payload.data?.secrets).toHaveLength(1);
+  });
+
+  it("dry-runs secret deletion", async () => {
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "dev"));
+
+    const result = await runSecretCli(["delete", "API_KEY", "--dry-run"], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      command: string;
+      data?: { dryRun?: boolean; wouldDelete?: boolean };
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(payload.ok).toBe(true);
+    expect(payload.command).toBe("secret:delete");
+    expect(payload.data?.dryRun).toBe(true);
+    expect(payload.data?.wouldDelete).toBe(true);
+  });
+
+  it("requires yes for secret deletion", async () => {
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "dev"));
+
+    const result = await runSecretCli(["delete", "API_KEY"], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string };
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("TRUST_REQUIRES_CONFIRM");
+  });
+
+  it("deletes a secret with explicit yes", async () => {
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "dev"));
+
+    const result = await runSecretCli(["delete", "API_KEY", "--yes"], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      command: string;
+      data?: { deleted?: boolean };
+    };
+
+    expect(result.exitCode).toBe(0);
+    expect(payload.ok).toBe(true);
+    expect(payload.command).toBe("secret:delete");
+    expect(payload.data?.deleted).toBe(true);
   });
 
   it("honors deny policy for secret metadata listing", async () => {
