@@ -133,6 +133,8 @@ src/
     iam.ts
     project.ts
   safety/
+    commands.ts
+    decision.ts
     intent.ts
   system/
     cli-runner.ts
@@ -504,6 +506,8 @@ Implemented and verified:
 - CLI + MCP dual surface
 - auth context and setup helpers
 - initial OperationIntent classification for existing trust action IDs
+- command-level intent mapping for CLI/MCP surface normalization
+- shared safety decision wrapper over adapter capability, Trust Profile, approvals, and supplied or provider-fetched budget guard evidence
 - adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
 - approval workflow
 - Secret Manager admin surface
@@ -512,8 +516,7 @@ Implemented and verified:
 
 Not implemented:
 
-- centralized safety kernel consuming OperationIntent decisions
-- command-level intent mapping for multi-action flows
+- existing command implementations are not yet routed through the shared safety decision wrapper
 - downstream MCP client/gateway support
 - budget creation/mutation
 - `iam`, `notify`, `security` admin surfaces

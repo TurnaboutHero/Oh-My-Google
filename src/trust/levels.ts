@@ -15,6 +15,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "deploy.cloud-run": "L1",
   "deploy.firebase-hosting": "L1",
   "apis.enable": "L1",
+  "budget.enable-api": "L1",
   "firebase.rewrites.update": "L1",
 
   // L2 IAM, billing, production, and secret writes
@@ -24,6 +25,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "secret.set": "L2",
 
   // L3 destructive or high-risk lifecycle actions
+  "secret.delete": "L3",
   "gcp.project.delete": "L3",
   "gcp.project.undelete": "L3",
   "firestore.data.delete": "L3",

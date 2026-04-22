@@ -25,12 +25,14 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 - [x] Add initial `OperationIntent` model for existing trust action IDs.
 - [x] Add tested operation classification for current trust actions by risk level, service, adapter, cost impact, destructive impact, secret impact, dry-run support, and post-verify support.
-- [ ] Extend command-level intent mapping for command flows that currently span multiple trust actions, such as `init`, `secret delete`, and project lifecycle verification.
-- [ ] Extract a shared safety decision path that combines Trust Profile, approvals, account context, and budget guard.
+- [x] Extend command-level intent mapping for command flows that currently span multiple trust actions, such as `init`, `secret delete`, and project lifecycle verification.
+- [x] Extract a shared safety decision path that combines Trust Profile, approvals, adapter capability, and budget guard evidence.
 - [x] Add an initial capability manifest for existing execution backends: `gcloud-cli`, `firebase-cli`, current Google client connectors, and deny-by-default downstream MCP.
-- [ ] Add regression tests proving CLI and MCP calls get equivalent safety decisions.
-- [ ] Document the rule that downstream Google/Firebase MCPs must not be exposed raw for privileged operations.
-- [ ] Design downstream MCP discovery as read-only/deny-by-default before any execution proxy is added.
+- [x] Add regression tests proving CLI and MCP calls normalize to equivalent command intent plans.
+- [x] Document the rule that downstream Google/Firebase MCPs must not be exposed raw for privileged operations.
+- [x] Design downstream MCP discovery as read-only/deny-by-default before any execution proxy is added.
+- [ ] Adopt the shared safety decision wrapper inside existing command implementations without changing behavior.
+- [ ] Add CLI/MCP equivalence tests around the command implementations after adoption.
 
 ### Phase 3F: Remaining Admin Surfaces
 
