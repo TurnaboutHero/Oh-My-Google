@@ -27,7 +27,7 @@ As of the 2026-04-22 rewrite:
 - current tree search returned no known sensitive pattern matches.
 - local reachable Git history search returned no known sensitive pattern matches.
 - commit metadata search returned no known sensitive pattern matches.
-- latest commit metadata uses generic email `main@example.com`.
+- latest commit metadata uses the GitHub noreply address configured for this repository.
 
 Known pattern categories that must not be reintroduced:
 
@@ -166,7 +166,7 @@ Use this sequence:
 3. Include a mailmap for author/committer metadata:
 
    ```text
-   TurnaboutHero <main@example.com> <old-personal-email>
+   TurnaboutHero <github-noreply-email> <old-personal-email>
    Default User <default@example.com> <old-default-email>
    ```
 
