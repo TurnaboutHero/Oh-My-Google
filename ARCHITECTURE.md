@@ -132,6 +132,8 @@ src/
     billing.ts
     iam.ts
     project.ts
+  safety/
+    intent.ts
   system/
     cli-runner.ts
   trust/
@@ -501,6 +503,8 @@ Implemented and verified:
 - Core deploy harness
 - CLI + MCP dual surface
 - auth context and setup helpers
+- initial OperationIntent classification for existing trust action IDs
+- adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
 - approval workflow
 - Secret Manager admin surface
 - budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
@@ -508,8 +512,8 @@ Implemented and verified:
 
 Not implemented:
 
-- extracted `OperationIntent` model and centralized safety kernel
-- adapter capability manifest
+- centralized safety kernel consuming OperationIntent decisions
+- command-level intent mapping for multi-action flows
 - downstream MCP client/gateway support
 - budget creation/mutation
 - `iam`, `notify`, `security` admin surfaces

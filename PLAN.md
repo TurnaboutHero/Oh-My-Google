@@ -176,6 +176,18 @@ Recommended order:
    - read-only tools first
    - no generic privileged `adapter.call` until capability classification is enforced
 
+Progress:
+
+- Initial `OperationIntent` model exists in `src/safety/intent.ts`.
+- Existing trust action IDs are classified by service, action shape, trust level, adapter, budget requirement, secret impact, destructive impact, dry-run support, and post-verify support.
+- Initial adapter capability manifest covers `gcloud-cli`, `firebase-cli`, Google client connectors, deny-by-default downstream MCP, and unknown adapters.
+
+Remaining:
+
+- command-level intent mapping for multi-action flows
+- shared safety decision wrapper that consumes OperationIntent
+- CLI/MCP equivalence tests around the shared safety decision
+
 ## Candidate Future Phases
 
 ### Phase 3F: Remaining Admin Surface Decisions

@@ -23,10 +23,11 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ### Phase 3E: Safety Kernel And Adapter Foundation
 
-- [ ] Define `OperationIntent` for current `init`, `deploy`, `firebase deploy`, `secret`, `budget`, and `project` operations.
-- [ ] Classify each operation by risk level, project/resource scope, cost impact, destructive impact, secret impact, dry-run support, and post-verify support.
+- [x] Add initial `OperationIntent` model for existing trust action IDs.
+- [x] Add tested operation classification for current trust actions by risk level, service, adapter, cost impact, destructive impact, secret impact, dry-run support, and post-verify support.
+- [ ] Extend command-level intent mapping for command flows that currently span multiple trust actions, such as `init`, `secret delete`, and project lifecycle verification.
 - [ ] Extract a shared safety decision path that combines Trust Profile, approvals, account context, and budget guard.
-- [ ] Add a capability manifest for existing execution backends: `gcloud-cli`, `firebase-cli`, and current Google client connectors.
+- [x] Add an initial capability manifest for existing execution backends: `gcloud-cli`, `firebase-cli`, current Google client connectors, and deny-by-default downstream MCP.
 - [ ] Add regression tests proving CLI and MCP calls get equivalent safety decisions.
 - [ ] Document the rule that downstream Google/Firebase MCPs must not be exposed raw for privileged operations.
 - [ ] Design downstream MCP discovery as read-only/deny-by-default before any execution proxy is added.
