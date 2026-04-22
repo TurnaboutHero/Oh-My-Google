@@ -342,6 +342,7 @@ The MCP server exposes 16 tools:
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
 - [docs/runbooks/secret-admin.md](./docs/runbooks/secret-admin.md): Secret Manager admin surface
 - [docs/runbooks/mcp-client-smoke.md](./docs/runbooks/mcp-client-smoke.md): MCP client smoke
+- [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): history rewrite 이후 충돌/푸시 안전 절차
 
 ## 개발 원칙
 

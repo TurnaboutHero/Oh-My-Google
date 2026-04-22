@@ -312,3 +312,4 @@ omg --output json <command>
 - [TODO.md](./TODO.md): current checklist and known risks
 - [ARCHITECTURE.md](./ARCHITECTURE.md): current module boundaries
 - [docs/runbooks](./docs/runbooks): validation and live-operation records
+- [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

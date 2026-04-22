@@ -46,6 +46,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Refresh `CLAUDE.md` project instructions for the current product surface.
 - [x] Refresh project-local `AGENTS.md` for current agent usage rules and MCP tool surface.
 - [x] Refresh stale validation/runbook wording after Phase 2.5.
+- [x] Add history rewrite and conflict safety runbook after sanitized-history reintroduction incident.
 
 ## Recommended Next Work
 

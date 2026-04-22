@@ -342,6 +342,7 @@ Representative error codes:
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
 - [docs/runbooks/secret-admin.md](./docs/runbooks/secret-admin.md): Secret Manager admin surface
 - [docs/runbooks/mcp-client-smoke.md](./docs/runbooks/mcp-client-smoke.md): MCP client smoke
+- [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): post-rewrite conflict and push safety
 
 ## Development Principles
 
