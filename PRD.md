@@ -1,7 +1,7 @@
 # Product Requirements Document: oh-my-google
 
-Version: 0.2 current-state refresh
-Last updated: 2026-04-20
+Version: 0.3 safety-gateway direction refresh
+Last updated: 2026-04-22
 
 ## Summary
 
@@ -15,6 +15,8 @@ The product exists because AI coding agents can write and deploy code, but Googl
 - MCP: `omg mcp start`
 - Shared core: the same implementation path underneath both surfaces
 - Safety layer: Trust Profile, approvals, account checks, and budget guard
+
+Current execution mostly uses official `gcloud` and Firebase CLI backends. The next architectural direction is to make those backends explicit adapters under a common safety kernel, so future Google/Firebase service MCPs can be added without bypassing the same guardrails.
 
 ## Problem
 
@@ -40,7 +42,8 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 4. Detect account/project mismatches before live operations.
 5. Make cost-bearing operations increasingly dependent on explicit budget visibility.
 6. Keep CLI and MCP behavior equivalent by sharing core implementation.
-7. Prefer narrow, composable workflows over a broad cloud automation layer.
+7. Prepare a common operation classification layer for CLI, Firebase CLI, gcloud, REST/SDK, and downstream MCP adapters.
+8. Prefer narrow, composable workflows over a broad cloud automation layer.
 
 ## Non-Goals
 
@@ -52,6 +55,7 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 - Creating or mutating budgets without an explicit future workflow.
 - Fully preventing spend through budgets; Google Cloud budgets are alerts, not hard caps.
 - Supporting Next.js SSR deployment in the current phase.
+- Exposing arbitrary downstream MCP tools directly to agents without operation classification, capability metadata, and safety review.
 
 ## Target Users
 
@@ -141,6 +145,12 @@ Implemented MCP tools:
 - `omg.project.delete`
 - `omg.project.undelete`
 
+Current execution boundary:
+
+- CLI and MCP surfaces call shared TypeScript command functions.
+- Service execution currently uses narrow connectors over `gcloud`, Firebase CLI, and selected Google client libraries.
+- `omg` is not yet a downstream MCP client or MCP gateway. Future service MCPs must be routed through the same safety kernel rather than exposed as raw privileged tools.
+
 ## Safety Requirements
 
 ### Account Safety
@@ -166,7 +176,8 @@ Implemented MCP tools:
 
 - Budget audit must be read-only.
 - Budget API enablement must require explicit `--yes` after a dry-run option.
-- Live deploys and `secret set` live writes must be blocked unless budget audit returns `risk: configured`.
+- Live deploys, Firebase helper deploys, `secret set`, and `init` billing/API/IAM setup must be blocked unless budget audit returns `risk: configured`.
+- `budget enable-api` is the explicit onboarding exception for budget visibility bootstrap.
 - Budget guard coverage must expand before additional broad live operations are added.
 
 ### Secret Safety
@@ -195,6 +206,7 @@ Current open validation need:
 
 - Budget guard coverage review for any remaining cost-bearing live operation.
 - Decision on whether budget creation should be implemented or remain manual.
+- Design validation for the upcoming OperationIntent/safety-kernel adapter boundary before adding downstream MCP execution.
 
 ## Success Criteria
 
@@ -208,9 +220,10 @@ Short-term:
 Medium-term:
 
 - All cost-bearing live Google Cloud operations have a budget guard or explicit onboarding exception.
-- Remaining admin surfaces are added only when justified by actual workflows.
+- Existing CLI-backed operations are represented as classified operation intents before execution.
+- Remaining admin surfaces and downstream MCP adapters are added only when justified by actual workflows.
 - MCP and CLI remain equivalent surfaces over the same core.
 
 Long-term:
 
-- `omg` becomes the default safe adapter between AI coding agents and Google Cloud/Firebase projects.
+- `omg` becomes the default safety gateway between AI coding agents and Google Cloud/Firebase projects, including selected service MCPs where they are safer or more structured than raw CLI execution.

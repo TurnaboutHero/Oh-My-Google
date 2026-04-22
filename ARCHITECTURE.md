@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-04-20
+Last updated: 2026-04-22
 
 This document describes the current `main` implementation. Product intent lives in [PRD.md](./PRD.md), execution sequencing lives in [PLAN.md](./PLAN.md), and checklist status lives in [TODO.md](./TODO.md).
 
@@ -45,6 +45,27 @@ Core principles:
 - Approval artifacts are one-use and hash-bound.
 - Connectors are thin service execution adapters over existing CLIs/APIs.
 - Output is always shaped as human text or the shared JSON envelope.
+- Future downstream MCP adapters must sit behind the same safety checks; raw privileged service tools should not bypass `omg`.
+
+Target adapter direction:
+
+```text
+CLI surface                 MCP surface
+    |                           |
+    +-----------+---------------+
+                |
+        shared operation core
+                |
+        OperationIntent
+                |
+          safety kernel
+                |
+  +-------------+-------------+----------------+
+  |             |             |                |
+gcloud CLI   Firebase CLI   REST/SDK     downstream MCP
+```
+
+This target shape is not fully implemented yet. It is the next refactoring direction for making current CLI-backed operations and future MCP-backed operations share one policy path.
 
 ## Source Layout
 
@@ -320,6 +341,14 @@ Connector responsibilities:
 
 Most connectors intentionally rely on `gcloud` or Firebase CLI rather than duplicating large portions of cloud client behavior.
 
+Current backend boundary:
+
+- `omg` is currently a CLI plus MCP server over shared TypeScript command functions.
+- It is not yet an MCP client or downstream MCP gateway.
+- Existing service execution is mostly done through `gcloud`, Firebase CLI, and selected Google client libraries.
+- A future downstream MCP backend must be registered with capability metadata and evaluated through the safety kernel before execution.
+- Unknown downstream MCP tools should be denied by default.
+
 ## Trust Model
 
 Trust files:
@@ -407,6 +436,7 @@ Current behavior:
 - Live `secret set` is blocked unless budget audit returns `risk: configured`.
 - Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
 - Live `omg firebase deploy --execute` is blocked unless budget audit returns `risk: configured`.
+- `omg init` checks the selected billing account before billing link, default API enablement, and IAM setup.
 
 Risk states:
 
@@ -478,6 +508,9 @@ Implemented and verified:
 
 Not implemented:
 
+- extracted `OperationIntent` model and centralized safety kernel
+- adapter capability manifest
+- downstream MCP client/gateway support
 - budget creation/mutation
 - `iam`, `notify`, `security` admin surfaces
 - advanced rollback orchestration

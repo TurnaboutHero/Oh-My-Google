@@ -1,6 +1,6 @@
 # AGENTS.md — How AI Agents Should Use omg
 
-Last updated: 2026-04-20
+Last updated: 2026-04-22
 
 This file is the project-local operating guide for AI coding agents using `oh-my-google` (`omg`) in this repository.
 
@@ -17,6 +17,8 @@ Agents can use two equivalent surfaces:
 
 Both surfaces call the same shared core and use the same response contract.
 
+Implementation note: `omg` currently exposes its own MCP server. It does not yet act as an internal MCP client/gateway for other Google/Firebase MCP servers. Future downstream MCP support must preserve the same Trust Profile, budget guard, approval, audit, and post-verification rules.
+
 ## Agent Rules
 
 1. Use JSON mode or MCP tools. Do not parse human-mode output.
@@ -29,6 +31,8 @@ Both surfaces call the same shared core and use the same response contract.
 8. Treat budget visibility failures as blockers for autonomous cost-bearing writes.
 9. Never print, log, or store secret payloads.
 10. Verify final state before claiming that a live resource was created, deleted, restored, or cleaned up.
+11. Do not call raw downstream Google/Firebase MCP tools for privileged operations unless they are routed through `omg` safety checks.
+12. Treat unclassified downstream MCP tools as denied by default.
 
 ## Response Contract
 

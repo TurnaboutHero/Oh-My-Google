@@ -25,7 +25,7 @@ For product background, read [PRD.md](./PRD.md). For implementation sequencing, 
 
 ## Current Status
 
-Status snapshot: 2026-04-20
+Status snapshot: 2026-04-22
 
 Implemented:
 
@@ -56,6 +56,8 @@ Current safety status and pending scope:
 
 - The budget guard is currently enforced before live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup.
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
+- The current execution backends are mostly `gcloud` and Firebase CLI connectors.
+- `omg` is currently an MCP server, but it is not yet a downstream MCP gateway that calls other Google/Firebase MCP servers internally.
 - Budget creation and budget mutation are not implemented yet. Current support is audit plus Budget API enablement.
 - `iam`, `notify`, and `security` admin surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
@@ -66,6 +68,13 @@ Important safety limits:
 - Google Cloud budgets are alerts and monitoring controls, not hard spend caps.
 - `omg` does not silently switch accounts. gcloud configuration changes and ADC alignment require a command or user approval.
 - Destructive lifecycle actions are blocked even before approval when the project is protected, billing is enabled, owner permission is missing, or the active account does not match.
+
+Next architecture direction:
+
+- Represent existing CLI-backed operations as `OperationIntent` objects and send them through one shared safety decision path.
+- Add adapter capability manifests for `gcloud-cli`, `firebase-cli`, and future downstream MCP/REST backends.
+- If Google/Firebase service MCPs are added, do not expose their raw privileged tools directly to agents; register them behind the `omg` safety gateway with deny-by-default classification.
+- Downstream MCP execution should start with read-only discovery and capability classification before any write proxy exists.
 
 ## Install And Verify
 
@@ -341,3 +350,4 @@ Representative error codes:
 - Run dry-runs first; live writes and deletes must be explicit.
 - Do not guess accounts or projects. Ask, select, or return a structured error.
 - Keep expanding budget guard coverage before adding broader live operations.
+- Route external Google/Firebase MCP tools through the `omg` safety layer before exposing privileged execution to agents.

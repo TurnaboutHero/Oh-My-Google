@@ -1,6 +1,6 @@
 # oh-my-google (omg) — Project Instructions
 
-Last updated: 2026-04-20
+Last updated: 2026-04-22
 
 ## Identity
 
@@ -34,6 +34,12 @@ MCP surface:
 - `omg mcp start`
 - 16 MCP tools over the same core implementation
 
+Backend surface:
+
+- Current execution uses narrow `gcloud` and Firebase CLI connectors plus selected Google client libraries.
+- `omg` is not yet a downstream MCP client/gateway for other Google/Firebase MCP servers.
+- Future downstream MCP support must be routed through the same safety model, not exposed as raw privileged tools.
+
 ## Coding Principles
 
 1. **GCP + Firebase integration is the core value.** A feature that only wraps one CLI without planner, trust, or wiring value is usually not enough.
@@ -45,7 +51,8 @@ MCP surface:
 7. **No silent account mutation.** gcloud configuration switching and ADC alignment must be explicit.
 8. **Budget guard before cost expansion.** Expand budget guard coverage before adding broad live cloud operations.
 9. **Secrets stay secret.** Never print or store secret payloads in outputs, logs, approval args, or tests.
-10. **Prefer narrow surfaces.** Add admin commands only when the user workflow needs them.
+10. **Classify before adapting.** New backends, including downstream MCPs, need operation intent and capability metadata before privileged execution.
+11. **Prefer narrow surfaces.** Add admin commands only when the user workflow needs them.
 
 ## Current Safety Model
 
@@ -70,6 +77,8 @@ Important implemented guards:
 Important remaining gaps:
 
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
+- A shared `OperationIntent`/safety-kernel layer is not yet extracted.
+- Downstream MCP discovery/execution is not implemented.
 - Budget creation/mutation is not implemented.
 - `iam`, `notify`, and `security` admin surfaces are not implemented.
 - Advanced rollback orchestration is not implemented.
@@ -78,9 +87,10 @@ Important remaining gaps:
 ## Don'ts
 
 - Do not resurrect `pipeline.ts` or `AsyncConnector`.
-- Do not add a broad adapter layer before the concrete workflow needs it.
+- Do not add a broad adapter layer before operation intent, capability classification, and tests exist.
 - Do not add new dependencies without explicit need.
 - Do not implement MCP by shelling out to the CLI.
+- Do not expose raw downstream Google/Firebase MCP tools for privileged operations.
 - Do not silently switch ADC after switching gcloud configuration.
 - Do not auto-select among multiple visible projects in JSON mode.
 - Do not broaden destructive cloud actions without approval and tests.

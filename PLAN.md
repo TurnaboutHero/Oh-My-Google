@@ -1,17 +1,18 @@
 # Implementation Plan
 
-Last updated: 2026-04-20
+Last updated: 2026-04-22
 
 This plan explains the implementation direction for `oh-my-google`. Current task state is tracked in [TODO.md](./TODO.md). Product rationale is tracked in [PRD.md](./PRD.md).
 
 ## Planning Rules
 
 - Keep the agent surface narrow and verifiable.
-- Prefer existing `gcloud` and Firebase CLI behavior over reimplementing cloud clients.
+- Prefer existing `gcloud` and Firebase CLI behavior over reimplementing cloud clients until another backend is clearly safer or more structured.
 - Keep CLI and MCP on the same shared core.
 - Add live operations only with trust checks, structured errors, tests, and docs.
 - For cost-bearing operations, add dry-run first and budget guard before broad live usage.
 - For destructive operations, require explicit approval and record enough context to detect mismatch.
+- Do not expose raw downstream MCP tools directly to agents; route them through classified intents and the same safety kernel.
 
 ## Completed Phases
 
@@ -117,15 +118,11 @@ Completed:
 - Existing KRW budget visibility confirmed on the live validation project
 - Budget-guarded Secret Manager smoke created and deleted a test secret
 
-## Active Phase
-
 ### Phase 3D: Budget Guard Expansion
 
 Goal: connect cost/free-tier guardrails to the rest of live Google Cloud execution.
 
-Recommended order:
-
-Progress:
+Completed/ongoing:
 
 - Live `omg deploy` is budget-guarded.
 - Live `omg firebase deploy --execute` is budget-guarded.
@@ -133,20 +130,55 @@ Progress:
 - `omg init` audits the selected billing account before billing link, default API enablement, and IAM setup.
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 
-Recommended next order:
+Remaining decisions:
 
-1. Decide whether `omg budget create` is needed, or leave budget creation as a documented manual console step.
-2. Continue adding budget/free-tier guardrails to any remaining cost-bearing live operations.
-3. Add tests for each new live-operation guard before implementation.
-4. Keep README, TODO, and runbooks synchronized with implemented behavior.
+- Decide whether `omg budget create` is needed, or leave budget creation as a documented manual console step.
+- Continue adding budget/free-tier guardrails to any new cost-bearing live operation.
 
 Important design point:
 
 `omg init` may be the first command that links billing. It now audits the selected billing account before linking so a missing or inaccessible budget blocks cost-expanding setup. `budget enable-api` remains the explicit bootstrap path when budget visibility itself is unavailable.
 
+## Active Phase
+
+### Phase 3E: Safety Kernel And Adapter Foundation
+
+Goal: make the existing CLI-backed operations and future MCP-backed operations pass through one explicit operation model before execution.
+
+Why now:
+
+- The current product already has two user surfaces: CLI and MCP.
+- The current execution backends are mostly `gcloud` and Firebase CLI connectors.
+- Google/Firebase service MCPs can be useful, but connecting them directly to the agent would bypass `omg` safety checks.
+- A common safety kernel should exist before adding downstream MCP execution.
+
+Recommended order:
+
+1. Define `OperationIntent` for existing operations.
+   - service: GCP, Firebase, Secret Manager, Billing, Project Lifecycle
+   - action: read, plan, write, deploy, secret write, IAM, lifecycle, destructive
+   - project/resource scope
+   - cost-bearing/destructive/secret-touching flags
+   - dry-run and post-verify capability
+2. Build a single safety decision function.
+   - input: `OperationIntent`, auth/project context, Trust Profile, approval state, budget state
+   - output: allow, require confirm, require approval, deny, blocked with structured code
+3. Move existing ad hoc trust/budget checks toward the safety decision function without changing behavior.
+4. Add an adapter capability manifest for current backends.
+   - `gcloud-cli`
+   - `firebase-cli`
+   - existing Google client library connectors
+5. Add regression tests proving CLI and MCP paths receive the same safety decisions.
+6. Only after that, design downstream MCP gateway support.
+   - registered downstream MCP servers
+   - tool discovery
+   - deny-by-default for unknown tools
+   - read-only tools first
+   - no generic privileged `adapter.call` until capability classification is enforced
+
 ## Candidate Future Phases
 
-### Phase 3E: Remaining Admin Surface Decisions
+### Phase 3F: Remaining Admin Surface Decisions
 
 Do not implement these just because they were listed earlier. Decide from actual workflows.
 
@@ -173,6 +205,20 @@ Candidate commands:
 - stronger Secret Manager integration
 
 Principle: add resources only when deployment flow remains understandable and reversible.
+
+### Phase 4B: Downstream MCP Gateway
+
+Candidate scope:
+
+- `.omg/mcp.yaml` for downstream MCP registration.
+- downstream tool discovery with no execution by default.
+- capability manifests for approved tools.
+- read-only proxy tools first.
+- explicit deny for unknown or unclassified tools.
+- audit logging for every downstream tool call.
+- post-call verification when a tool claims to create, update, delete, or restore a resource.
+
+Principle: `omg` may become an MCP server and MCP client, but downstream MCPs stay behind the same safety kernel. Raw Google/Firebase service MCPs should not be exposed to agents for privileged work when `omg` is meant to enforce policy.
 
 ### Phase 5: AI And Analytics Integrations
 

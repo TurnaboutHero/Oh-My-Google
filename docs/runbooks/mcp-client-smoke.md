@@ -2,6 +2,8 @@
 
 Purpose: verify that a real MCP client can consume `omg mcp start`, list tools, and call at least one low-risk tool.
 
+Scope note: this runbook covers the `omg` MCP server itself. It does not validate downstream Google/Firebase MCP servers behind `omg`; that gateway layer is not implemented yet.
+
 ## Prerequisites
 
 - Node.js 20+

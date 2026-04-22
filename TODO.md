@@ -1,12 +1,12 @@
 # TODO
 
-Status snapshot: 2026-04-20
+Status snapshot: 2026-04-22
 
 This file tracks current implementation state. Product rationale lives in [PRD.md](./PRD.md). Sequencing and phase intent live in [PLAN.md](./PLAN.md).
 
 ## Now
 
-### Phase 3: Budget Guard Expansion
+### Phase 3D: Budget Guard Expansion
 
 - [x] Define the `budget` command scope and trust level.
 - [x] Implement read-only billing/budget audit.
@@ -21,7 +21,17 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [ ] Apply cost/free-tier guardrails before all cost-bearing live Google Cloud operations.
 - [ ] Decide whether `omg budget create` is needed, or whether budget creation should remain a documented console/manual step.
 
-### Phase 3: Remaining Admin Surfaces
+### Phase 3E: Safety Kernel And Adapter Foundation
+
+- [ ] Define `OperationIntent` for current `init`, `deploy`, `firebase deploy`, `secret`, `budget`, and `project` operations.
+- [ ] Classify each operation by risk level, project/resource scope, cost impact, destructive impact, secret impact, dry-run support, and post-verify support.
+- [ ] Extract a shared safety decision path that combines Trust Profile, approvals, account context, and budget guard.
+- [ ] Add a capability manifest for existing execution backends: `gcloud-cli`, `firebase-cli`, and current Google client connectors.
+- [ ] Add regression tests proving CLI and MCP calls get equivalent safety decisions.
+- [ ] Document the rule that downstream Google/Firebase MCPs must not be exposed raw for privileged operations.
+- [ ] Design downstream MCP discovery as read-only/deny-by-default before any execution proxy is added.
+
+### Phase 3F: Remaining Admin Surfaces
 
 - [ ] Decide whether `iam` is needed before Phase 4.
 - [ ] Decide whether `notify` is needed before Phase 4.
@@ -39,10 +49,12 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Decide whether `omg budget create` is needed, or keep budget creation as a manual console step.
-2. Continue applying cost/free-tier guardrails to any remaining cost-bearing live operations.
-3. Only then consider additional admin surfaces.
-4. Re-run the local verification suite before each push.
+1. Define the `OperationIntent` and capability manifest model for existing operations.
+2. Extract the shared safety decision path without changing existing behavior.
+3. Add CLI/MCP equivalence tests around safety decisions.
+4. Decide whether `omg budget create` is needed, or keep budget creation as a manual console step.
+5. Only then consider downstream MCP execution or additional admin surfaces.
+6. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -194,6 +206,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Budget alerts do not enforce a hard spend cap.
 - Budget visibility depends on billing permissions and the Budget API.
 - Budget guard now covers `omg init` before billing link/default API enablement/IAM setup; broader live-operation coverage is still being expanded.
+- `omg` is currently an MCP server, not yet a downstream MCP client/gateway.
+- Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools are not safety-wrapped yet.
 - Live project lifecycle testing is intentionally narrow and should stay approval-gated.
 - gcloud configuration reads can be flaky if multiple gcloud commands are run concurrently; live auth/budget/doctor checks should run sequentially.
 - Next.js SSR remains out of scope.
