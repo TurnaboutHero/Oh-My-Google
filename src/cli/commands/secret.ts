@@ -4,7 +4,8 @@ import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
 import { auditBillingGuard } from "../../connectors/billing-audit.js";
 import { deleteSecret, listSecrets, setSecret } from "../../connectors/secret-manager.js";
-import { checkPermission } from "../../trust/check.js";
+import { evaluateSafety, type SafetyDecision } from "../../safety/decision.js";
+import { classifyOperation } from "../../safety/intent.js";
 import { loadProfile } from "../../trust/profile.js";
 import { OmgError, ValidationError, type OmgError as OmgErrorType } from "../../types/errors.js";
 import type { TrustProfile } from "../../types/trust.js";
@@ -156,19 +157,23 @@ export async function runSecretList(input: RunSecretListInput): Promise<RunSecre
   try {
     const profile = await resolveProfile(input.cwd);
     const projectId = resolveProfileProject(profile, input.project);
-    const permission = await checkPermission("secret.list", profile, {
-      cwd: input.cwd,
-      jsonMode: true,
-      yes: true,
-    });
+    const safety = await evaluateSafety(
+      classifyOperation("secret.list", { projectId }),
+      profile,
+      {
+        cwd: input.cwd,
+        jsonMode: true,
+        yes: true,
+      },
+    );
 
-    if (!permission.allowed) {
-      const { code, hint } = mapPermissionFailure(permission);
+    if (!safety.allowed) {
+      const { code, hint } = mapSafetyFailure(safety);
       return {
         ok: false,
         error: {
           code,
-          message: permission.reason ?? "Secret listing blocked by trust profile.",
+          message: safety.reason ?? "Secret listing blocked by trust profile.",
           recoverable: false,
           hint,
         },
@@ -217,17 +222,24 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
       name: setInput.name,
       source: setInput.valueFile ? "value-file" : "inline-value",
     };
-    const permission = await checkPermission(action, profile, {
-      approvalId: input.approval,
-      argsHash: hashArgs(safeArgs),
-      yes: !!input.yes,
-      jsonMode: !!input.jsonMode,
-      cwd: input.cwd,
-      consumeApproval: false,
-    });
+    const safety = await evaluateSafety(
+      classifyOperation(action, {
+        projectId,
+        resource: `secret/${setInput.name}`,
+      }),
+      profile,
+      {
+        approvalId: input.approval,
+        argsHash: hashArgs(safeArgs),
+        yes: !!input.yes,
+        jsonMode: !!input.jsonMode,
+        cwd: input.cwd,
+        budgetAuditProvider: auditBillingGuard,
+      },
+    );
 
-    if (!permission.allowed) {
-      if (permission.reasonCode === "APPROVAL_REQUIRED") {
+    if (!safety.allowed) {
+      if (safety.code === "APPROVAL_REQUIRED") {
         const approval = await createApproval(input.cwd, {
           action,
           args: safeArgs,
@@ -248,44 +260,37 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
         };
       }
 
-      const { code, hint } = mapPermissionFailure(permission);
+      if (safety.code === "BUDGET_GUARD_BLOCKED" && safety.budgetAudit) {
+        const audit = safety.budgetAudit;
+        return {
+          ok: false,
+          error: {
+            code: "BUDGET_GUARD_BLOCKED",
+            message: `Budget guard blocked live secret write: ${audit.recommendedAction}`,
+            recoverable: true,
+            data: {
+              projectId,
+              budgetRisk: audit.risk,
+              billingEnabled: audit.billingEnabled,
+              billingAccountId: audit.billingAccountId,
+              signals: audit.signals,
+            },
+            next: safety.next ?? [`omg budget audit --project ${projectId}`],
+          },
+        };
+      }
+
+      const { code, hint } = mapSafetyFailure(safety);
       return {
         ok: false,
         error: {
           code,
-          message: permission.reason ?? "Secret write blocked by trust profile.",
+          message: safety.reason ?? "Secret write blocked by trust profile.",
           recoverable: false,
           hint,
           next: [`omg secret set ${setInput.name} --yes`],
         },
       };
-    }
-
-    const budgetGuard = await assertBudgetGuard(projectId);
-    if (!budgetGuard.ok) {
-      return budgetGuard;
-    }
-
-    if (input.approval && permission.action === "require_approval") {
-      const consumePermission = await checkPermission(action, profile, {
-        approvalId: input.approval,
-        argsHash: hashArgs(safeArgs),
-        yes: !!input.yes,
-        jsonMode: !!input.jsonMode,
-        cwd: input.cwd,
-      });
-      if (!consumePermission.allowed) {
-        const { code, hint } = mapPermissionFailure(consumePermission);
-        return {
-          ok: false,
-          error: {
-            code,
-            message: consumePermission.reason ?? "Secret write approval could not be consumed.",
-            recoverable: false,
-            hint,
-          },
-        };
-      }
     }
 
     const result = await setSecret(setInput);
@@ -339,30 +344,6 @@ export async function runSecretDelete(input: RunSecretDeleteInput): Promise<RunS
   } catch (error) {
     return { ok: false, error: toOutcomeError(error) };
   }
-}
-
-async function assertBudgetGuard(projectId: string): Promise<RunSecretOutcome | { ok: true }> {
-  const audit = await auditBillingGuard(projectId);
-  if (audit.risk === "configured") {
-    return { ok: true };
-  }
-
-  return {
-    ok: false,
-    error: {
-      code: "BUDGET_GUARD_BLOCKED",
-      message: `Budget guard blocked live secret write: ${audit.recommendedAction}`,
-      recoverable: true,
-      data: {
-        projectId,
-        budgetRisk: audit.risk,
-        billingEnabled: audit.billingEnabled,
-        billingAccountId: audit.billingAccountId,
-        signals: audit.signals,
-      },
-      next: [`omg budget audit --project ${projectId}`],
-    },
-  };
 }
 
 async function resolveProfile(cwd: string): Promise<TrustProfile> {
@@ -438,14 +419,14 @@ function toOmgError(error: unknown): OmgErrorType {
   return new ValidationError("Unknown secret command error.");
 }
 
-function mapPermissionFailure(permission: Awaited<ReturnType<typeof checkPermission>>): {
+function mapSafetyFailure(safety: SafetyDecision): {
   code: string;
   hint?: string;
 } {
-  switch (permission.reasonCode) {
-    case "DENIED":
+  switch (safety.code) {
+    case "TRUST_DENIED":
       return { code: "TRUST_DENIED" };
-    case "REQUIRES_CONFIRM":
+    case "TRUST_REQUIRES_CONFIRM":
       return { code: "TRUST_REQUIRES_CONFIRM", hint: "--yes" };
     case "APPROVAL_NOT_FOUND":
       return { code: "APPROVAL_NOT_FOUND" };
@@ -454,14 +435,14 @@ function mapPermissionFailure(permission: Awaited<ReturnType<typeof checkPermiss
     case "APPROVAL_NOT_APPROVED":
       return {
         code: "APPROVAL_NOT_APPROVED",
-        hint: permission.approvalId ? `omg approve ${permission.approvalId}` : undefined,
+        hint: safety.permission?.approvalId ? `omg approve ${safety.permission.approvalId}` : undefined,
       };
     case "APPROVAL_MISMATCH":
       return { code: "APPROVAL_MISMATCH" };
     case "APPROVAL_CONSUMED":
       return { code: "APPROVAL_CONSUMED" };
     default:
-      return { code: "TRUST_REQUIRES_APPROVAL" };
+      return { code: safety.code };
   }
 }
 

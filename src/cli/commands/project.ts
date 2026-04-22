@@ -9,7 +9,8 @@ import {
   readProjectLifecycle,
   undeleteProject,
 } from "../../connectors/project-audit.js";
-import { checkPermission } from "../../trust/check.js";
+import { evaluateSafety, type SafetyDecision } from "../../safety/decision.js";
+import { classifyOperation } from "../../safety/intent.js";
 import { generateDefaultProfile } from "../../trust/profile.js";
 import { OmgError, ValidationError, type OmgError as OmgErrorType } from "../../types/errors.js";
 import type { TrustProfile } from "../../types/trust.js";
@@ -178,16 +179,20 @@ export async function runProjectDelete(input: {
       billingEnabled: audit.billingEnabled,
     };
     const profile = getDeleteTrustProfile(audit.projectId);
-    const permission = await checkPermission(action, profile, {
-      approvalId: input.approval,
-      argsHash: hashArgs(args),
-      activeAccount,
-      cwd: input.cwd,
-      jsonMode: true,
-    });
+    const safety = await evaluateSafety(
+      classifyOperation(action, { projectId: audit.projectId }),
+      profile,
+      {
+        approvalId: input.approval,
+        argsHash: hashArgs(args),
+        activeAccount,
+        cwd: input.cwd,
+        jsonMode: true,
+      },
+    );
 
-    if (!permission.allowed) {
-      if (permission.reasonCode === "APPROVAL_REQUIRED") {
+    if (!safety.allowed) {
+      if (safety.code === "APPROVAL_REQUIRED") {
         const approval = await createApproval(input.cwd, {
           action,
           args,
@@ -220,10 +225,10 @@ export async function runProjectDelete(input: {
       return {
         ok: false,
         error: {
-          code: mapPermissionCode(permission.reasonCode),
-          message: permission.reason ?? "Project delete blocked by trust profile.",
+          code: mapSafetyCode(safety),
+          message: safety.reason ?? "Project delete blocked by trust profile.",
           recoverable: false,
-          hint: permission.approvalId ? `omg approve ${permission.approvalId}` : undefined,
+          hint: safety.permission?.approvalId ? `omg approve ${safety.permission.approvalId}` : undefined,
         },
       };
     }
@@ -265,16 +270,20 @@ export async function runProjectUndelete(input: {
       lifecycleState: lifecycle.lifecycleState,
     };
     const profile = getProjectL3ApprovalTrustProfile(lifecycle.projectId, action);
-    const permission = await checkPermission(action, profile, {
-      approvalId: input.approval,
-      argsHash: hashArgs(args),
-      activeAccount,
-      cwd: input.cwd,
-      jsonMode: true,
-    });
+    const safety = await evaluateSafety(
+      classifyOperation(action, { projectId: lifecycle.projectId }),
+      profile,
+      {
+        approvalId: input.approval,
+        argsHash: hashArgs(args),
+        activeAccount,
+        cwd: input.cwd,
+        jsonMode: true,
+      },
+    );
 
-    if (!permission.allowed) {
-      if (permission.reasonCode === "APPROVAL_REQUIRED") {
+    if (!safety.allowed) {
+      if (safety.code === "APPROVAL_REQUIRED") {
         const approval = await createApproval(input.cwd, {
           action,
           args,
@@ -307,10 +316,10 @@ export async function runProjectUndelete(input: {
       return {
         ok: false,
         error: {
-          code: mapPermissionCode(permission.reasonCode),
-          message: permission.reason ?? "Project undelete blocked by trust profile.",
+          code: mapSafetyCode(safety),
+          message: safety.reason ?? "Project undelete blocked by trust profile.",
           recoverable: false,
-          hint: permission.approvalId ? `omg approve ${permission.approvalId}` : undefined,
+          hint: safety.permission?.approvalId ? `omg approve ${safety.permission.approvalId}` : undefined,
         },
       };
     }
@@ -425,25 +434,8 @@ function toOmgError(error: unknown): OmgErrorType {
   return new ValidationError("Unknown project command error.");
 }
 
-function mapPermissionCode(reasonCode: string | undefined): string {
-  switch (reasonCode) {
-    case "DENIED":
-      return "TRUST_DENIED";
-    case "APPROVAL_NOT_FOUND":
-      return "APPROVAL_NOT_FOUND";
-    case "APPROVAL_EXPIRED":
-      return "APPROVAL_EXPIRED";
-    case "APPROVAL_NOT_APPROVED":
-      return "APPROVAL_NOT_APPROVED";
-    case "APPROVAL_MISMATCH":
-      return "APPROVAL_MISMATCH";
-    case "ACCOUNT_MISMATCH":
-      return "ACCOUNT_MISMATCH";
-    case "APPROVAL_CONSUMED":
-      return "APPROVAL_CONSUMED";
-    default:
-      return "TRUST_REQUIRES_APPROVAL";
-  }
+function mapSafetyCode(safety: SafetyDecision): string {
+  return safety.code;
 }
 
 function getRequester(): string {

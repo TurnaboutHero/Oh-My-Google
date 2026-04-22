@@ -7,7 +7,8 @@ import { applyPlan, type ApplyResult } from "../../executor/apply.js";
 import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { tryWriteHandoff } from "../../harness/handoff.js";
 import { loadPlan } from "../../planner/schema.js";
-import { checkPermission } from "../../trust/check.js";
+import { evaluateSafety, type SafetyDecision } from "../../safety/decision.js";
+import { classifyOperation } from "../../safety/intent.js";
 import { loadProfile } from "../../trust/profile.js";
 import { OmgError, ValidationError } from "../../types/errors.js";
 import type { Plan } from "../../types/plan.js";
@@ -113,17 +114,24 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
     action = plan.targets.backend ? "deploy.cloud-run" : "deploy.firebase-hosting";
     const deployArgs = extractDeployArgs(plan, action);
     const argsHash = hashArgs(deployArgs);
-    const permission = await checkPermission(action, profile, {
-      approvalId: input.approval,
-      argsHash,
-      yes: !!input.yes,
-      jsonMode: !!input.jsonMode,
-      cwd: input.cwd,
-      consumeApproval: false,
-    });
+    const safety = await evaluateSafety(
+      classifyOperation(action, {
+        projectId: profile.projectId,
+        resource: getDeployResource(plan, action),
+      }),
+      profile,
+      {
+        approvalId: input.approval,
+        argsHash,
+        yes: !!input.yes,
+        jsonMode: !!input.jsonMode,
+        cwd: input.cwd,
+        budgetAuditProvider: auditBillingGuard,
+      },
+    );
 
-    if (!permission.allowed) {
-      if (permission.reasonCode === "APPROVAL_REQUIRED") {
+    if (!safety.allowed) {
+      if (safety.code === "APPROVAL_REQUIRED") {
         const approval = await createApproval(input.cwd, {
           action,
           args: deployArgs,
@@ -139,8 +147,8 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
           action,
           projectId,
           environment,
-          trustAction: permission.action,
-          reasonCode: permission.reasonCode,
+          trustAction: safety.permission?.action,
+          reasonCode: safety.permission?.reasonCode,
           approvalId: approval.id,
           inputs: { args: deployArgs },
           result: { expiresAt: approval.expiresAt },
@@ -169,7 +177,55 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
         };
       }
 
-      const { code, hint } = mapPermissionFailure(permission);
+      if (safety.code === "BUDGET_GUARD_BLOCKED" && safety.budgetAudit) {
+        const budgetGuard = safety.budgetAudit;
+        const next = safety.next ?? [`omg budget audit --project ${profile.projectId}`];
+        await tryAppendDecision(input.cwd, {
+          runId,
+          command: "deploy",
+          phase: "budget",
+          status: "blocked",
+          action,
+          projectId,
+          environment,
+          result: {
+            code: "BUDGET_GUARD_BLOCKED",
+            budgetRisk: budgetGuard.risk,
+            billingEnabled: budgetGuard.billingEnabled,
+            billingAccountId: budgetGuard.billingAccountId,
+            signals: budgetGuard.signals,
+          },
+          next,
+        });
+        await tryWriteHandoff(input.cwd, {
+          runId,
+          command: "deploy",
+          status: "blocked",
+          projectId,
+          environment,
+          risks: [`Budget guard blocked live deployment: ${budgetGuard.recommendedAction}`],
+          next,
+        });
+
+        return {
+          ok: false,
+          error: {
+            code: "BUDGET_GUARD_BLOCKED",
+            message: `Budget guard blocked live deployment: ${budgetGuard.recommendedAction}`,
+            recoverable: true,
+            data: {
+              projectId: profile.projectId,
+              budgetRisk: budgetGuard.risk,
+              billingEnabled: budgetGuard.billingEnabled,
+              billingAccountId: budgetGuard.billingAccountId,
+              signals: budgetGuard.signals,
+            },
+            next,
+          },
+        };
+      }
+
+      const { code, hint } = mapSafetyFailure(safety);
       await tryAppendDecision(input.cwd, {
         runId,
         command: "deploy",
@@ -178,9 +234,13 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
         action,
         projectId,
         environment,
-        trustAction: permission.action,
-        reasonCode: permission.reasonCode,
-        result: { code, message: permission.reason, deniedBy: permission.deniedBy },
+        trustAction: safety.permission?.action,
+        reasonCode: safety.permission?.reasonCode,
+        result: {
+          code,
+          message: safety.reason,
+          deniedBy: safety.permission?.deniedBy,
+        },
         next: hint ? [hint] : undefined,
       });
       await tryWriteHandoff(input.cwd, {
@@ -189,88 +249,18 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
         status: "blocked",
         projectId,
         environment,
-        risks: [permission.reason ?? "deployment blocked by trust profile"],
+        risks: [safety.reason ?? "deployment blocked by trust profile"],
         next: hint ? [hint] : ["adjust .omg/trust.yaml or rerun a safe command"],
       });
       return {
         ok: false,
         error: {
           code,
-          message: permission.reason ?? "Deployment blocked by trust profile.",
+          message: safety.reason ?? "Deployment blocked by trust profile.",
           recoverable: false,
           hint,
         },
       };
-    }
-
-    const budgetGuard = await auditBillingGuard(profile.projectId);
-    if (budgetGuard.risk !== "configured") {
-      const next = [`omg budget audit --project ${profile.projectId}`];
-      await tryAppendDecision(input.cwd, {
-        runId,
-        command: "deploy",
-        phase: "budget",
-        status: "blocked",
-        action,
-        projectId,
-        environment,
-        result: {
-          code: "BUDGET_GUARD_BLOCKED",
-          budgetRisk: budgetGuard.risk,
-          billingEnabled: budgetGuard.billingEnabled,
-          billingAccountId: budgetGuard.billingAccountId,
-          signals: budgetGuard.signals,
-        },
-        next,
-      });
-      await tryWriteHandoff(input.cwd, {
-        runId,
-        command: "deploy",
-        status: "blocked",
-        projectId,
-        environment,
-        risks: [`Budget guard blocked live deployment: ${budgetGuard.recommendedAction}`],
-        next,
-      });
-
-      return {
-        ok: false,
-        error: {
-          code: "BUDGET_GUARD_BLOCKED",
-          message: `Budget guard blocked live deployment: ${budgetGuard.recommendedAction}`,
-          recoverable: true,
-          data: {
-            projectId: profile.projectId,
-            budgetRisk: budgetGuard.risk,
-            billingEnabled: budgetGuard.billingEnabled,
-            billingAccountId: budgetGuard.billingAccountId,
-            signals: budgetGuard.signals,
-          },
-          next,
-        },
-      };
-    }
-
-    if (input.approval && permission.action === "require_approval") {
-      const consumePermission = await checkPermission(action, profile, {
-        approvalId: input.approval,
-        argsHash,
-        yes: !!input.yes,
-        jsonMode: !!input.jsonMode,
-        cwd: input.cwd,
-      });
-      if (!consumePermission.allowed) {
-        const { code, hint } = mapPermissionFailure(consumePermission);
-        return {
-          ok: false,
-          error: {
-            code,
-            message: consumePermission.reason ?? "Deployment approval could not be consumed.",
-            recoverable: false,
-            hint,
-          },
-        };
-      }
     }
 
     const result = await applyPlan(plan, {
@@ -393,6 +383,18 @@ function extractDeployArgs(plan: Plan, action: string): Record<string, unknown> 
   };
 }
 
+function getDeployResource(plan: Plan, action: string): string | undefined {
+  if (action === "deploy.cloud-run") {
+    return plan.targets.backend?.serviceName
+      ? `service/${plan.targets.backend.serviceName}`
+      : undefined;
+  }
+
+  return plan.targets.frontend?.siteName
+    ? `site/${plan.targets.frontend.siteName}`
+    : undefined;
+}
+
 function getRequester(): string {
   try {
     const email = execFileSync("git", ["config", "user.email"], {
@@ -408,14 +410,14 @@ function getRequester(): string {
   return process.env.USER || process.env.USERNAME || "agent";
 }
 
-function mapPermissionFailure(permission: Awaited<ReturnType<typeof checkPermission>>): {
+function mapSafetyFailure(safety: SafetyDecision): {
   code: string;
   hint?: string;
 } {
-  switch (permission.reasonCode) {
-    case "DENIED":
+  switch (safety.code) {
+    case "TRUST_DENIED":
       return { code: "TRUST_DENIED" };
-    case "REQUIRES_CONFIRM":
+    case "TRUST_REQUIRES_CONFIRM":
       return { code: "TRUST_REQUIRES_CONFIRM", hint: "--yes" };
     case "APPROVAL_NOT_FOUND":
       return { code: "APPROVAL_NOT_FOUND" };
@@ -424,13 +426,13 @@ function mapPermissionFailure(permission: Awaited<ReturnType<typeof checkPermiss
     case "APPROVAL_NOT_APPROVED":
       return {
         code: "APPROVAL_NOT_APPROVED",
-        hint: permission.approvalId ? `omg approve ${permission.approvalId}` : undefined,
+        hint: safety.permission?.approvalId ? `omg approve ${safety.permission.approvalId}` : undefined,
       };
     case "APPROVAL_MISMATCH":
       return { code: "APPROVAL_MISMATCH" };
     case "APPROVAL_CONSUMED":
       return { code: "APPROVAL_CONSUMED" };
     default:
-      return { code: "TRUST_REQUIRES_APPROVAL" };
+      return { code: safety.code };
   }
 }

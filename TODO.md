@@ -31,7 +31,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add regression tests proving CLI and MCP calls normalize to equivalent command intent plans.
 - [x] Document the rule that downstream Google/Firebase MCPs must not be exposed raw for privileged operations.
 - [x] Design downstream MCP discovery as read-only/deny-by-default before any execution proxy is added.
-- [ ] Adopt the shared safety decision wrapper inside existing command implementations without changing behavior.
+- [x] Adopt the shared safety decision wrapper for existing command-level trust checks without changing behavior.
 - [ ] Add CLI/MCP equivalence tests around the command implementations after adoption.
 
 ### Phase 3F: Remaining Admin Surfaces

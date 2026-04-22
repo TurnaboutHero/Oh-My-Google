@@ -184,10 +184,10 @@ Progress:
 - Command-level intent mapping exists in `src/safety/commands.ts`, including multi-action flows such as `init`, `project:delete`, and `secret:delete`.
 - Shared safety decision wrapper exists in `src/safety/decision.ts`; it combines adapter capability, Trust Profile, approvals, and supplied or provider-fetched budget guard evidence.
 - Regression tests cover operation classification, command surface normalization for CLI/MCP, adapter capability, and shared safety decision outcomes.
+- Existing command-level trust checks in `deploy`, `secret`, and project lifecycle now route through the shared safety decision wrapper.
 
 Remaining:
 
-- adopt the shared safety decision wrapper inside existing command implementations without changing behavior
 - add CLI/MCP equivalence tests around command implementations after adoption
 - design actual downstream MCP client/gateway mechanics after the safety wrapper is used by current commands
 

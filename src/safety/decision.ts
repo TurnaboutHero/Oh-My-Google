@@ -20,6 +20,7 @@ export interface SafetyDecision {
   reason?: string;
   permission?: PermissionCheck;
   budgetRequired: boolean;
+  budgetAudit?: BillingGuardAudit;
   budgetRisk?: BillingGuardAudit["risk"];
   next?: string[];
 }
@@ -60,9 +61,10 @@ export async function evaluateSafety(
     };
   }
 
+  let resolvedBudgetAudit: BillingGuardAudit | undefined;
   if (budgetRequired) {
-    const budgetAudit = options.budgetAudit ?? await readBudgetAudit(intent, options);
-    if (!budgetAudit) {
+    resolvedBudgetAudit = options.budgetAudit ?? await readBudgetAudit(intent, options);
+    if (!resolvedBudgetAudit) {
       return {
         allowed: false,
         decision: "blocked",
@@ -75,17 +77,18 @@ export async function evaluateSafety(
       };
     }
 
-    if (budgetAudit.risk !== "configured") {
+    if (resolvedBudgetAudit.risk !== "configured") {
       return {
         allowed: false,
         decision: "blocked",
         code: "BUDGET_GUARD_BLOCKED",
         intent,
-        reason: budgetAudit.recommendedAction,
+        reason: resolvedBudgetAudit.recommendedAction,
         permission,
         budgetRequired: true,
-        budgetRisk: budgetAudit.risk,
-        next: [`omg budget audit --project ${budgetAudit.projectId}`],
+        budgetAudit: resolvedBudgetAudit,
+        budgetRisk: resolvedBudgetAudit.risk,
+        next: [`omg budget audit --project ${resolvedBudgetAudit.projectId}`],
       };
     }
 
@@ -116,6 +119,7 @@ export async function evaluateSafety(
     intent,
     permission,
     budgetRequired,
+    budgetAudit: resolvedBudgetAudit,
   };
 }
 

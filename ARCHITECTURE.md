@@ -508,6 +508,7 @@ Implemented and verified:
 - initial OperationIntent classification for existing trust action IDs
 - command-level intent mapping for CLI/MCP surface normalization
 - shared safety decision wrapper over adapter capability, Trust Profile, approvals, and supplied or provider-fetched budget guard evidence
+- command-level trust checks in deploy, secret, and project lifecycle routed through the shared safety decision wrapper
 - adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
 - approval workflow
 - Secret Manager admin surface
@@ -516,7 +517,7 @@ Implemented and verified:
 
 Not implemented:
 
-- existing command implementations are not yet routed through the shared safety decision wrapper
+- CLI/MCP equivalence tests around concrete command implementations after safety-wrapper adoption
 - downstream MCP client/gateway support
 - budget creation/mutation
 - `iam`, `notify`, `security` admin surfaces
