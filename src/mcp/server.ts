@@ -65,6 +65,10 @@ const tools = [
   mcpGatewayCallTool,
 ];
 
+export function listMcpToolNames(): string[] {
+  return tools.map((tool) => tool.name);
+}
+
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
   if (opts.transport !== "stdio") {
     throw new Error("Only stdio transport is supported.");

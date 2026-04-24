@@ -302,13 +302,16 @@ Completed:
 - MCP tools: `omg.mcp.gateway.audit` and `omg.mcp.gateway.call`.
 - Adapter split: raw `downstream-mcp` stays deny-by-default; `downstream-mcp-readonly` is the only executable downstream adapter.
 - Non-read downstream tools are blocked until a concrete verifier is designed.
+- Automated coverage now includes a real MCP SDK stdio fixture for discovery/call/denial behavior.
+- Automated coverage now locks the exact 23-tool registry and verifies `mcp start` stdio discovery through a real MCP SDK client.
 - Added [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md).
+- Added [docs/runbooks/phase-4-4b-release-notes.md](./docs/runbooks/phase-4-4b-release-notes.md).
 
 Principle: `omg` may become an MCP server and MCP client, but downstream MCPs stay behind the same safety kernel. Raw Google/Firebase service MCPs should not be exposed to agents for privileged work when `omg` is meant to enforce policy.
 
 Remaining:
 
-- Run optional live gateway smoke only against a known benign MCP server.
+- Run optional external live gateway smoke only against a known benign MCP server.
 - Do not add downstream write/lifecycle proxying until the workflow includes dry-run or post-verification semantics.
 
 ### Phase 5: AI And Analytics Integrations

@@ -41,6 +41,9 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add CLI coverage through `omg mcp gateway audit` and `omg mcp gateway call`.
 - [x] Add MCP coverage through `omg.mcp.gateway.audit` and `omg.mcp.gateway.call`.
 - [x] Add downstream MCP gateway tests and runbook.
+- [x] Add real stdio downstream MCP fixture coverage for discovery, allowlisted read calls, and denied destructive tools.
+- [x] Add exact 23-tool MCP server registry and `mcp start` stdio discovery smoke coverage.
+- [x] Add Phase 4/4B release notes.
 
 ### Phase 3D: Budget Guard Expansion
 
@@ -103,7 +106,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 2. Keep `notify` deferred unless a concrete external notification workflow requires it.
 3. Preserve the cost-bearing invariant before any new live Google Cloud operation.
 4. Run optional live read-only audits only with explicit project/account approval.
-5. Run optional downstream MCP gateway smoke only against a known benign MCP server.
+5. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
 6. Pick the next product workflow before adding any downstream write/lifecycle proxy.
 7. Re-run the local verification suite before each push.
 
@@ -265,6 +268,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Budget visibility depends on billing permissions and the Budget API.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
 - `omg` now has a narrow downstream MCP gateway for registry audit, tool discovery, and allowlisted read-only tool calls.
+- Local stdio fixture coverage exists for the downstream MCP gateway, but external downstream MCP smoke still requires a known benign target.
 - Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools remain denied unless routed through the gateway allowlist.
 - Downstream MCP write/lifecycle proxying is intentionally not implemented until concrete verifiers exist.
 - IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.

@@ -270,11 +270,13 @@ Completed validation:
 - Read-only Cloud Storage audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.
 - Downstream MCP registry, discovery, read-only proxy, denial, and decision log tests.
+- Real MCP SDK stdio fixture tests for downstream MCP discovery, allowlisted read calls, and denied destructive tools.
+- Exact 23-tool MCP server registry and `mcp start` stdio discovery smoke coverage.
 
 Current open validation need:
 
 - Optional live Firestore, Cloud Storage, and Cloud SQL audit smoke on a known validation project.
-- Optional downstream MCP gateway smoke against a known benign MCP server.
+- Optional external downstream MCP gateway smoke against a known benign MCP server.
 
 ## Success Criteria
 

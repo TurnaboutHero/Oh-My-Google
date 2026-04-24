@@ -58,6 +58,12 @@ node bin/omg mcp start
 - `omg.doctor` returns a structured response without crashing the MCP server.
 - The client can parse `content[0].text` as JSON.
 
+## Automated Coverage
+
+- `tests/mcp-server-tools.test.ts` locks the exact 23-tool registry exposed by the MCP server implementation.
+- `tests/mcp-server-tools.test.ts` also launches the `mcp start` command through a real MCP SDK stdio client and verifies tool discovery.
+- This does not replace a manual external MCP client smoke, but it prevents accidental tool additions, removals, or startup discovery failures from going unnoticed.
+
 ## Recordkeeping
 
 After a manual smoke, record the result in the project handoff or the PR notes with:

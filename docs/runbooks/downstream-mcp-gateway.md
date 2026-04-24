@@ -84,6 +84,11 @@ Examples:
 - Decision logging records server id, tool name, and argument keys, not raw argument payloads.
 - Mutation-looking tool names or `destructiveHint` metadata are denied even if the registry mistakenly marks the tool as read.
 
+## Automated Coverage
+
+- `tests/downstream-mcp-stdio.test.ts` launches a real MCP SDK stdio fixture and verifies tool discovery, an allowlisted read-only call, and denial before a destructive fixture tool is executed.
+- External downstream MCP smoke should still be run only against a known benign MCP server with an explicit target.
+
 ## Output Shape
 
 Audit:

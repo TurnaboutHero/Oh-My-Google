@@ -144,6 +144,7 @@ src/
 | `ARCHITECTURE.md` | Current module boundaries and execution flow |
 | `AGENTS.md` | Agent operating contract and omg usage contract |
 | `docs/runbooks/*` | Live validation and operational runbooks |
+| `docs/runbooks/phase-4-4b-release-notes.md` | Phase 4 resource audits and Phase 4B gateway release notes |
 | `docs/runbooks/history-rewrite-and-conflict-safety.md` | Conflict, clone, and push safety after history rewrite |
 
 ## Tech Stack
