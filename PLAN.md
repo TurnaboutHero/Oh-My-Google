@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-04-22
+Last updated: 2026-04-24
 
 This plan explains the implementation direction for `oh-my-google`. Current task state is tracked in [TODO.md](./TODO.md). Product rationale is tracked in [PRD.md](./PRD.md).
 
@@ -130,9 +130,12 @@ Completed/ongoing:
 - `omg init` audits the selected billing account before billing link, default API enablement, and IAM setup.
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 
-Remaining decisions:
+Decided:
 
-- Decide whether `omg budget create` is needed, or leave budget creation as a documented manual console step.
+- `omg budget create` is deferred. Budget creation stays a documented console/manual step; `omg` verifies visibility with `budget audit` instead of creating budgets automatically.
+
+Remaining:
+
 - Continue adding budget/free-tier guardrails to any new cost-bearing live operation.
 
 Important design point:
@@ -185,11 +188,12 @@ Progress:
 - Shared safety decision wrapper exists in `src/safety/decision.ts`; it combines adapter capability, Trust Profile, approvals, and supplied or provider-fetched budget guard evidence.
 - Regression tests cover operation classification, command surface normalization for CLI/MCP, adapter capability, and shared safety decision outcomes.
 - Existing command-level trust checks in `deploy`, `secret`, and project lifecycle now route through the shared safety decision wrapper.
+- CLI/MCP implementation equivalence tests cover the adopted command paths for deploy safety blocks, Secret Manager set/list/delete responses, and project delete approval requirements.
 
 Remaining:
 
-- add CLI/MCP equivalence tests around command implementations after adoption
-- design actual downstream MCP client/gateway mechanics after the safety wrapper is used by current commands
+- Phase 3E safety-kernel foundation work is complete.
+- Design actual downstream MCP client/gateway mechanics only after the next product decision explicitly prioritizes it.
 
 ## Candidate Future Phases
 

@@ -1,6 +1,6 @@
 # TODO
 
-Status snapshot: 2026-04-22
+Status snapshot: 2026-04-24
 
 This file tracks current implementation state. Product rationale lives in [PRD.md](./PRD.md). Sequencing and phase intent live in [PLAN.md](./PLAN.md).
 
@@ -18,8 +18,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add budget guard before `omg init` performs billing link, default API enablement, and IAM setup.
 - [x] Preserve onboarding flow: `budget enable-api` remains an explicit dry-run/`--yes` bootstrap path for budget visibility.
 - [x] Document budget guard live smoke in [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md).
+- [x] Decide that `omg budget create` is deferred; budget creation remains a documented console/manual step.
 - [ ] Apply cost/free-tier guardrails before all cost-bearing live Google Cloud operations.
-- [ ] Decide whether `omg budget create` is needed, or whether budget creation should remain a documented console/manual step.
 
 ### Phase 3E: Safety Kernel And Adapter Foundation
 
@@ -32,7 +32,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Document the rule that downstream Google/Firebase MCPs must not be exposed raw for privileged operations.
 - [x] Design downstream MCP discovery as read-only/deny-by-default before any execution proxy is added.
 - [x] Adopt the shared safety decision wrapper for existing command-level trust checks without changing behavior.
-- [ ] Add CLI/MCP equivalence tests around the command implementations after adoption.
+- [x] Add CLI/MCP equivalence tests around the command implementations after adoption.
 
 ### Phase 3F: Remaining Admin Surfaces
 
@@ -53,12 +53,11 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Define the `OperationIntent` and capability manifest model for existing operations.
-2. Extract the shared safety decision path without changing existing behavior.
-3. Add CLI/MCP equivalence tests around safety decisions.
-4. Decide whether `omg budget create` is needed, or keep budget creation as a manual console step.
-5. Only then consider downstream MCP execution or additional admin surfaces.
-6. Re-run the local verification suite before each push.
+1. Decide whether `iam` should start as a read-only `omg iam audit` surface before Phase 4.
+2. Keep `notify` and `security` deferred unless a concrete workflow requires them.
+3. Continue applying cost/free-tier guardrails before any new cost-bearing live Google Cloud operation.
+4. Only then consider downstream MCP execution or additional admin surfaces.
+5. Re-run the local verification suite before each push.
 
 ## Completed
 

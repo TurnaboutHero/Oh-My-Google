@@ -11,6 +11,7 @@ Commands:
 
 `budget audit` never creates budgets, enables APIs, links billing, disables billing, or changes project state.
 `budget enable-api` is the only command in this surface that changes project state; it enables `billingbudgets.googleapis.com`, requires explicit `--yes`, and should be run after `--dry-run`.
+`omg budget create` is intentionally deferred. Budget creation stays a console/manual owner action because budget policy depends on billing-account ownership, currency, notification routing, and organization spending rules.
 
 ## Audit
 
@@ -37,10 +38,26 @@ Risk classifications:
 - Treat `missing_budget` and `review` as blockers for autonomous live writes.
 - If budgets are inaccessible because `billingbudgets.googleapis.com` is disabled, do not auto-enable it from `budget audit`.
 - Budget API enablement is explicit through `budget enable-api`.
-- Budget creation is not implemented yet and should remain an explicit future workflow if added.
+- Budget creation is not automated. Create or adjust budgets manually in the Cloud Billing console, then verify visibility with `omg budget audit --project <id>`.
 - Live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup run this guard before cost-expanding writes. Dry-runs do not run the guard and do not write cloud resources.
 
 Bootstrap exception: `budget enable-api` remains explicit through dry-run/`--yes` so budget visibility can be enabled when the Budget API itself is missing.
+
+## Manual Budget Creation
+
+Use this path when `budget audit` returns `missing_budget` or `review` because no budget is visible for the linked billing account.
+
+1. Open Google Cloud Console > Billing > Budgets & alerts.
+2. Select the billing account linked to the target project.
+3. Create a budget with thresholds that match the owner-approved policy. The validation project uses 50%, 90%, and 100% thresholds.
+4. Configure notification recipients or channels outside `omg`.
+5. Re-run:
+
+```bash
+omg --output json budget audit --project <project-id>
+```
+
+Proceed with live cost-bearing `omg` operations only when the audit returns `risk: configured`.
 
 ## MCP Example
 
