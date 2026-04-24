@@ -34,7 +34,7 @@ Implemented:
 - Trust Profile gates across L0/L1/L2/L3 actions
 - approval file queue with TTL, args hash validation, and consumed markers
 - decision log and handoff artifact generation
-- stdio MCP server with 17 tools
+- stdio MCP server with 18 tools
 - gcloud named configuration creation, listing, switching, and project selection
 - gcloud account vs ADC account mismatch detection and explicit ADC alignment
 - Secret Manager list/set/delete
@@ -42,6 +42,7 @@ Implemented:
 - budget guard before live `omg deploy`, `omg firebase deploy --execute`, Secret Manager writes, and `omg init` billing/API/IAM setup
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
 - Read-only IAM audit
+- Read-only security posture audit
 - active account mismatch blocking for project delete/undelete approvals
 
 Live validation completed:
@@ -60,7 +61,7 @@ Current safety status and pending scope:
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is currently an MCP server, but it is not yet a downstream MCP gateway that calls other Google/Firebase MCP servers internally.
 - Budget creation and budget mutation are not implemented yet. Current support is audit plus Budget API enablement.
-- IAM writes, `notify`, and `security` admin surfaces are not designed or implemented yet.
+- IAM writes and `notify` admin surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
@@ -166,7 +167,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `secret list`, `iam audit` |
+| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `secret list`, `iam audit`, `security audit` |
 | L1 | normal configuration/deploy | API enable, Cloud Run deploy, Firebase Hosting deploy |
 | L2 | cost, permission, or secret-write impact | billing link, secret set, prod deploy |
 | L3 | destructive or lifecycle actions | project delete, project undelete, data delete |
@@ -228,6 +229,12 @@ IAM:
 omg iam audit --project <id>
 ```
 
+Security:
+
+```bash
+omg security audit --project <id>
+```
+
 Secret Manager:
 
 ```bash
@@ -264,7 +271,7 @@ omg mcp start
 
 ## MCP Tools
 
-The MCP server exposes 17 tools:
+The MCP server exposes 18 tools:
 
 | Tool | Description |
 |---|---|
@@ -278,6 +285,7 @@ The MCP server exposes 17 tools:
 | `omg.approvals.list` | List approval requests |
 | `omg.budget.audit` | Audit billing and budget guard state |
 | `omg.iam.audit` | Audit IAM policy bindings and service accounts |
+| `omg.security.audit` | Audit project security posture using read-only project, IAM, and budget checks |
 | `omg.secret.list` | List Secret Manager metadata |
 | `omg.secret.set` | Create a secret or add a new secret version |
 | `omg.secret.delete` | Delete a Secret Manager secret |
@@ -349,6 +357,7 @@ Representative error codes:
 - [docs/runbooks/project-cleanup-audit.md](./docs/runbooks/project-cleanup-audit.md): project lifecycle safety
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
+- [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/secret-admin.md](./docs/runbooks/secret-admin.md): Secret Manager admin surface
 - [docs/runbooks/mcp-client-smoke.md](./docs/runbooks/mcp-client-smoke.md): MCP client smoke
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): post-rewrite conflict and push safety

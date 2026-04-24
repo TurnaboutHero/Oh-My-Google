@@ -158,6 +158,26 @@ Rules:
 - Treat `risk: high` or `inaccessible` IAM policy results as blockers for autonomous IAM writes.
 - IAM writes are not implemented.
 
+### Security Audit
+
+Security audit is a read-only posture rollup:
+
+```bash
+omg --output json security audit --project <project-id>
+```
+
+MCP:
+
+```text
+omg.security.audit { "project": "<project-id>" }
+```
+
+Rules:
+
+- Treat `risk: high` as a blocker for autonomous live operations until a human reviews the findings.
+- Treat section errors as partial audit results, not proof that the project is safe.
+- This is not Security Command Center integration and does not enable new Google APIs.
+
 ### Secret Manager
 
 ```bash
@@ -212,7 +232,7 @@ Rules:
 
 ## MCP Tools
 
-The MCP server exposes 17 tools:
+The MCP server exposes 18 tools:
 
 | Tool | Input | Meaning |
 |---|---|---|
@@ -226,6 +246,7 @@ The MCP server exposes 17 tools:
 | `omg.approvals.list` | `status?`, `action?` | List approvals |
 | `omg.budget.audit` | `project` | Read billing/budget guard state |
 | `omg.iam.audit` | `project` | Read IAM policy bindings and service account metadata |
+| `omg.security.audit` | `project` | Read-only project/IAM/budget security posture rollup |
 | `omg.secret.list` | `project?`, `limit?` | List Secret Manager metadata only |
 | `omg.secret.set` | `project?`, `name`, `value?`, `valueFile?`, `dryRun?`, `yes?` | Create a secret or add a version |
 | `omg.secret.delete` | `project?`, `name`, `dryRun?`, `yes?` | Delete a Secret Manager secret |
@@ -240,7 +261,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `iam audit`, `secret list` |
+| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `iam audit`, `security audit`, `secret list` |
 | L1 | normal setup/deploy changes | API enable, Cloud Run deploy, Firebase Hosting deploy |
 | L2 | cost/permission/secret write impact | billing link, IAM grant, `secret set` |
 | L3 | destructive/lifecycle actions | project delete, project undelete, data delete |
@@ -304,6 +325,8 @@ omg budget enable-api --project <id> [--dry-run] [--yes]
 
 omg iam audit --project <id>
 
+omg security audit --project <id>
+
 omg secret list [--project <id>] [--limit <n>]
 omg secret set <name> [--project <id>] [--value <value> | --value-file <path>] [--dry-run] [--yes]
 omg secret delete <name> [--project <id>] [--dry-run] [--yes]
@@ -336,4 +359,5 @@ omg --output json <command>
 - [ARCHITECTURE.md](./ARCHITECTURE.md): current module boundaries
 - [docs/runbooks](./docs/runbooks): validation and live-operation records
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
+- [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

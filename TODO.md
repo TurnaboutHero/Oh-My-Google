@@ -42,8 +42,12 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add IAM audit command, connector, safety-intent, and CLI/MCP equivalence tests.
 - [x] Add IAM audit runbook.
 - [ ] Keep IAM write/grant workflows deferred until a concrete owner-approved workflow exists.
-- [ ] Decide whether `notify` is needed before Phase 4.
-- [ ] Decide whether `security` is needed before Phase 4.
+- [x] Decide that `notify` is deferred until a concrete external notification workflow exists.
+- [x] Decide that `security` starts as a read-only posture rollup before Phase 4.
+- [x] Implement `omg security audit --project <id>`.
+- [x] Add MCP coverage for `omg.security.audit`.
+- [x] Add security audit command, connector, safety-intent, and CLI/MCP equivalence tests.
+- [x] Add security audit runbook.
 
 ### Documentation
 
@@ -59,7 +63,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 ## Recommended Next Work
 
 1. Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
-2. Decide whether `notify` or `security` is needed before Phase 4.
+2. Keep `notify` deferred unless a concrete external notification workflow requires it.
 3. Continue applying cost/free-tier guardrails before any new cost-bearing live Google Cloud operation.
 4. Only then consider downstream MCP execution or additional admin surfaces.
 5. Re-run the local verification suite before each push.
@@ -140,6 +144,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] `omg.project.delete`.
 - [x] `omg.project.undelete`.
 - [x] `omg.iam.audit`.
+- [x] `omg.security.audit`.
 
 ### Phase 1.1 Hardening
 
@@ -218,6 +223,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - `omg` is currently an MCP server, not yet a downstream MCP client/gateway.
 - Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools are not safety-wrapped yet.
 - IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.
+- Security audit is a read-only rollup, not Security Command Center integration.
+- Notify is intentionally deferred until external notification recipients/channels are specified.
 - Live project lifecycle testing is intentionally narrow and should stay approval-gated.
 - gcloud configuration reads can be flaky if multiple gcloud commands are run concurrently; live auth/budget/doctor checks should run sequentially.
 - Next.js SSR remains out of scope.

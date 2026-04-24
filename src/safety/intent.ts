@@ -11,6 +11,7 @@ export type OperationService =
   | "planner"
   | "project-lifecycle"
   | "secret-manager"
+  | "security"
   | "service-usage"
   | "unknown";
 
@@ -73,6 +74,7 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
   },
   "billing.audit": readOnly("billing", "gcloud-cli", "budget"),
   "iam.audit": readOnly("iam", "gcloud-cli", "iam-policy"),
+  "security.audit": readOnly("security", "gcloud-cli", "security-posture"),
   "secret.list": readOnly("secret-manager", "gcloud-cli", "secret"),
 
   "deploy.cloud-run": {

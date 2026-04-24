@@ -66,6 +66,19 @@ describe("command-level operation intent mapping", () => {
     });
   });
 
+  it("maps security audit as a read-only command intent", () => {
+    const plan = classifyCommand("security:audit", { projectId: "demo-project" });
+
+    expect(plan.intents).toHaveLength(1);
+    expect(plan.intents[0]).toMatchObject({
+      id: "security.audit",
+      service: "security",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+  });
+
   it("normalizes equivalent CLI and MCP surfaces to the same command plan", () => {
     expect(
       classifySurfaceCommand("cli", "deploy", {
@@ -97,6 +110,16 @@ describe("command-level operation intent mapping", () => {
       }),
     ).toEqual(
       classifySurfaceCommand("mcp", "omg.iam.audit", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "security:audit", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.security.audit", {
         projectId: "demo-project",
       }),
     );

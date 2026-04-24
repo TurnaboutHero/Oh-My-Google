@@ -14,6 +14,7 @@ import {
   runSecretSet,
   type RunSecretOutcome,
 } from "../src/cli/commands/secret.js";
+import { runSecurityAudit, type RunSecurityOutcome } from "../src/cli/commands/security.js";
 import { handleDeploy } from "../src/mcp/tools/deploy.js";
 import { handleIamAudit } from "../src/mcp/tools/iam.js";
 import { handleProjectDelete } from "../src/mcp/tools/project.js";
@@ -22,6 +23,7 @@ import {
   handleSecretList,
   handleSecretSet,
 } from "../src/mcp/tools/secret.js";
+import { handleSecurityAudit } from "../src/mcp/tools/security.js";
 import type { OmgResponse } from "../src/mcp/tools/types.js";
 import { savePlan } from "../src/planner/schema.js";
 import { generateDefaultProfile, saveProfile } from "../src/trust/profile.js";
@@ -161,6 +163,20 @@ vi.mock("../src/connectors/iam-audit.js", () => ({
   })),
 }));
 
+vi.mock("../src/connectors/security-audit.js", () => ({
+  auditSecurity: vi.fn(async (projectId: string) => ({
+    projectId,
+    sections: {
+      project: { ok: true, risk: "low", signals: [], summary: { lifecycleState: "ACTIVE" } },
+      iam: { ok: true, risk: "review", signals: ["Primitive role present."], summary: { findingCount: 1 } },
+      budget: { ok: true, risk: "configured", signals: ["Budget configured."], summary: { budgetCount: 1 } },
+    },
+    signals: ["IAM: Primitive role present.", "Budget: Budget configured."],
+    risk: "review",
+    recommendedAction: "Review security audit findings before adding new live operations.",
+  })),
+}));
+
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -240,6 +256,13 @@ describe("CLI/MCP command implementation equivalence", () => {
 
     expect(normalizeCliOutcome("iam:audit", cli)).toEqual(normalizeMcpResponse(mcp));
   });
+
+  it("returns the same security audit through CLI and MCP surfaces", async () => {
+    const cli = await runSecurityAudit({ project: "demo-project" });
+    const mcp = await handleSecurityAudit({ project: "demo-project" });
+
+    expect(normalizeCliOutcome("security:audit", cli)).toEqual(normalizeMcpResponse(mcp));
+  });
 });
 
 async function createPairedWorkspaces(): Promise<{ cliCwd: string; mcpCwd: string }> {
@@ -293,7 +316,7 @@ async function writeDeployFixtures(cwd: string, environment: "dev" | "prod"): Pr
 
 function normalizeCliOutcome(
   command: string,
-  outcome: RunDeployOutcome | RunSecretOutcome | RunProjectOutcome | RunIamOutcome,
+  outcome: RunDeployOutcome | RunSecretOutcome | RunProjectOutcome | RunIamOutcome | RunSecurityOutcome,
 ): unknown {
   if (outcome.ok) {
     return normalizeDynamicValues({

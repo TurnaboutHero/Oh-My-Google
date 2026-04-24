@@ -34,6 +34,17 @@ describe("operation intent classification", () => {
       adapter: "gcloud-cli",
       requiresBudget: false,
     });
+
+    expect(classifyOperation("security.audit", { projectId: "demo-project" })).toMatchObject({
+      id: "security.audit",
+      service: "security",
+      action: "read",
+      trustLevel: "L0",
+      projectId: "demo-project",
+      resource: "security-posture",
+      adapter: "gcloud-cli",
+      requiresBudget: false,
+    });
   });
 
   it("classifies deploy actions as cost-bearing writes that require budget guard", () => {

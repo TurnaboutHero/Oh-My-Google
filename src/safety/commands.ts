@@ -17,7 +17,8 @@ export type CommandName =
   | "project:undelete"
   | "secret:list"
   | "secret:set"
-  | "secret:delete";
+  | "secret:delete"
+  | "security:audit";
 
 export type SurfaceKind = "cli" | "mcp";
 
@@ -47,6 +48,7 @@ const MCP_COMMANDS: Record<string, CommandName> = {
   "omg.secret.list": "secret:list",
   "omg.secret.set": "secret:set",
   "omg.secret.delete": "secret:delete",
+  "omg.security.audit": "security:audit",
 };
 
 export function classifySurfaceCommand(
@@ -119,6 +121,8 @@ function getCommandOperationIds(
       return ["secret.set"];
     case "secret:delete":
       return ["secret.delete"];
+    case "security:audit":
+      return ["security.audit"];
   }
 }
 

@@ -12,6 +12,7 @@ import { mcpCommand } from "./commands/mcp.js";
 import { projectCommand } from "./commands/project.js";
 import { rejectCommand } from "./commands/reject.js";
 import { secretCommand } from "./commands/secret.js";
+import { securityCommand } from "./commands/security.js";
 import { doctorCommand } from "./doctor.js";
 import { setOutputFormat } from "./output.js";
 import { setupCommand } from "./setup.js";
@@ -46,6 +47,7 @@ program.addCommand(setupCommand);
 program.addCommand(authCommand);
 program.addCommand(firebaseCommand);
 program.addCommand(iamCommand);
+program.addCommand(securityCommand);
 program.addCommand(mcpCommand);
 
 program.parse();

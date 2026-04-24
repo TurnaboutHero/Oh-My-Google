@@ -97,12 +97,14 @@ src/
       project.ts
       reject.ts
       secret.ts
+      security.ts
   connectors/
     billing-audit.ts
     cloud-run.ts
     firebase.ts
     iam-audit.ts
     project-audit.ts
+    security-audit.ts
     secret-manager.ts
   executor/
     apply.ts
@@ -124,6 +126,7 @@ src/
       project.ts
       reject.ts
       secret.ts
+      security.ts
       types.ts
   planner/
     detect.ts
@@ -200,6 +203,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Approval: `approve`, `reject`, `approvals list`
 - Budget: `budget audit`, `budget enable-api`
 - IAM: `iam audit`
+- Security: `security audit`
 - Secret Manager: `secret list/set/delete`
 - Project lifecycle: `project audit/cleanup/delete/undelete`
 - Firebase helpers: `firebase init/deploy/emulators`
@@ -217,7 +221,7 @@ CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
 ## MCP Surface
 
-The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 17 tools:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 18 tools:
 
 - `omg.auth.context`
 - `omg.init`
@@ -229,6 +233,7 @@ The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 17 tools:
 - `omg.approvals.list`
 - `omg.budget.audit`
 - `omg.iam.audit`
+- `omg.security.audit`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -341,6 +346,7 @@ Implemented connectors:
 - [src/connectors/secret-manager.ts](./src/connectors/secret-manager.ts)
 - [src/connectors/project-audit.ts](./src/connectors/project-audit.ts)
 - [src/connectors/billing-audit.ts](./src/connectors/billing-audit.ts)
+- [src/connectors/security-audit.ts](./src/connectors/security-audit.ts)
 
 Connector responsibilities:
 
@@ -375,7 +381,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `iam.audit`, `secret.list` |
+| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `iam.audit`, `security.audit`, `secret.list` |
 | L1 | normal setup/deploy changes | `deploy.cloud-run`, `deploy.firebase-hosting`, `apis.enable` |
 | L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `secret.set` |
 | L3 | destructive/lifecycle actions | `gcp.project.delete`, `gcp.project.undelete`, data delete |
@@ -483,6 +489,30 @@ Risk states:
 - `review`
 - `high`
 
+## Security Audit
+
+Security audit connector:
+
+- [src/connectors/security-audit.ts](./src/connectors/security-audit.ts)
+
+Security command:
+
+- [src/cli/commands/security.ts](./src/cli/commands/security.ts)
+
+Current behavior:
+
+- `security audit` is read-only.
+- MCP `omg.security.audit` calls the same command core.
+- The audit rolls up project lifecycle/cleanup risk, IAM posture, and budget guard state.
+- It does not call Security Command Center and does not enable new Google APIs.
+- Section errors are surfaced as partial audit results.
+
+Risk states:
+
+- `low`
+- `review`
+- `high`
+
 ## Project Lifecycle Safety
 
 Project lifecycle command:
@@ -544,6 +574,7 @@ Implemented and verified:
 - approval workflow
 - Secret Manager admin surface
 - read-only IAM audit surface
+- read-only security posture audit surface
 - budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
 - project cleanup/delete/undelete safety surface
 
@@ -552,7 +583,7 @@ Not implemented:
 - downstream MCP client/gateway support
 - budget creation/mutation
 - IAM write/grant workflows
-- `notify`, `security` admin surfaces
+- `notify` admin surface
 - advanced rollback orchestration
 - Next.js SSR deployment
 

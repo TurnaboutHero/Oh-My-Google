@@ -124,6 +124,7 @@ Implemented admin and safety workflow:
 - `omg budget audit`
 - `omg budget enable-api`
 - `omg iam audit`
+- `omg security audit`
 - `omg secret list/set/delete`
 - `omg project audit/cleanup/delete/undelete`
 
@@ -139,6 +140,7 @@ Implemented MCP tools:
 - `omg.approvals.list`
 - `omg.budget.audit`
 - `omg.iam.audit`
+- `omg.security.audit`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -196,6 +198,13 @@ Current execution boundary:
 - IAM write/grant workflows must stay deferred until there is a concrete owner-approved workflow.
 - Public principals, primitive roles, high-impact IAM administration roles, and missing IAM policy visibility must be surfaced as structured audit signals.
 
+### Security Audit Safety
+
+- `security audit` must be read-only.
+- Security audit must use existing project, IAM, and budget audit surfaces rather than enabling new Google APIs.
+- Section errors must be surfaced as partial audit results.
+- `risk: high` must tell agents to stop before autonomous live operations.
+
 ## Validation State
 
 Completed validation:
@@ -216,7 +225,7 @@ Completed validation:
 Current open validation need:
 
 - Budget guard coverage review for any remaining cost-bearing live operation.
-- Notify/security admin surface decisions.
+- Notify workflow decision.
 - Downstream MCP gateway design before any service MCP execution is added.
 
 ## Success Criteria

@@ -52,7 +52,7 @@ Completed:
 
 - stdio MCP server.
 - Shared response envelope.
-- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, and IAM audit.
+- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, and security audit.
 
 ### Phase 2.5: Real-World Validation
 
@@ -207,11 +207,18 @@ Progress:
 - Added IAM operation intent mapping as L0 read-only.
 - Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
 - Added [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md).
+- Decided that `notify` is deferred until a concrete external notification workflow exists.
+- Decided that `security` starts as a read-only posture rollup.
+- Added `omg security audit --project <id>`.
+- Added MCP `omg.security.audit`.
+- Added security operation intent mapping as L0 read-only.
+- Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
+- Added [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md).
 
 Remaining:
 
 - Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
-- Decide whether `notify` or `security` is needed before Phase 4.
+- Keep `notify` deferred unless a concrete external notification workflow requires it.
 - Continue adding budget/free-tier guardrails to any new cost-bearing live operation.
 
 ## Candidate Future Phases
@@ -221,8 +228,8 @@ Remaining:
 Do not implement these just because they were listed earlier. Decide from actual workflows.
 
 - `iam` writes: useful only if agents need controlled IAM grants beyond current init.
-- `notify`: useful if approval/budget events need external notification.
-- `security`: useful if audit posture needs a read-only security scan.
+- `notify`: useful only if approval/budget events need external notification.
+- `security` extensions: useful only if a future workflow needs service-specific scan sources beyond the current read-only posture rollup.
 
 Each surface needs:
 

@@ -27,6 +27,7 @@ import {
   secretListTool,
   secretSetTool,
 } from "./tools/secret.js";
+import { securityAuditTool, handleSecurityAudit } from "./tools/security.js";
 import type { OmgResponse } from "./tools/types.js";
 
 const tools = [
@@ -47,6 +48,7 @@ const tools = [
   projectDeleteTool,
   projectUndeleteTool,
   iamAuditTool,
+  securityAuditTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -124,6 +126,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === iamAuditTool.name) {
     return handleIamAudit(args ?? {});
+  }
+  if (name === securityAuditTool.name) {
+    return handleSecurityAudit(args ?? {});
   }
 
   return {
