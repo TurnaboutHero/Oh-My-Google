@@ -13,6 +13,8 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "iam.audit": "L0",
   "security.audit": "L0",
   "secret.list": "L0",
+  "sql.audit": "L0",
+  "storage.audit": "L0",
 
   // L1 deployment and configuration changes
   "deploy.cloud-run": "L1",

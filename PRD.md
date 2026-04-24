@@ -126,6 +126,8 @@ Implemented admin and safety workflow:
 - `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
+- `omg storage audit`
+- `omg sql audit`
 - `omg secret list/set/delete`
 - `omg project audit/cleanup/delete/undelete`
 
@@ -143,6 +145,8 @@ Implemented MCP tools:
 - `omg.firestore.audit`
 - `omg.iam.audit`
 - `omg.security.audit`
+- `omg.storage.audit`
+- `omg.sql.audit`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -214,6 +218,20 @@ Current execution boundary:
 - Firestore write/provisioning/data workflows must stay deferred until there is a concrete owner-approved workflow.
 - Future Firestore live workflows must preserve the cost-bearing invariant.
 
+### Cloud Storage Safety
+
+- `storage audit` must be read-only.
+- Storage audit must not list objects, read objects, write objects, create buckets, delete buckets, mutate IAM policy, or change lifecycle settings.
+- Storage bucket/object/IAM/lifecycle workflows must stay deferred until there is a concrete owner-approved workflow.
+- Future Storage live workflows must preserve the cost-bearing invariant.
+
+### Cloud SQL Safety
+
+- `sql audit` must be read-only.
+- SQL audit must not connect to databases, read database data, create instances, delete instances, export/import data, mutate backups, or change authorized networks.
+- SQL instance/backup/export/import/lifecycle workflows must stay deferred until there is a concrete owner-approved workflow.
+- Future SQL live workflows must preserve the cost-bearing invariant.
+
 ## Validation State
 
 Completed validation:
@@ -232,10 +250,12 @@ Completed validation:
 - CLI/MCP implementation equivalence tests for adopted command paths.
 - Cost-bearing operation invariant tests for operation intents and command mappings.
 - Read-only Firestore audit tests and CLI/MCP equivalence tests.
+- Read-only Cloud Storage audit tests and CLI/MCP equivalence tests.
+- Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.
 
 Current open validation need:
 
-- Optional live Firestore audit smoke on a known validation project.
+- Optional live Firestore, Cloud Storage, and Cloud SQL audit smoke on a known validation project.
 - Downstream MCP gateway design before any service MCP execution is added.
 
 ## Success Criteria

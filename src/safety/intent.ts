@@ -5,6 +5,8 @@ export type OperationService =
   | "auth"
   | "billing"
   | "cloud-run"
+  | "cloud-sql"
+  | "cloud-storage"
   | "diagnostics"
   | "firebase-hosting"
   | "firestore"
@@ -78,6 +80,8 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
   "iam.audit": readOnly("iam", "gcloud-cli", "iam-policy"),
   "security.audit": readOnly("security", "gcloud-cli", "security-posture"),
   "secret.list": readOnly("secret-manager", "gcloud-cli", "secret"),
+  "sql.audit": readOnly("cloud-sql", "gcloud-cli", "sql-instances"),
+  "storage.audit": readOnly("cloud-storage", "gcloud-cli", "storage-buckets"),
 
   "deploy.cloud-run": {
     service: "cloud-run",

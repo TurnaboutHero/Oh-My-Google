@@ -14,6 +14,8 @@ import { projectCommand } from "./commands/project.js";
 import { rejectCommand } from "./commands/reject.js";
 import { secretCommand } from "./commands/secret.js";
 import { securityCommand } from "./commands/security.js";
+import { sqlCommand } from "./commands/sql.js";
+import { storageCommand } from "./commands/storage.js";
 import { doctorCommand } from "./doctor.js";
 import { setOutputFormat } from "./output.js";
 import { setupCommand } from "./setup.js";
@@ -50,6 +52,8 @@ program.addCommand(firebaseCommand);
 program.addCommand(firestoreCommand);
 program.addCommand(iamCommand);
 program.addCommand(securityCommand);
+program.addCommand(sqlCommand);
+program.addCommand(storageCommand);
 program.addCommand(mcpCommand);
 
 program.parse();

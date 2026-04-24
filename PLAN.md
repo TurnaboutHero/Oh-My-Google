@@ -52,7 +52,7 @@ Completed:
 
 - stdio MCP server.
 - Shared response envelope.
-- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, security audit, and Firestore audit.
+- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, security audit, Firestore audit, Cloud Storage audit, and Cloud SQL audit.
 
 ### Phase 2.5: Real-World Validation
 
@@ -226,7 +226,7 @@ Remaining:
 
 Goal: add resource surfaces only when they remain understandable, reversible, and safe for agents.
 
-Progress:
+Completed:
 
 - Started Phase 4 with read-only Firestore inspection.
 - Added `omg firestore audit --project <id>`.
@@ -234,11 +234,24 @@ Progress:
 - Added Firestore operation intent mapping as L0 read-only.
 - Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
 - Added [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md).
+- Added `omg storage audit --project <id>`.
+- Added MCP `omg.storage.audit`.
+- Added Cloud Storage operation intent mapping as L0 read-only.
+- Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
+- Added [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md).
+- Added `omg sql audit --project <id>`.
+- Added MCP `omg.sql.audit`.
+- Added Cloud SQL operation intent mapping as L0 read-only.
+- Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
+- Added [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md).
+- Decided stronger Secret Manager integration is already covered by the current list/set/delete surface plus budget guard; version/access-policy audit remains deferred until a concrete workflow exists.
 
 Remaining:
 
 - Keep Firestore create/delete/export/import/data mutation workflows deferred unless a concrete owner-approved workflow requires them.
-- Pick the next resource surface only after preserving the cost-bearing invariant.
+- Keep Cloud Storage bucket/object/IAM/lifecycle write workflows deferred unless a concrete owner-approved workflow requires them.
+- Keep Cloud SQL instance/backup/export/import/lifecycle write workflows deferred unless a concrete owner-approved workflow requires them.
+- Run optional live read-only resource audit smoke only with explicit project/account approval.
 
 ## Candidate Future Phases
 
@@ -264,9 +277,9 @@ Each surface needs:
 Candidate commands:
 
 - Firestore write/provisioning workflows
-- Cloud Storage
-- Cloud SQL
-- stronger Secret Manager integration
+- Cloud Storage bucket/object/IAM/lifecycle workflows
+- Cloud SQL instance/backup/export/import/lifecycle workflows
+- stronger Secret Manager version/access-policy audit, if a concrete workflow needs it
 
 Principle: add resources only when deployment flow remains understandable and reversible.
 

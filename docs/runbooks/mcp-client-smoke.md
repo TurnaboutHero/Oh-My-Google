@@ -29,6 +29,8 @@ node bin/omg mcp start
 - `omg.firestore.audit`
 - `omg.iam.audit`
 - `omg.security.audit`
+- `omg.sql.audit`
+- `omg.storage.audit`
 - `omg.init`
 - `omg.link`
 - `omg.secret.list`

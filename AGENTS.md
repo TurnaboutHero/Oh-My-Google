@@ -198,6 +198,46 @@ Rules:
 - Treat `risk: review` as a blocker before adding Firestore create, delete, export, import, or data mutation workflows.
 - Future Firestore live workflows must be classified as operation intents and must preserve the cost-bearing invariant.
 
+### Cloud Storage Audit
+
+Cloud Storage audit is read-only:
+
+```bash
+omg --output json storage audit --project <project-id>
+```
+
+MCP:
+
+```text
+omg.storage.audit { "project": "<project-id>" }
+```
+
+Rules:
+
+- Do not list, read, write, or delete Storage objects through raw tools.
+- Treat `risk: high` as a blocker before adding bucket, object, IAM, or lifecycle mutation workflows.
+- Future Storage live workflows must be classified as operation intents and must preserve the cost-bearing invariant.
+
+### Cloud SQL Audit
+
+Cloud SQL audit is read-only:
+
+```bash
+omg --output json sql audit --project <project-id>
+```
+
+MCP:
+
+```text
+omg.sql.audit { "project": "<project-id>" }
+```
+
+Rules:
+
+- Do not connect to databases, read database data, export/import data, or mutate instances through raw tools.
+- Treat `risk: high` as a blocker before adding instance, backup, network, export, import, or lifecycle workflows.
+- Future SQL live workflows must be classified as operation intents and must preserve the cost-bearing invariant.
+
 ### Secret Manager
 
 ```bash
@@ -252,7 +292,7 @@ Rules:
 
 ## MCP Tools
 
-The MCP server exposes 19 tools:
+The MCP server exposes 21 tools:
 
 | Tool | Input | Meaning |
 |---|---|---|
@@ -268,6 +308,8 @@ The MCP server exposes 19 tools:
 | `omg.firestore.audit` | `project` | Read Firestore database and composite index metadata |
 | `omg.iam.audit` | `project` | Read IAM policy bindings and service account metadata |
 | `omg.security.audit` | `project` | Read-only project/IAM/budget security posture rollup |
+| `omg.sql.audit` | `project` | Read Cloud SQL instance and backup metadata |
+| `omg.storage.audit` | `project` | Read Cloud Storage bucket metadata and bucket IAM |
 | `omg.secret.list` | `project?`, `limit?` | List Secret Manager metadata only |
 | `omg.secret.set` | `project?`, `name`, `value?`, `valueFile?`, `dryRun?`, `yes?` | Create a secret or add a version |
 | `omg.secret.delete` | `project?`, `name`, `dryRun?`, `yes?` | Delete a Secret Manager secret |
@@ -282,7 +324,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `firestore audit`, `iam audit`, `security audit`, `secret list` |
+| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `firestore audit`, `storage audit`, `sql audit`, `iam audit`, `security audit`, `secret list` |
 | L1 | normal setup/deploy changes | API enable, Cloud Run deploy, Firebase Hosting deploy |
 | L2 | cost/permission/secret write impact | billing link, IAM grant, `secret set` |
 | L3 | destructive/lifecycle actions | project delete, project undelete, data delete |
@@ -363,6 +405,10 @@ omg firebase emulators
 
 omg firestore audit --project <id>
 
+omg storage audit --project <id>
+
+omg sql audit --project <id>
+
 omg mcp start
 ```
 
@@ -382,6 +428,8 @@ omg --output json <command>
 - [ARCHITECTURE.md](./ARCHITECTURE.md): current module boundaries
 - [docs/runbooks](./docs/runbooks): validation and live-operation records
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
+- [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
+- [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md): Cloud SQL resource audit
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

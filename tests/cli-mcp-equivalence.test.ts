@@ -16,6 +16,8 @@ import {
   type RunSecretOutcome,
 } from "../src/cli/commands/secret.js";
 import { runSecurityAudit, type RunSecurityOutcome } from "../src/cli/commands/security.js";
+import { runSqlAudit, type RunSqlOutcome } from "../src/cli/commands/sql.js";
+import { runStorageAudit, type RunStorageOutcome } from "../src/cli/commands/storage.js";
 import { handleDeploy } from "../src/mcp/tools/deploy.js";
 import { handleFirestoreAudit } from "../src/mcp/tools/firestore.js";
 import { handleIamAudit } from "../src/mcp/tools/iam.js";
@@ -26,6 +28,8 @@ import {
   handleSecretSet,
 } from "../src/mcp/tools/secret.js";
 import { handleSecurityAudit } from "../src/mcp/tools/security.js";
+import { handleSqlAudit } from "../src/mcp/tools/sql.js";
+import { handleStorageAudit } from "../src/mcp/tools/storage.js";
 import type { OmgResponse } from "../src/mcp/tools/types.js";
 import { savePlan } from "../src/planner/schema.js";
 import { generateDefaultProfile, saveProfile } from "../src/trust/profile.js";
@@ -197,6 +201,44 @@ vi.mock("../src/connectors/security-audit.js", () => ({
   })),
 }));
 
+vi.mock("../src/connectors/sql-audit.js", () => ({
+  auditSql: vi.fn(async (projectId: string) => ({
+    projectId,
+    instances: [
+      {
+        name: "orders-db",
+        databaseVersion: "POSTGRES_15",
+        authorizedNetworks: [],
+      },
+    ],
+    backups: [],
+    findings: [],
+    inaccessible: [],
+    signals: ["1 Cloud SQL instance(s) visible."],
+    risk: "review",
+    recommendedAction: "Review Cloud SQL instances before adding instance, backup, export, import, or lifecycle mutation workflows.",
+  })),
+}));
+
+vi.mock("../src/connectors/storage-audit.js", () => ({
+  auditStorage: vi.fn(async (projectId: string) => ({
+    projectId,
+    buckets: [
+      {
+        name: "public-assets",
+        url: "gs://public-assets",
+        lifecycleRuleCount: 0,
+      },
+    ],
+    iamBindings: [],
+    findings: [],
+    inaccessible: [],
+    signals: ["1 Cloud Storage bucket(s) visible."],
+    risk: "review",
+    recommendedAction: "Review Cloud Storage buckets before adding bucket, object, IAM, or lifecycle mutation workflows.",
+  })),
+}));
+
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -290,6 +332,20 @@ describe("CLI/MCP command implementation equivalence", () => {
 
     expect(normalizeCliOutcome("firestore:audit", cli)).toEqual(normalizeMcpResponse(mcp));
   });
+
+  it("returns the same Cloud SQL audit through CLI and MCP surfaces", async () => {
+    const cli = await runSqlAudit({ project: "demo-project" });
+    const mcp = await handleSqlAudit({ project: "demo-project" });
+
+    expect(normalizeCliOutcome("sql:audit", cli)).toEqual(normalizeMcpResponse(mcp));
+  });
+
+  it("returns the same Cloud Storage audit through CLI and MCP surfaces", async () => {
+    const cli = await runStorageAudit({ project: "demo-project" });
+    const mcp = await handleStorageAudit({ project: "demo-project" });
+
+    expect(normalizeCliOutcome("storage:audit", cli)).toEqual(normalizeMcpResponse(mcp));
+  });
 });
 
 async function createPairedWorkspaces(): Promise<{ cliCwd: string; mcpCwd: string }> {
@@ -349,7 +405,9 @@ function normalizeCliOutcome(
     | RunProjectOutcome
     | RunIamOutcome
     | RunSecurityOutcome
-    | RunFirestoreOutcome,
+    | RunFirestoreOutcome
+    | RunSqlOutcome
+    | RunStorageOutcome,
 ): unknown {
   if (outcome.ok) {
     return normalizeDynamicValues({

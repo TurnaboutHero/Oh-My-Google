@@ -93,6 +93,32 @@ describe("command-level operation intent mapping", () => {
     });
   });
 
+  it("maps Cloud SQL audit as a read-only command intent", () => {
+    const plan = classifyCommand("sql:audit", { projectId: "demo-project" });
+
+    expect(plan.intents).toHaveLength(1);
+    expect(plan.intents[0]).toMatchObject({
+      id: "sql.audit",
+      service: "cloud-sql",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+  });
+
+  it("maps Cloud Storage audit as a read-only command intent", () => {
+    const plan = classifyCommand("storage:audit", { projectId: "demo-project" });
+
+    expect(plan.intents).toHaveLength(1);
+    expect(plan.intents[0]).toMatchObject({
+      id: "storage.audit",
+      service: "cloud-storage",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+  });
+
   it("normalizes equivalent CLI and MCP surfaces to the same command plan", () => {
     expect(
       classifySurfaceCommand("cli", "deploy", {
@@ -147,6 +173,26 @@ describe("command-level operation intent mapping", () => {
         projectId: "demo-project",
       }),
     );
+
+    expect(
+      classifySurfaceCommand("cli", "sql:audit", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.sql.audit", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "storage:audit", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.storage.audit", {
+        projectId: "demo-project",
+      }),
+    );
   });
 
   it("keeps every cost-bearing command intent budget-gated", () => {
@@ -174,6 +220,8 @@ describe("command-level operation intent mapping", () => {
       { command: "secret:set", context: { projectId: "demo-project", resource: "secret/API_KEY" } },
       { command: "secret:delete", context: { projectId: "demo-project", resource: "secret/API_KEY" } },
       { command: "security:audit", context: { projectId: "demo-project" } },
+      { command: "sql:audit", context: { projectId: "demo-project" } },
+      { command: "storage:audit", context: { projectId: "demo-project" } },
     ];
 
     for (const scenario of scenarios) {

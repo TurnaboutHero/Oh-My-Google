@@ -99,6 +99,8 @@ src/
       reject.ts
       secret.ts
       security.ts
+      sql.ts
+      storage.ts
   connectors/
     billing-audit.ts
     cloud-run.ts
@@ -108,6 +110,8 @@ src/
     project-audit.ts
     security-audit.ts
     secret-manager.ts
+    sql-audit.ts
+    storage-audit.ts
   executor/
     apply.ts
   harness/
@@ -130,6 +134,8 @@ src/
       reject.ts
       secret.ts
       security.ts
+      sql.ts
+      storage.ts
       types.ts
   planner/
     detect.ts
@@ -208,6 +214,8 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Firestore: `firestore audit`
 - IAM: `iam audit`
 - Security: `security audit`
+- Cloud SQL: `sql audit`
+- Cloud Storage: `storage audit`
 - Secret Manager: `secret list/set/delete`
 - Project lifecycle: `project audit/cleanup/delete/undelete`
 - Firebase helpers: `firebase init/deploy/emulators`
@@ -225,7 +233,7 @@ CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
 ## MCP Surface
 
-The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 19 tools:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 21 tools:
 
 - `omg.auth.context`
 - `omg.init`
@@ -239,6 +247,8 @@ The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 19 tools:
 - `omg.firestore.audit`
 - `omg.iam.audit`
 - `omg.security.audit`
+- `omg.sql.audit`
+- `omg.storage.audit`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -353,6 +363,8 @@ Implemented connectors:
 - [src/connectors/project-audit.ts](./src/connectors/project-audit.ts)
 - [src/connectors/billing-audit.ts](./src/connectors/billing-audit.ts)
 - [src/connectors/security-audit.ts](./src/connectors/security-audit.ts)
+- [src/connectors/sql-audit.ts](./src/connectors/sql-audit.ts)
+- [src/connectors/storage-audit.ts](./src/connectors/storage-audit.ts)
 
 Connector responsibilities:
 
@@ -387,7 +399,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `firestore.audit`, `iam.audit`, `security.audit`, `secret.list` |
+| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `firestore.audit`, `storage.audit`, `sql.audit`, `iam.audit`, `security.audit`, `secret.list` |
 | L1 | normal setup/deploy changes | `deploy.cloud-run`, `deploy.firebase-hosting`, `apis.enable` |
 | L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `secret.set` |
 | L3 | destructive/lifecycle actions | `gcp.project.delete`, `gcp.project.undelete`, data delete |
@@ -544,6 +556,54 @@ Risk states:
 - `low`
 - `review`
 
+## Cloud Storage Audit
+
+Cloud Storage audit connector:
+
+- [src/connectors/storage-audit.ts](./src/connectors/storage-audit.ts)
+
+Cloud Storage command:
+
+- [src/cli/commands/storage.ts](./src/cli/commands/storage.ts)
+
+Current behavior:
+
+- `storage audit` is read-only.
+- MCP `omg.storage.audit` calls the same command core.
+- The audit lists visible buckets and bucket IAM policies.
+- It surfaces public access prevention, uniform bucket-level access, public principals, and inaccessible bucket IAM sections.
+- It does not list objects, read objects, mutate IAM, or mutate Storage resources.
+
+Risk states:
+
+- `low`
+- `review`
+- `high`
+
+## Cloud SQL Audit
+
+Cloud SQL audit connector:
+
+- [src/connectors/sql-audit.ts](./src/connectors/sql-audit.ts)
+
+Cloud SQL command:
+
+- [src/cli/commands/sql.ts](./src/cli/commands/sql.ts)
+
+Current behavior:
+
+- `sql audit` is read-only.
+- MCP `omg.sql.audit` calls the same command core.
+- The audit lists visible Cloud SQL instances and backup runs.
+- It surfaces backup/PITR, deletion protection, public IPv4, public authorized networks, and inaccessible backup sections.
+- It does not connect to databases, read data, export/import data, or mutate SQL resources.
+
+Risk states:
+
+- `low`
+- `review`
+- `high`
+
 ## Project Lifecycle Safety
 
 Project lifecycle command:
@@ -604,6 +664,8 @@ Implemented and verified:
 - adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
 - approval workflow
 - read-only Firestore audit surface
+- read-only Cloud Storage audit surface
+- read-only Cloud SQL audit surface
 - Secret Manager admin surface
 - read-only IAM audit surface
 - read-only security posture audit surface
@@ -616,6 +678,8 @@ Not implemented:
 - downstream MCP client/gateway support
 - budget creation/mutation
 - Firestore write/provisioning/data workflows
+- Cloud Storage bucket/object/IAM/lifecycle write workflows
+- Cloud SQL instance/backup/export/import/lifecycle write workflows
 - IAM write/grant workflows
 - `notify` admin surface
 - advanced rollback orchestration

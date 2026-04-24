@@ -13,8 +13,19 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add MCP coverage for `omg.firestore.audit`.
 - [x] Add Firestore audit connector, command, safety-intent, and CLI/MCP equivalence tests.
 - [x] Add Firestore audit runbook.
-- [ ] Keep Firestore create/delete/export/import/data mutation workflows deferred until a concrete owner-approved workflow exists.
-- [ ] Pick the next resource surface only after preserving the cost-bearing invariant.
+- [x] Implement `omg storage audit --project <id>`.
+- [x] Add MCP coverage for `omg.storage.audit`.
+- [x] Add Cloud Storage audit connector, command, safety-intent, and CLI/MCP equivalence tests.
+- [x] Add Cloud Storage audit runbook.
+- [x] Implement `omg sql audit --project <id>`.
+- [x] Add MCP coverage for `omg.sql.audit`.
+- [x] Add Cloud SQL audit connector, command, safety-intent, and CLI/MCP equivalence tests.
+- [x] Add Cloud SQL audit runbook.
+- [x] Keep Firestore create/delete/export/import/data mutation workflows deferred until a concrete owner-approved workflow exists.
+- [x] Keep Cloud Storage bucket/object/IAM/lifecycle write workflows deferred until a concrete owner-approved workflow exists.
+- [x] Keep Cloud SQL instance/backup/export/import/lifecycle write workflows deferred until a concrete owner-approved workflow exists.
+- [x] Decide stronger Secret Manager integration is already covered by existing list/set/delete plus budget guard; version/access-policy audit remains deferred until a concrete workflow exists.
+- [x] Preserve the cost-bearing invariant across all Phase 4 read-only resource surfaces.
 
 ### Phase 3D: Budget Guard Expansion
 
@@ -73,12 +84,12 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Keep Firestore write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
-2. Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
-3. Keep `notify` deferred unless a concrete external notification workflow requires it.
-4. Preserve the cost-bearing invariant before any new live Google Cloud operation.
-5. Pick the next resource surface, with Cloud Storage as the likely next read-only candidate.
-5. Re-run the local verification suite before each push.
+1. Keep Firestore, Cloud Storage, Cloud SQL, and IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
+2. Keep `notify` deferred unless a concrete external notification workflow requires it.
+3. Preserve the cost-bearing invariant before any new live Google Cloud operation.
+4. Run optional live read-only audits only with explicit project/account approval.
+5. Treat Phase 4B downstream MCP gateway design as the next architectural candidate.
+6. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -158,6 +169,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] `omg.iam.audit`.
 - [x] `omg.security.audit`.
 - [x] `omg.firestore.audit`.
+- [x] `omg.storage.audit`.
+- [x] `omg.sql.audit`.
 
 ### Phase 1.1 Hardening
 
@@ -239,6 +252,9 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Security audit is a read-only rollup, not Security Command Center integration.
 - Notify is intentionally deferred until external notification recipients/channels are specified.
 - Firestore audit is read-only; Firestore write/provisioning/data workflows are intentionally not implemented.
+- Cloud Storage audit is read-only; bucket/object/IAM/lifecycle write workflows are intentionally not implemented.
+- Cloud SQL audit is read-only; instance/backup/export/import/lifecycle write workflows are intentionally not implemented.
+- Phase 4 Storage/SQL live smoke was not run in this update; read-only live calls still require explicit project/account approval.
 - Live project lifecycle testing is intentionally narrow and should stay approval-gated.
 - gcloud configuration reads can be flaky if multiple gcloud commands are run concurrently; live auth/budget/doctor checks should run sequentially.
 - Next.js SSR remains out of scope.

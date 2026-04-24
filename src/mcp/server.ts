@@ -29,6 +29,8 @@ import {
   secretSetTool,
 } from "./tools/secret.js";
 import { securityAuditTool, handleSecurityAudit } from "./tools/security.js";
+import { handleSqlAudit, sqlAuditTool } from "./tools/sql.js";
+import { handleStorageAudit, storageAuditTool } from "./tools/storage.js";
 import type { OmgResponse } from "./tools/types.js";
 
 const tools = [
@@ -51,6 +53,8 @@ const tools = [
   projectUndeleteTool,
   iamAuditTool,
   securityAuditTool,
+  sqlAuditTool,
+  storageAuditTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -134,6 +138,12 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === securityAuditTool.name) {
     return handleSecurityAudit(args ?? {});
+  }
+  if (name === sqlAuditTool.name) {
+    return handleSqlAudit(args ?? {});
+  }
+  if (name === storageAuditTool.name) {
+    return handleStorageAudit(args ?? {});
   }
 
   return {

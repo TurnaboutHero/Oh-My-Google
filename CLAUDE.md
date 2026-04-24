@@ -29,13 +29,15 @@ Safety/admin workflow:
 - `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
+- `omg storage audit`
+- `omg sql audit`
 - `omg secret list/set/delete`
 - `omg project audit/cleanup/delete/undelete`
 
 MCP surface:
 
 - `omg mcp start`
-- 19 MCP tools over the same core implementation
+- 21 MCP tools over the same core implementation
 
 Backend surface:
 
@@ -77,6 +79,8 @@ Important implemented guards:
 - Project undeletion only runs for `DELETE_REQUESTED`.
 - Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
 - Read-only `firestore audit` reports visible databases, composite indexes, and protection/PITR posture.
+- Read-only `storage audit` reports visible buckets, bucket posture, bucket IAM, and public principals.
+- Read-only `sql audit` reports visible instances, backup metadata, deletion protection, public IPv4, and public authorized networks.
 - Read-only `iam audit` reports visible IAM bindings, service accounts, public principals, primitive roles, and inaccessible policy areas.
 - Read-only `security audit` rolls up project, IAM, and budget posture without enabling new Google APIs.
 
@@ -86,6 +90,8 @@ Important remaining gaps:
 - Downstream MCP discovery/execution is not implemented.
 - Budget creation/mutation is not implemented.
 - Firestore write/provisioning/data workflows are not implemented.
+- Cloud Storage bucket/object/IAM/lifecycle write workflows are not implemented.
+- Cloud SQL instance/backup/export/import/lifecycle write workflows are not implemented.
 - IAM write/grant workflows are not implemented.
 - `notify` is deferred until a concrete external notification workflow exists.
 - Advanced rollback orchestration is not implemented.
