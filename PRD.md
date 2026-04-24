@@ -221,10 +221,10 @@ Completed validation:
 - Regression tests for first-run `init` budget guard decisions.
 - OperationIntent and shared safety decision regression tests.
 - CLI/MCP implementation equivalence tests for adopted command paths.
+- Cost-bearing operation invariant tests for operation intents and command mappings.
 
 Current open validation need:
 
-- Budget guard coverage review for any remaining cost-bearing live operation.
 - Notify workflow decision.
 - Downstream MCP gateway design before any service MCP execution is added.
 

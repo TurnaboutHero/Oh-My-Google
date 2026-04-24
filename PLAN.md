@@ -134,9 +134,10 @@ Decided:
 
 - `omg budget create` is deferred. Budget creation stays a documented console/manual step; `omg` verifies visibility with `budget audit` instead of creating budgets automatically.
 
-Remaining:
+Completed:
 
-- Continue adding budget/free-tier guardrails to any new cost-bearing live operation.
+- All currently known cost-bearing live operations require budget guard.
+- Regression tests fail if a known operation intent or command mapping becomes cost-bearing without `requiresBudget`.
 
 Important design point:
 
@@ -219,7 +220,7 @@ Remaining:
 
 - Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
 - Keep `notify` deferred unless a concrete external notification workflow requires it.
-- Continue adding budget/free-tier guardrails to any new cost-bearing live operation.
+- Preserve the cost-bearing invariant before adding any new live Google Cloud operation.
 
 ## Candidate Future Phases
 
@@ -250,6 +251,8 @@ Candidate commands:
 - stronger Secret Manager integration
 
 Principle: add resources only when deployment flow remains understandable and reversible.
+
+Before any Phase 4 resource workflow is implemented, classify it as an `OperationIntent`. If it is cost-bearing, it must require budget guard unless an explicit bootstrap exception is documented and tested.
 
 ### Phase 4B: Downstream MCP Gateway
 

@@ -19,7 +19,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Preserve onboarding flow: `budget enable-api` remains an explicit dry-run/`--yes` bootstrap path for budget visibility.
 - [x] Document budget guard live smoke in [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md).
 - [x] Decide that `omg budget create` is deferred; budget creation remains a documented console/manual step.
-- [ ] Apply cost/free-tier guardrails before all cost-bearing live Google Cloud operations.
+- [x] Apply cost/free-tier guardrails before all known cost-bearing live Google Cloud operations.
+- [x] Add invariant tests so new cost-bearing operation intents and command mappings must require budget guard.
 
 ### Phase 3E: Safety Kernel And Adapter Foundation
 
@@ -64,7 +65,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 1. Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
 2. Keep `notify` deferred unless a concrete external notification workflow requires it.
-3. Continue applying cost/free-tier guardrails before any new cost-bearing live Google Cloud operation.
+3. Preserve the cost-bearing invariant before any new live Google Cloud operation.
 4. Only then consider downstream MCP execution or additional admin surfaces.
 5. Re-run the local verification suite before each push.
 
@@ -219,7 +220,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 - Budget alerts do not enforce a hard spend cap.
 - Budget visibility depends on billing permissions and the Budget API.
-- Budget guard now covers `omg init` before billing link/default API enablement/IAM setup; broader live-operation coverage is still being expanded.
+- Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
 - `omg` is currently an MCP server, not yet a downstream MCP client/gateway.
 - Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools are not safety-wrapped yet.
 - IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.

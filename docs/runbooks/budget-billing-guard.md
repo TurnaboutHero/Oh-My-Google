@@ -40,6 +40,7 @@ Risk classifications:
 - Budget API enablement is explicit through `budget enable-api`.
 - Budget creation is not automated. Create or adjust budgets manually in the Cloud Billing console, then verify visibility with `omg budget audit --project <id>`.
 - Live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup run this guard before cost-expanding writes. Dry-runs do not run the guard and do not write cloud resources.
+- Operation intent and command-mapping tests assert that known cost-bearing operations require budget guard.
 
 Bootstrap exception: `budget enable-api` remains explicit through dry-run/`--yes` so budget visibility can be enabled when the Budget API itself is missing.
 

@@ -368,5 +368,5 @@ Representative error codes:
 - Human approval is surfaced through `approval` and `next`, never hidden.
 - Run dry-runs first; live writes and deletes must be explicit.
 - Do not guess accounts or projects. Ask, select, or return a structured error.
-- Keep expanding budget guard coverage before adding broader live operations.
+- Preserve the cost-bearing invariant before adding broader live operations.
 - Route external Google/Firebase MCP tools through the `omg` safety layer before exposing privileged execution to agents.

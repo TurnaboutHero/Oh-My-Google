@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyCommand,
   classifySurfaceCommand,
+  type CommandName,
 } from "../src/safety/commands.js";
 
 describe("command-level operation intent mapping", () => {
@@ -123,5 +124,42 @@ describe("command-level operation intent mapping", () => {
         projectId: "demo-project",
       }),
     );
+  });
+
+  it("keeps every cost-bearing command intent budget-gated", () => {
+    const scenarios: Array<{
+      command: CommandName;
+      context?: Parameters<typeof classifyCommand>[1];
+    }> = [
+      { command: "auth:context" },
+      { command: "auth:list" },
+      { command: "budget:audit", context: { projectId: "demo-project" } },
+      { command: "budget:enable-api", context: { projectId: "demo-project" } },
+      { command: "deploy", context: { projectId: "demo-project", deployTarget: "cloud-run" } },
+      { command: "deploy", context: { projectId: "demo-project", deployTarget: "firebase-hosting" } },
+      { command: "doctor" },
+      { command: "firebase:deploy", context: { projectId: "demo-project" } },
+      { command: "iam:audit", context: { projectId: "demo-project" } },
+      { command: "init", context: { projectId: "demo-project" } },
+      { command: "link" },
+      { command: "project:audit", context: { projectId: "demo-project" } },
+      { command: "project:cleanup", context: { projectId: "demo-project" } },
+      { command: "project:delete", context: { projectId: "demo-project" } },
+      { command: "project:undelete", context: { projectId: "demo-project" } },
+      { command: "secret:list", context: { projectId: "demo-project" } },
+      { command: "secret:set", context: { projectId: "demo-project", resource: "secret/API_KEY" } },
+      { command: "secret:delete", context: { projectId: "demo-project", resource: "secret/API_KEY" } },
+      { command: "security:audit", context: { projectId: "demo-project" } },
+    ];
+
+    for (const scenario of scenarios) {
+      const plan = classifyCommand(scenario.command, scenario.context ?? {});
+      for (const intent of plan.intents) {
+        if (intent.costBearing) {
+          expect(intent.requiresBudget, `${scenario.command}:${intent.id} must require budget guard`)
+            .toBe(true);
+        }
+      }
+    }
   });
 });

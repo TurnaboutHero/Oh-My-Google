@@ -147,6 +147,28 @@ describe("operation intent classification", () => {
       expect(getAdapterCapability(intent.adapter)).toBeDefined();
     }
   });
+
+  it("requires budget guard for every known cost-bearing operation", () => {
+    for (const actionId of Object.keys(ACTION_LEVELS)) {
+      const intent = classifyOperation(actionId, { projectId: "demo-project" });
+
+      if (intent.costBearing) {
+        expect(intent.requiresBudget, `${actionId} must require budget guard`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the Budget API bootstrap path as an explicit non-cost-bearing exception", () => {
+    expect(classifyOperation("budget.enable-api", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "budget.enable-api",
+        service: "service-usage",
+        action: "write",
+        costBearing: false,
+        requiresBudget: false,
+        supportsDryRun: true,
+      });
+  });
 });
 
 describe("adapter capability manifest", () => {

@@ -136,7 +136,7 @@ omg --output json budget enable-api --project <project-id> --dry-run
 omg --output json budget enable-api --project <project-id> --yes
 ```
 
-Current behavior: budget guard is enforced before live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
+Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 
 ### IAM Audit
 

@@ -51,7 +51,7 @@ Backend surface:
 5. **Planner before executor.** Decide what should happen before running cloud commands.
 6. **Dry-run first where possible.** Live writes/deletes need explicit flags, trust checks, or approvals.
 7. **No silent account mutation.** gcloud configuration switching and ADC alignment must be explicit.
-8. **Budget guard before cost expansion.** Expand budget guard coverage before adding broad live cloud operations.
+8. **Budget guard before cost expansion.** Preserve the cost-bearing invariant before adding broad live cloud operations.
 9. **Secrets stay secret.** Never print or store secret payloads in outputs, logs, approval args, or tests.
 10. **Classify before adapting.** New backends, including downstream MCPs, need operation intent and capability metadata before privileged execution.
 11. **Prefer narrow surfaces.** Add admin commands only when the user workflow needs them.

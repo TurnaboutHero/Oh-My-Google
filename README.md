@@ -368,5 +368,5 @@ The MCP server exposes 18 tools:
 - 사람이 필요한 작업은 `approval`과 `next`를 통해 명시합니다.
 - dry-run을 먼저 실행하고, live write/delete는 명시적으로 실행합니다.
 - 계정과 프로젝트는 추측하지 않습니다. 불확실하면 선택 또는 오류로 중단합니다.
-- 비용이 발생할 수 있는 작업은 budget guard 적용 범위를 계속 넓힙니다.
+- 비용이 발생할 수 있는 새 live 작업은 budget guard invariant를 먼저 만족해야 합니다.
 - 외부 Google/Firebase MCP를 붙일 때도 raw privileged tool을 직접 노출하지 않고 `omg`의 safety layer를 통과시킵니다.

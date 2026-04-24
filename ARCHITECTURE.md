@@ -461,9 +461,11 @@ Risk states:
 - `billing_disabled`
 - `review`
 
-Known gap:
+Coverage invariant:
 
-- Budget guard is now enforced for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup. Coverage still needs review as new live Google Cloud operations are added.
+- Budget guard is enforced for all currently known cost-bearing live operations: live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup.
+- Tests assert that any known cost-bearing operation intent or command mapping must require budget guard.
+- `budget enable-api` remains an explicit non-cost-bearing bootstrap exception for budget visibility.
 
 ## IAM Audit
 
@@ -576,6 +578,7 @@ Implemented and verified:
 - read-only IAM audit surface
 - read-only security posture audit surface
 - budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
+- cost-bearing operation invariant tests for operation intents and command mappings
 - project cleanup/delete/undelete safety surface
 
 Not implemented:
