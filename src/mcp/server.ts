@@ -5,6 +5,7 @@ import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.j
 import { budgetAuditTool, handleBudgetAudit } from "./tools/budget.js";
 import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
+import { firestoreAuditTool, handleFirestoreAudit } from "./tools/firestore.js";
 import { iamAuditTool, handleIamAudit } from "./tools/iam.js";
 import { initTool, handleInit } from "./tools/init.js";
 import { linkTool, handleLink } from "./tools/link.js";
@@ -40,6 +41,7 @@ const tools = [
   deployTool,
   initTool,
   linkTool,
+  firestoreAuditTool,
   secretListTool,
   secretSetTool,
   secretDeleteTool,
@@ -102,6 +104,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === linkTool.name) {
     return handleLink(args ?? {});
+  }
+  if (name === firestoreAuditTool.name) {
+    return handleFirestoreAudit(args ?? {});
   }
   if (name === secretListTool.name) {
     return handleSecretList(args ?? {});

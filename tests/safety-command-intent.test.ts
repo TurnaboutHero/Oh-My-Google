@@ -80,6 +80,19 @@ describe("command-level operation intent mapping", () => {
     });
   });
 
+  it("maps Firestore audit as a read-only command intent", () => {
+    const plan = classifyCommand("firestore:audit", { projectId: "demo-project" });
+
+    expect(plan.intents).toHaveLength(1);
+    expect(plan.intents[0]).toMatchObject({
+      id: "firestore.audit",
+      service: "firestore",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+  });
+
   it("normalizes equivalent CLI and MCP surfaces to the same command plan", () => {
     expect(
       classifySurfaceCommand("cli", "deploy", {
@@ -124,6 +137,16 @@ describe("command-level operation intent mapping", () => {
         projectId: "demo-project",
       }),
     );
+
+    expect(
+      classifySurfaceCommand("cli", "firestore:audit", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.firestore.audit", {
+        projectId: "demo-project",
+      }),
+    );
   });
 
   it("keeps every cost-bearing command intent budget-gated", () => {
@@ -139,6 +162,7 @@ describe("command-level operation intent mapping", () => {
       { command: "deploy", context: { projectId: "demo-project", deployTarget: "firebase-hosting" } },
       { command: "doctor" },
       { command: "firebase:deploy", context: { projectId: "demo-project" } },
+      { command: "firestore:audit", context: { projectId: "demo-project" } },
       { command: "iam:audit", context: { projectId: "demo-project" } },
       { command: "init", context: { projectId: "demo-project" } },
       { command: "link" },

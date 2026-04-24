@@ -6,6 +6,16 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Now
 
+### Phase 4: Resource Add Workflows
+
+- [x] Start Phase 4 with read-only Firestore inspection.
+- [x] Implement `omg firestore audit --project <id>`.
+- [x] Add MCP coverage for `omg.firestore.audit`.
+- [x] Add Firestore audit connector, command, safety-intent, and CLI/MCP equivalence tests.
+- [x] Add Firestore audit runbook.
+- [ ] Keep Firestore create/delete/export/import/data mutation workflows deferred until a concrete owner-approved workflow exists.
+- [ ] Pick the next resource surface only after preserving the cost-bearing invariant.
+
 ### Phase 3D: Budget Guard Expansion
 
 - [x] Define the `budget` command scope and trust level.
@@ -63,10 +73,11 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
-2. Keep `notify` deferred unless a concrete external notification workflow requires it.
-3. Preserve the cost-bearing invariant before any new live Google Cloud operation.
-4. Only then consider downstream MCP execution or additional admin surfaces.
+1. Keep Firestore write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
+2. Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
+3. Keep `notify` deferred unless a concrete external notification workflow requires it.
+4. Preserve the cost-bearing invariant before any new live Google Cloud operation.
+5. Pick the next resource surface, with Cloud Storage as the likely next read-only candidate.
 5. Re-run the local verification suite before each push.
 
 ## Completed
@@ -146,6 +157,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] `omg.project.undelete`.
 - [x] `omg.iam.audit`.
 - [x] `omg.security.audit`.
+- [x] `omg.firestore.audit`.
 
 ### Phase 1.1 Hardening
 
@@ -226,6 +238,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.
 - Security audit is a read-only rollup, not Security Command Center integration.
 - Notify is intentionally deferred until external notification recipients/channels are specified.
+- Firestore audit is read-only; Firestore write/provisioning/data workflows are intentionally not implemented.
 - Live project lifecycle testing is intentionally narrow and should stay approval-gated.
 - gcloud configuration reads can be flaky if multiple gcloud commands are run concurrently; live auth/budget/doctor checks should run sequentially.
 - Next.js SSR remains out of scope.

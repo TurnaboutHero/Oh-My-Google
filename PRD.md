@@ -123,6 +123,7 @@ Implemented admin and safety workflow:
 
 - `omg budget audit`
 - `omg budget enable-api`
+- `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
 - `omg secret list/set/delete`
@@ -139,6 +140,7 @@ Implemented MCP tools:
 - `omg.reject`
 - `omg.approvals.list`
 - `omg.budget.audit`
+- `omg.firestore.audit`
 - `omg.iam.audit`
 - `omg.security.audit`
 - `omg.secret.list`
@@ -205,6 +207,13 @@ Current execution boundary:
 - Section errors must be surfaced as partial audit results.
 - `risk: high` must tell agents to stop before autonomous live operations.
 
+### Firestore Safety
+
+- `firestore audit` must be read-only.
+- Firestore audit must not read documents, write documents, create databases, delete databases, export, import, or mutate indexes.
+- Firestore write/provisioning/data workflows must stay deferred until there is a concrete owner-approved workflow.
+- Future Firestore live workflows must preserve the cost-bearing invariant.
+
 ## Validation State
 
 Completed validation:
@@ -222,10 +231,11 @@ Completed validation:
 - OperationIntent and shared safety decision regression tests.
 - CLI/MCP implementation equivalence tests for adopted command paths.
 - Cost-bearing operation invariant tests for operation intents and command mappings.
+- Read-only Firestore audit tests and CLI/MCP equivalence tests.
 
 Current open validation need:
 
-- Notify workflow decision.
+- Optional live Firestore audit smoke on a known validation project.
 - Downstream MCP gateway design before any service MCP execution is added.
 
 ## Success Criteria

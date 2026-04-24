@@ -8,6 +8,7 @@ export type CommandName =
   | "deploy"
   | "doctor"
   | "firebase:deploy"
+  | "firestore:audit"
   | "iam:audit"
   | "init"
   | "link"
@@ -38,6 +39,7 @@ const MCP_COMMANDS: Record<string, CommandName> = {
   "omg.budget.audit": "budget:audit",
   "omg.deploy": "deploy",
   "omg.doctor": "doctor",
+  "omg.firestore.audit": "firestore:audit",
   "omg.iam.audit": "iam:audit",
   "omg.init": "init",
   "omg.link": "link",
@@ -101,6 +103,8 @@ function getCommandOperationIds(
       return ["doctor.run"];
     case "firebase:deploy":
       return ["deploy.firebase-hosting"];
+    case "firestore:audit":
+      return ["firestore.audit"];
     case "iam:audit":
       return ["iam.audit"];
     case "init":

@@ -9,6 +9,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "project.audit": "L0",
   "project.cleanup.plan": "L0",
   "billing.audit": "L0",
+  "firestore.audit": "L0",
   "iam.audit": "L0",
   "security.audit": "L0",
   "secret.list": "L0",

@@ -52,7 +52,7 @@ Completed:
 
 - stdio MCP server.
 - Shared response envelope.
-- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, and security audit.
+- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, security audit, and Firestore audit.
 
 ### Phase 2.5: Real-World Validation
 
@@ -194,8 +194,6 @@ Remaining:
 - Phase 3E safety-kernel foundation work is complete.
 - Design actual downstream MCP client/gateway mechanics only after the next product decision explicitly prioritizes it.
 
-## Active Phase
-
 ### Phase 3F: Remaining Admin Surface Decisions
 
 Goal: decide whether additional admin surfaces are needed from actual workflows, starting with read-only inspection before writes.
@@ -222,6 +220,26 @@ Remaining:
 - Keep `notify` deferred unless a concrete external notification workflow requires it.
 - Preserve the cost-bearing invariant before adding any new live Google Cloud operation.
 
+## Active Phase
+
+### Phase 4: Resource Add Workflows
+
+Goal: add resource surfaces only when they remain understandable, reversible, and safe for agents.
+
+Progress:
+
+- Started Phase 4 with read-only Firestore inspection.
+- Added `omg firestore audit --project <id>`.
+- Added MCP `omg.firestore.audit`.
+- Added Firestore operation intent mapping as L0 read-only.
+- Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
+- Added [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md).
+
+Remaining:
+
+- Keep Firestore create/delete/export/import/data mutation workflows deferred unless a concrete owner-approved workflow requires them.
+- Pick the next resource surface only after preserving the cost-bearing invariant.
+
 ## Candidate Future Phases
 
 ### Phase 3F Follow-Ups: Remaining Admin Surface Decisions
@@ -241,11 +259,11 @@ Each surface needs:
 - tests
 - runbook
 
-### Phase 4: Resource Add Workflows
+### Phase 4 Follow-Ups: Resource Add Workflows
 
 Candidate commands:
 
-- Firestore
+- Firestore write/provisioning workflows
 - Cloud Storage
 - Cloud SQL
 - stronger Secret Manager integration

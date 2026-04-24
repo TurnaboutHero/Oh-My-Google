@@ -90,6 +90,7 @@ src/
       budget.ts
       deploy.ts
       firebase.ts
+      firestore.ts
       iam.ts
       init.ts
       link.ts
@@ -102,6 +103,7 @@ src/
     billing-audit.ts
     cloud-run.ts
     firebase.ts
+    firestore-audit.ts
     iam-audit.ts
     project-audit.ts
     security-audit.ts
@@ -120,6 +122,7 @@ src/
       budget.ts
       deploy.ts
       doctor.ts
+      firestore.ts
       iam.ts
       init.ts
       link.ts
@@ -202,6 +205,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Auth: `auth status/list/create/context/switch/project/refresh/logout`
 - Approval: `approve`, `reject`, `approvals list`
 - Budget: `budget audit`, `budget enable-api`
+- Firestore: `firestore audit`
 - IAM: `iam audit`
 - Security: `security audit`
 - Secret Manager: `secret list/set/delete`
@@ -221,7 +225,7 @@ CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
 ## MCP Surface
 
-The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 18 tools:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 19 tools:
 
 - `omg.auth.context`
 - `omg.init`
@@ -232,6 +236,7 @@ The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 18 tools:
 - `omg.reject`
 - `omg.approvals.list`
 - `omg.budget.audit`
+- `omg.firestore.audit`
 - `omg.iam.audit`
 - `omg.security.audit`
 - `omg.secret.list`
@@ -342,6 +347,7 @@ Implemented connectors:
 
 - [src/connectors/cloud-run.ts](./src/connectors/cloud-run.ts)
 - [src/connectors/firebase.ts](./src/connectors/firebase.ts)
+- [src/connectors/firestore-audit.ts](./src/connectors/firestore-audit.ts)
 - [src/connectors/iam-audit.ts](./src/connectors/iam-audit.ts)
 - [src/connectors/secret-manager.ts](./src/connectors/secret-manager.ts)
 - [src/connectors/project-audit.ts](./src/connectors/project-audit.ts)
@@ -381,7 +387,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `iam.audit`, `security.audit`, `secret.list` |
+| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `firestore.audit`, `iam.audit`, `security.audit`, `secret.list` |
 | L1 | normal setup/deploy changes | `deploy.cloud-run`, `deploy.firebase-hosting`, `apis.enable` |
 | L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `secret.set` |
 | L3 | destructive/lifecycle actions | `gcp.project.delete`, `gcp.project.undelete`, data delete |
@@ -515,6 +521,29 @@ Risk states:
 - `review`
 - `high`
 
+## Firestore Audit
+
+Firestore audit connector:
+
+- [src/connectors/firestore-audit.ts](./src/connectors/firestore-audit.ts)
+
+Firestore command:
+
+- [src/cli/commands/firestore.ts](./src/cli/commands/firestore.ts)
+
+Current behavior:
+
+- `firestore audit` is read-only.
+- MCP `omg.firestore.audit` calls the same command core.
+- The audit lists visible Firestore databases and composite indexes.
+- It surfaces delete protection and point-in-time recovery signals when visible.
+- It does not read documents or mutate Firestore resources.
+
+Risk states:
+
+- `low`
+- `review`
+
 ## Project Lifecycle Safety
 
 Project lifecycle command:
@@ -574,6 +603,7 @@ Implemented and verified:
 - CLI/MCP implementation equivalence tests around concrete command implementations after safety-wrapper adoption
 - adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
 - approval workflow
+- read-only Firestore audit surface
 - Secret Manager admin surface
 - read-only IAM audit surface
 - read-only security posture audit surface
@@ -585,6 +615,7 @@ Not implemented:
 
 - downstream MCP client/gateway support
 - budget creation/mutation
+- Firestore write/provisioning/data workflows
 - IAM write/grant workflows
 - `notify` admin surface
 - advanced rollback orchestration

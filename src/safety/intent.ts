@@ -7,6 +7,7 @@ export type OperationService =
   | "cloud-run"
   | "diagnostics"
   | "firebase-hosting"
+  | "firestore"
   | "iam"
   | "planner"
   | "project-lifecycle"
@@ -73,6 +74,7 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
     supportsDryRun: true,
   },
   "billing.audit": readOnly("billing", "gcloud-cli", "budget"),
+  "firestore.audit": readOnly("firestore", "gcloud-cli", "firestore-databases"),
   "iam.audit": readOnly("iam", "gcloud-cli", "iam-policy"),
   "security.audit": readOnly("security", "gcloud-cli", "security-posture"),
   "secret.list": readOnly("secret-manager", "gcloud-cli", "secret"),

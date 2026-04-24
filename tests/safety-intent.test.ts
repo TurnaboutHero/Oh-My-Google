@@ -45,6 +45,17 @@ describe("operation intent classification", () => {
       adapter: "gcloud-cli",
       requiresBudget: false,
     });
+
+    expect(classifyOperation("firestore.audit", { projectId: "demo-project" })).toMatchObject({
+      id: "firestore.audit",
+      service: "firestore",
+      action: "read",
+      trustLevel: "L0",
+      projectId: "demo-project",
+      resource: "firestore-databases",
+      adapter: "gcloud-cli",
+      requiresBudget: false,
+    });
   });
 
   it("classifies deploy actions as cost-bearing writes that require budget guard", () => {

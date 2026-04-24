@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runDeploy, type RunDeployOutcome } from "../src/cli/commands/deploy.js";
+import { runFirestoreAudit, type RunFirestoreOutcome } from "../src/cli/commands/firestore.js";
 import { runIamAudit, type RunIamOutcome } from "../src/cli/commands/iam.js";
 import {
   runProjectDelete,
@@ -16,6 +17,7 @@ import {
 } from "../src/cli/commands/secret.js";
 import { runSecurityAudit, type RunSecurityOutcome } from "../src/cli/commands/security.js";
 import { handleDeploy } from "../src/mcp/tools/deploy.js";
+import { handleFirestoreAudit } from "../src/mcp/tools/firestore.js";
 import { handleIamAudit } from "../src/mcp/tools/iam.js";
 import { handleProjectDelete } from "../src/mcp/tools/project.js";
 import {
@@ -163,6 +165,24 @@ vi.mock("../src/connectors/iam-audit.js", () => ({
   })),
 }));
 
+vi.mock("../src/connectors/firestore-audit.js", () => ({
+  auditFirestore: vi.fn(async (projectId: string) => ({
+    projectId,
+    databases: [
+      {
+        name: "projects/demo-project/databases/(default)",
+        databaseId: "(default)",
+        locationId: "nam5",
+      },
+    ],
+    compositeIndexes: [],
+    inaccessible: [],
+    signals: ["1 Firestore database(s) visible."],
+    risk: "review",
+    recommendedAction: "Review Firestore databases before adding create, delete, export, import, or data mutation workflows.",
+  })),
+}));
+
 vi.mock("../src/connectors/security-audit.js", () => ({
   auditSecurity: vi.fn(async (projectId: string) => ({
     projectId,
@@ -263,6 +283,13 @@ describe("CLI/MCP command implementation equivalence", () => {
 
     expect(normalizeCliOutcome("security:audit", cli)).toEqual(normalizeMcpResponse(mcp));
   });
+
+  it("returns the same Firestore audit through CLI and MCP surfaces", async () => {
+    const cli = await runFirestoreAudit({ project: "demo-project" });
+    const mcp = await handleFirestoreAudit({ project: "demo-project" });
+
+    expect(normalizeCliOutcome("firestore:audit", cli)).toEqual(normalizeMcpResponse(mcp));
+  });
 });
 
 async function createPairedWorkspaces(): Promise<{ cliCwd: string; mcpCwd: string }> {
@@ -316,7 +343,13 @@ async function writeDeployFixtures(cwd: string, environment: "dev" | "prod"): Pr
 
 function normalizeCliOutcome(
   command: string,
-  outcome: RunDeployOutcome | RunSecretOutcome | RunProjectOutcome | RunIamOutcome | RunSecurityOutcome,
+  outcome:
+    | RunDeployOutcome
+    | RunSecretOutcome
+    | RunProjectOutcome
+    | RunIamOutcome
+    | RunSecurityOutcome
+    | RunFirestoreOutcome,
 ): unknown {
   if (outcome.ok) {
     return normalizeDynamicValues({

@@ -34,7 +34,7 @@ Implemented:
 - Trust Profile gates across L0/L1/L2/L3 actions
 - approval file queue with TTL, args hash validation, and consumed markers
 - decision log and handoff artifact generation
-- stdio MCP server with 18 tools
+- stdio MCP server with 19 tools
 - gcloud named configuration creation, listing, switching, and project selection
 - gcloud account vs ADC account mismatch detection and explicit ADC alignment
 - Secret Manager list/set/delete
@@ -43,6 +43,7 @@ Implemented:
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
 - Read-only IAM audit
 - Read-only security posture audit
+- Read-only Firestore database/index audit
 - active account mismatch blocking for project delete/undelete approvals
 
 Live validation completed:
@@ -61,7 +62,7 @@ Current safety status and pending scope:
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is currently an MCP server, but it is not yet a downstream MCP gateway that calls other Google/Firebase MCP servers internally.
 - Budget creation and budget mutation are not implemented yet. Current support is audit plus Budget API enablement.
-- IAM writes and `notify` admin surfaces are not designed or implemented yet.
+- Firestore writes/provisioning, IAM writes, and `notify` admin surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
@@ -167,7 +168,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `secret list`, `iam audit`, `security audit` |
+| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `firestore audit`, `secret list`, `iam audit`, `security audit` |
 | L1 | normal configuration/deploy | API enable, Cloud Run deploy, Firebase Hosting deploy |
 | L2 | cost, permission, or secret-write impact | billing link, secret set, prod deploy |
 | L3 | destructive or lifecycle actions | project delete, project undelete, data delete |
@@ -263,6 +264,12 @@ omg firebase deploy --execute --yes
 omg firebase emulators
 ```
 
+Firestore:
+
+```bash
+omg firestore audit --project <id>
+```
+
 MCP:
 
 ```bash
@@ -271,7 +278,7 @@ omg mcp start
 
 ## MCP Tools
 
-The MCP server exposes 18 tools:
+The MCP server exposes 19 tools:
 
 | Tool | Description |
 |---|---|
@@ -284,6 +291,7 @@ The MCP server exposes 18 tools:
 | `omg.reject` | Reject an approval request |
 | `omg.approvals.list` | List approval requests |
 | `omg.budget.audit` | Audit billing and budget guard state |
+| `omg.firestore.audit` | Audit Firestore databases and composite indexes |
 | `omg.iam.audit` | Audit IAM policy bindings and service accounts |
 | `omg.security.audit` | Audit project security posture using read-only project, IAM, and budget checks |
 | `omg.secret.list` | List Secret Manager metadata |
@@ -356,6 +364,7 @@ Representative error codes:
 - [docs/runbooks/gcp-e2e.md](./docs/runbooks/gcp-e2e.md): disposable GCP E2E validation
 - [docs/runbooks/project-cleanup-audit.md](./docs/runbooks/project-cleanup-audit.md): project lifecycle safety
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
+- [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/secret-admin.md](./docs/runbooks/secret-admin.md): Secret Manager admin surface

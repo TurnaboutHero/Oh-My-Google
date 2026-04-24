@@ -26,6 +26,7 @@ Safety/admin workflow:
 
 - `omg budget audit`
 - `omg budget enable-api`
+- `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
 - `omg secret list/set/delete`
@@ -34,7 +35,7 @@ Safety/admin workflow:
 MCP surface:
 
 - `omg mcp start`
-- 18 MCP tools over the same core implementation
+- 19 MCP tools over the same core implementation
 
 Backend surface:
 
@@ -75,6 +76,7 @@ Important implemented guards:
 - Project deletion blocks protected, billing-enabled, do-not-touch, and non-owner cases before approval.
 - Project undeletion only runs for `DELETE_REQUESTED`.
 - Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
+- Read-only `firestore audit` reports visible databases, composite indexes, and protection/PITR posture.
 - Read-only `iam audit` reports visible IAM bindings, service accounts, public principals, primitive roles, and inaccessible policy areas.
 - Read-only `security audit` rolls up project, IAM, and budget posture without enabling new Google APIs.
 
@@ -83,6 +85,7 @@ Important remaining gaps:
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 - Downstream MCP discovery/execution is not implemented.
 - Budget creation/mutation is not implemented.
+- Firestore write/provisioning/data workflows are not implemented.
 - IAM write/grant workflows are not implemented.
 - `notify` is deferred until a concrete external notification workflow exists.
 - Advanced rollback orchestration is not implemented.
