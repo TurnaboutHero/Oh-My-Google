@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runDeploy, type RunDeployOutcome } from "../src/cli/commands/deploy.js";
+import { runIamAudit, type RunIamOutcome } from "../src/cli/commands/iam.js";
 import {
   runProjectDelete,
   type RunProjectOutcome,
@@ -14,6 +15,7 @@ import {
   type RunSecretOutcome,
 } from "../src/cli/commands/secret.js";
 import { handleDeploy } from "../src/mcp/tools/deploy.js";
+import { handleIamAudit } from "../src/mcp/tools/iam.js";
 import { handleProjectDelete } from "../src/mcp/tools/project.js";
 import {
   handleSecretDelete,
@@ -124,6 +126,41 @@ vi.mock("../src/connectors/project-audit.js", () => ({
   })),
 }));
 
+vi.mock("../src/connectors/iam-audit.js", () => ({
+  auditIam: vi.fn(async (projectId: string) => ({
+    projectId,
+    bindings: [
+      {
+        role: "roles/owner",
+        members: ["user:owner@example.com"],
+        memberCount: 1,
+        public: false,
+        primitive: true,
+      },
+    ],
+    serviceAccounts: [
+      {
+        email: "worker@demo-project.iam.gserviceaccount.com",
+        displayName: "worker",
+      },
+    ],
+    findings: [
+      {
+        severity: "review",
+        reason: "Primitive project role should be reviewed before adding IAM automation.",
+        role: "roles/owner",
+      },
+    ],
+    inaccessible: [],
+    signals: [
+      "1 service account(s) visible.",
+      "Primitive project role should be reviewed before adding IAM automation. Role: roles/owner.",
+    ],
+    risk: "review",
+    recommendedAction: "Review privileged IAM bindings and service accounts before adding IAM writes.",
+  })),
+}));
+
 const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -196,6 +233,13 @@ describe("CLI/MCP command implementation equivalence", () => {
 
     expect(normalizeCliOutcome("project:delete", cli)).toEqual(normalizeMcpResponse(mcp));
   });
+
+  it("returns the same IAM audit through CLI and MCP surfaces", async () => {
+    const cli = await runIamAudit({ project: "demo-project" });
+    const mcp = await handleIamAudit({ project: "demo-project" });
+
+    expect(normalizeCliOutcome("iam:audit", cli)).toEqual(normalizeMcpResponse(mcp));
+  });
 });
 
 async function createPairedWorkspaces(): Promise<{ cliCwd: string; mcpCwd: string }> {
@@ -249,7 +293,7 @@ async function writeDeployFixtures(cwd: string, environment: "dev" | "prod"): Pr
 
 function normalizeCliOutcome(
   command: string,
-  outcome: RunDeployOutcome | RunSecretOutcome | RunProjectOutcome,
+  outcome: RunDeployOutcome | RunSecretOutcome | RunProjectOutcome | RunIamOutcome,
 ): unknown {
   if (outcome.ok) {
     return normalizeDynamicValues({

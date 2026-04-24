@@ -72,6 +72,7 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
     supportsDryRun: true,
   },
   "billing.audit": readOnly("billing", "gcloud-cli", "budget"),
+  "iam.audit": readOnly("iam", "gcloud-cli", "iam-policy"),
   "secret.list": readOnly("secret-manager", "gcloud-cli", "secret"),
 
   "deploy.cloud-run": {

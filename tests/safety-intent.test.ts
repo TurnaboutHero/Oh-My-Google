@@ -23,6 +23,17 @@ describe("operation intent classification", () => {
       supportsDryRun: false,
       postVerify: false,
     });
+
+    expect(classifyOperation("iam.audit", { projectId: "demo-project" })).toMatchObject({
+      id: "iam.audit",
+      service: "iam",
+      action: "read",
+      trustLevel: "L0",
+      projectId: "demo-project",
+      resource: "iam-policy",
+      adapter: "gcloud-cli",
+      requiresBudget: false,
+    });
   });
 
   it("classifies deploy actions as cost-bearing writes that require budget guard", () => {

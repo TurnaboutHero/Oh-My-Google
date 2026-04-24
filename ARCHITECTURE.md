@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-04-22
+Last updated: 2026-04-24
 
 This document describes the current `main` implementation. Product intent lives in [PRD.md](./PRD.md), execution sequencing lives in [PLAN.md](./PLAN.md), and checklist status lives in [TODO.md](./TODO.md).
 
@@ -90,6 +90,7 @@ src/
       budget.ts
       deploy.ts
       firebase.ts
+      iam.ts
       init.ts
       link.ts
       mcp.ts
@@ -100,6 +101,7 @@ src/
     billing-audit.ts
     cloud-run.ts
     firebase.ts
+    iam-audit.ts
     project-audit.ts
     secret-manager.ts
   executor/
@@ -116,6 +118,7 @@ src/
       budget.ts
       deploy.ts
       doctor.ts
+      iam.ts
       init.ts
       link.ts
       project.ts
@@ -196,6 +199,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Auth: `auth status/list/create/context/switch/project/refresh/logout`
 - Approval: `approve`, `reject`, `approvals list`
 - Budget: `budget audit`, `budget enable-api`
+- IAM: `iam audit`
 - Secret Manager: `secret list/set/delete`
 - Project lifecycle: `project audit/cleanup/delete/undelete`
 - Firebase helpers: `firebase init/deploy/emulators`
@@ -213,7 +217,7 @@ CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
 ## MCP Surface
 
-The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 16 tools:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 17 tools:
 
 - `omg.auth.context`
 - `omg.init`
@@ -224,6 +228,7 @@ The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 16 tools:
 - `omg.reject`
 - `omg.approvals.list`
 - `omg.budget.audit`
+- `omg.iam.audit`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -332,6 +337,7 @@ Implemented connectors:
 
 - [src/connectors/cloud-run.ts](./src/connectors/cloud-run.ts)
 - [src/connectors/firebase.ts](./src/connectors/firebase.ts)
+- [src/connectors/iam-audit.ts](./src/connectors/iam-audit.ts)
 - [src/connectors/secret-manager.ts](./src/connectors/secret-manager.ts)
 - [src/connectors/project-audit.ts](./src/connectors/project-audit.ts)
 - [src/connectors/billing-audit.ts](./src/connectors/billing-audit.ts)
@@ -369,7 +375,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `secret.list` |
+| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `iam.audit`, `secret.list` |
 | L1 | normal setup/deploy changes | `deploy.cloud-run`, `deploy.firebase-hosting`, `apis.enable` |
 | L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `secret.set` |
 | L3 | destructive/lifecycle actions | `gcp.project.delete`, `gcp.project.undelete`, data delete |
@@ -453,6 +459,30 @@ Known gap:
 
 - Budget guard is now enforced for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup. Coverage still needs review as new live Google Cloud operations are added.
 
+## IAM Audit
+
+IAM audit connector:
+
+- [src/connectors/iam-audit.ts](./src/connectors/iam-audit.ts)
+
+IAM command:
+
+- [src/cli/commands/iam.ts](./src/cli/commands/iam.ts)
+
+Current behavior:
+
+- `iam audit` is read-only.
+- MCP `omg.iam.audit` calls the same command core.
+- The audit reads visible IAM policy bindings and service account metadata.
+- It classifies public principals, primitive project roles, high-impact IAM administration roles, and missing IAM policy visibility.
+- IAM write/grant workflows are intentionally not implemented.
+
+Risk states:
+
+- `low`
+- `review`
+- `high`
+
 ## Project Lifecycle Safety
 
 Project lifecycle command:
@@ -509,18 +539,20 @@ Implemented and verified:
 - command-level intent mapping for CLI/MCP surface normalization
 - shared safety decision wrapper over adapter capability, Trust Profile, approvals, and supplied or provider-fetched budget guard evidence
 - command-level trust checks in deploy, secret, and project lifecycle routed through the shared safety decision wrapper
+- CLI/MCP implementation equivalence tests around concrete command implementations after safety-wrapper adoption
 - adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
 - approval workflow
 - Secret Manager admin surface
+- read-only IAM audit surface
 - budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
 - project cleanup/delete/undelete safety surface
 
 Not implemented:
 
-- CLI/MCP equivalence tests around concrete command implementations after safety-wrapper adoption
 - downstream MCP client/gateway support
 - budget creation/mutation
-- `iam`, `notify`, `security` admin surfaces
+- IAM write/grant workflows
+- `notify`, `security` admin surfaces
 - advanced rollback orchestration
 - Next.js SSR deployment
 

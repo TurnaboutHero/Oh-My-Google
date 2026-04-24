@@ -53,6 +53,19 @@ describe("command-level operation intent mapping", () => {
     expect(plan.notes).toContain("Budget API enablement is a bootstrap exception for budget visibility.");
   });
 
+  it("maps IAM audit as a read-only command intent", () => {
+    const plan = classifyCommand("iam:audit", { projectId: "demo-project" });
+
+    expect(plan.intents).toHaveLength(1);
+    expect(plan.intents[0]).toMatchObject({
+      id: "iam.audit",
+      service: "iam",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+  });
+
   it("normalizes equivalent CLI and MCP surfaces to the same command plan", () => {
     expect(
       classifySurfaceCommand("cli", "deploy", {
@@ -75,6 +88,16 @@ describe("command-level operation intent mapping", () => {
       classifySurfaceCommand("mcp", "omg.secret.set", {
         projectId: "demo-project",
         resource: "secret/API_KEY",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "iam:audit", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.iam.audit", {
+        projectId: "demo-project",
       }),
     );
   });

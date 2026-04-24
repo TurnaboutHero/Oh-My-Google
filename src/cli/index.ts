@@ -5,6 +5,7 @@ import { approveCommand } from "./commands/approve.js";
 import { budgetCommand } from "./commands/budget.js";
 import { deployCommand } from "./commands/deploy.js";
 import { firebaseCommand } from "./commands/firebase.js";
+import { iamCommand } from "./commands/iam.js";
 import { initCommand } from "./commands/init.js";
 import { linkCommand } from "./commands/link.js";
 import { mcpCommand } from "./commands/mcp.js";
@@ -44,6 +45,7 @@ program.addCommand(projectCommand);
 program.addCommand(setupCommand);
 program.addCommand(authCommand);
 program.addCommand(firebaseCommand);
+program.addCommand(iamCommand);
 program.addCommand(mcpCommand);
 
 program.parse();

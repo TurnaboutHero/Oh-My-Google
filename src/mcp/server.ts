@@ -5,6 +5,7 @@ import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.j
 import { budgetAuditTool, handleBudgetAudit } from "./tools/budget.js";
 import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
+import { iamAuditTool, handleIamAudit } from "./tools/iam.js";
 import { initTool, handleInit } from "./tools/init.js";
 import { linkTool, handleLink } from "./tools/link.js";
 import {
@@ -45,6 +46,7 @@ const tools = [
   projectCleanupTool,
   projectDeleteTool,
   projectUndeleteTool,
+  iamAuditTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -119,6 +121,9 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === projectUndeleteTool.name) {
     return handleProjectUndelete(args ?? {});
+  }
+  if (name === iamAuditTool.name) {
+    return handleIamAudit(args ?? {});
   }
 
   return {

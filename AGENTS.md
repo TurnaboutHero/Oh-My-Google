@@ -1,6 +1,6 @@
 # AGENTS.md — How AI Agents Should Use omg
 
-Last updated: 2026-04-22
+Last updated: 2026-04-24
 
 This file is the project-local operating guide for AI coding agents using `oh-my-google` (`omg`) in this repository.
 
@@ -138,6 +138,26 @@ omg --output json budget enable-api --project <project-id> --yes
 
 Current behavior: budget guard is enforced before live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 
+### IAM Audit
+
+IAM audit is read-only:
+
+```bash
+omg --output json iam audit --project <project-id>
+```
+
+MCP:
+
+```text
+omg.iam.audit { "project": "<project-id>" }
+```
+
+Rules:
+
+- Use IAM audit before designing any IAM write/grant workflow.
+- Treat `risk: high` or `inaccessible` IAM policy results as blockers for autonomous IAM writes.
+- IAM writes are not implemented.
+
 ### Secret Manager
 
 ```bash
@@ -192,7 +212,7 @@ Rules:
 
 ## MCP Tools
 
-The MCP server exposes 16 tools:
+The MCP server exposes 17 tools:
 
 | Tool | Input | Meaning |
 |---|---|---|
@@ -205,6 +225,7 @@ The MCP server exposes 16 tools:
 | `omg.reject` | `approvalId`, `reason?`, `rejecter?` | Reject an approval request |
 | `omg.approvals.list` | `status?`, `action?` | List approvals |
 | `omg.budget.audit` | `project` | Read billing/budget guard state |
+| `omg.iam.audit` | `project` | Read IAM policy bindings and service account metadata |
 | `omg.secret.list` | `project?`, `limit?` | List Secret Manager metadata only |
 | `omg.secret.set` | `project?`, `name`, `value?`, `valueFile?`, `dryRun?`, `yes?` | Create a secret or add a version |
 | `omg.secret.delete` | `project?`, `name`, `dryRun?`, `yes?` | Delete a Secret Manager secret |
@@ -219,7 +240,7 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `secret list` |
+| L0 | read-only | `doctor`, `auth context`, `project audit`, `budget audit`, `iam audit`, `secret list` |
 | L1 | normal setup/deploy changes | API enable, Cloud Run deploy, Firebase Hosting deploy |
 | L2 | cost/permission/secret write impact | billing link, IAM grant, `secret set` |
 | L3 | destructive/lifecycle actions | project delete, project undelete, data delete |
@@ -281,6 +302,8 @@ omg approvals list [--status <s>] [--action <a>]
 omg budget audit --project <id>
 omg budget enable-api --project <id> [--dry-run] [--yes]
 
+omg iam audit --project <id>
+
 omg secret list [--project <id>] [--limit <n>]
 omg secret set <name> [--project <id>] [--value <value> | --value-file <path>] [--dry-run] [--yes]
 omg secret delete <name> [--project <id>] [--dry-run] [--yes]
@@ -312,4 +335,5 @@ omg --output json <command>
 - [TODO.md](./TODO.md): current checklist and known risks
 - [ARCHITECTURE.md](./ARCHITECTURE.md): current module boundaries
 - [docs/runbooks](./docs/runbooks): validation and live-operation records
+- [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

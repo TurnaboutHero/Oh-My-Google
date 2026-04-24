@@ -26,6 +26,7 @@ node bin/omg mcp start
 - `omg.reject`
 - `omg.deploy`
 - `omg.budget.audit`
+- `omg.iam.audit`
 - `omg.init`
 - `omg.link`
 - `omg.secret.list`

@@ -1,7 +1,7 @@
 # Product Requirements Document: oh-my-google
 
 Version: 0.3 safety-gateway direction refresh
-Last updated: 2026-04-22
+Last updated: 2026-04-24
 
 ## Summary
 
@@ -16,7 +16,7 @@ The product exists because AI coding agents can write and deploy code, but Googl
 - Shared core: the same implementation path underneath both surfaces
 - Safety layer: Trust Profile, approvals, account checks, and budget guard
 
-Current execution mostly uses official `gcloud` and Firebase CLI backends. The next architectural direction is to make those backends explicit adapters under a common safety kernel, so future Google/Firebase service MCPs can be added without bypassing the same guardrails.
+Current execution mostly uses official `gcloud` and Firebase CLI backends. Existing operations are now classified through an operation-intent model and shared safety decision path, so future Google/Firebase service MCPs can be added without bypassing the same guardrails.
 
 ## Problem
 
@@ -123,6 +123,7 @@ Implemented admin and safety workflow:
 
 - `omg budget audit`
 - `omg budget enable-api`
+- `omg iam audit`
 - `omg secret list/set/delete`
 - `omg project audit/cleanup/delete/undelete`
 
@@ -137,6 +138,7 @@ Implemented MCP tools:
 - `omg.reject`
 - `omg.approvals.list`
 - `omg.budget.audit`
+- `omg.iam.audit`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -187,6 +189,13 @@ Current execution boundary:
 - `--value-file` should be preferred over `--value`.
 - Secret delete must require dry-run or explicit `--yes`.
 
+### IAM Safety
+
+- `iam audit` must be read-only.
+- IAM audit must not grant, revoke, create, delete, or mutate IAM resources.
+- IAM write/grant workflows must stay deferred until there is a concrete owner-approved workflow.
+- Public principals, primitive roles, high-impact IAM administration roles, and missing IAM policy visibility must be surfaced as structured audit signals.
+
 ## Validation State
 
 Completed validation:
@@ -201,12 +210,14 @@ Completed validation:
 - Secret Manager smoke secret creation and deletion under budget guard.
 - History cleanup for local machine paths.
 - Regression tests for first-run `init` budget guard decisions.
+- OperationIntent and shared safety decision regression tests.
+- CLI/MCP implementation equivalence tests for adopted command paths.
 
 Current open validation need:
 
 - Budget guard coverage review for any remaining cost-bearing live operation.
-- Decision on whether budget creation should be implemented or remain manual.
-- Design validation for the upcoming OperationIntent/safety-kernel adapter boundary before adding downstream MCP execution.
+- Notify/security admin surface decisions.
+- Downstream MCP gateway design before any service MCP execution is added.
 
 ## Success Criteria
 
@@ -220,7 +231,6 @@ Short-term:
 Medium-term:
 
 - All cost-bearing live Google Cloud operations have a budget guard or explicit onboarding exception.
-- Existing CLI-backed operations are represented as classified operation intents before execution.
 - Remaining admin surfaces and downstream MCP adapters are added only when justified by actual workflows.
 - MCP and CLI remain equivalent surfaces over the same core.
 

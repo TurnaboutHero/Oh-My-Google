@@ -52,7 +52,7 @@ Completed:
 
 - stdio MCP server.
 - Shared response envelope.
-- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, and project lifecycle.
+- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, and IAM audit.
 
 ### Phase 2.5: Real-World Validation
 
@@ -142,8 +142,6 @@ Important design point:
 
 `omg init` may be the first command that links billing. It now audits the selected billing account before linking so a missing or inaccessible budget blocks cost-expanding setup. `budget enable-api` remains the explicit bootstrap path when budget visibility itself is unavailable.
 
-## Active Phase
-
 ### Phase 3E: Safety Kernel And Adapter Foundation
 
 Goal: make the existing CLI-backed operations and future MCP-backed operations pass through one explicit operation model before execution.
@@ -195,13 +193,34 @@ Remaining:
 - Phase 3E safety-kernel foundation work is complete.
 - Design actual downstream MCP client/gateway mechanics only after the next product decision explicitly prioritizes it.
 
-## Candidate Future Phases
+## Active Phase
 
 ### Phase 3F: Remaining Admin Surface Decisions
 
+Goal: decide whether additional admin surfaces are needed from actual workflows, starting with read-only inspection before writes.
+
+Progress:
+
+- Decided that IAM starts as read-only inspection, not role mutation.
+- Added `omg iam audit --project <id>`.
+- Added MCP `omg.iam.audit`.
+- Added IAM operation intent mapping as L0 read-only.
+- Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
+- Added [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md).
+
+Remaining:
+
+- Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
+- Decide whether `notify` or `security` is needed before Phase 4.
+- Continue adding budget/free-tier guardrails to any new cost-bearing live operation.
+
+## Candidate Future Phases
+
+### Phase 3F Follow-Ups: Remaining Admin Surface Decisions
+
 Do not implement these just because they were listed earlier. Decide from actual workflows.
 
-- `iam`: useful if agents need controlled IAM grants beyond current init.
+- `iam` writes: useful only if agents need controlled IAM grants beyond current init.
 - `notify`: useful if approval/budget events need external notification.
 - `security`: useful if audit posture needs a read-only security scan.
 

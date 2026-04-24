@@ -1,6 +1,6 @@
 # oh-my-google (omg) — Project Instructions
 
-Last updated: 2026-04-22
+Last updated: 2026-04-24
 
 ## Identity
 
@@ -26,13 +26,14 @@ Safety/admin workflow:
 
 - `omg budget audit`
 - `omg budget enable-api`
+- `omg iam audit`
 - `omg secret list/set/delete`
 - `omg project audit/cleanup/delete/undelete`
 
 MCP surface:
 
 - `omg mcp start`
-- 16 MCP tools over the same core implementation
+- 17 MCP tools over the same core implementation
 
 Backend surface:
 
@@ -73,14 +74,15 @@ Important implemented guards:
 - Project deletion blocks protected, billing-enabled, do-not-touch, and non-owner cases before approval.
 - Project undeletion only runs for `DELETE_REQUESTED`.
 - Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
+- Read-only `iam audit` reports visible IAM bindings, service accounts, public principals, primitive roles, and inaccessible policy areas.
 
 Important remaining gaps:
 
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
-- A shared `OperationIntent`/safety-kernel layer is not yet extracted.
 - Downstream MCP discovery/execution is not implemented.
 - Budget creation/mutation is not implemented.
-- `iam`, `notify`, and `security` admin surfaces are not implemented.
+- IAM write/grant workflows are not implemented.
+- `notify` and `security` admin surfaces are not implemented.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
