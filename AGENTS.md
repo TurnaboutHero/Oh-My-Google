@@ -17,7 +17,9 @@ Agents can use two equivalent surfaces:
 
 Both surfaces call the same shared core and use the same response contract.
 
-Implementation note: `omg` currently exposes its own MCP server. It does not yet act as an internal MCP client/gateway for other Google/Firebase MCP servers. Future downstream MCP support must preserve the same Trust Profile, budget guard, approval, audit, and post-verification rules.
+Implementation note: `omg` exposes its own MCP server and a narrow internal downstream MCP gateway. Downstream MCP support must preserve the same Trust Profile, budget guard, approval, audit, and post-verification rules.
+
+Current downstream MCP note: `omg` now supports a narrow gateway for registered downstream MCP servers. Use `.omg/mcp.yaml`, audit/discover first, and call only explicitly allowlisted read-only tools through `omg.mcp.gateway.call` or `omg mcp gateway call`.
 
 ## Agent Rules
 
@@ -238,6 +240,36 @@ Rules:
 - Treat `risk: high` as a blocker before adding instance, backup, network, export, import, or lifecycle workflows.
 - Future SQL live workflows must be classified as operation intents and must preserve the cost-bearing invariant.
 
+### Downstream MCP Gateway
+
+Registry audit is read-only:
+
+```bash
+omg --output json mcp gateway audit
+omg --output json mcp gateway audit --discover
+```
+
+Read-only proxy calls:
+
+```bash
+omg --output json mcp gateway call --server <id> --tool <name> --args-json "{}"
+```
+
+MCP:
+
+```text
+omg.mcp.gateway.audit { "discover": true }
+omg.mcp.gateway.call { "server": "<id>", "tool": "<name>", "arguments": {} }
+```
+
+Rules:
+
+- Configure downstream servers only in `.omg/mcp.yaml`.
+- Use `envAllowlist`; never store secret env values in `.omg/mcp.yaml`.
+- Unknown, unallowlisted, disabled, destructive, or non-read tools are denied.
+- Do not expose raw downstream Google/Firebase MCP tools directly to agents.
+- Downstream write/lifecycle proxying is intentionally not implemented until a verifier exists.
+
 ### Secret Manager
 
 ```bash
@@ -292,7 +324,7 @@ Rules:
 
 ## MCP Tools
 
-The MCP server exposes 21 tools:
+The MCP server exposes 23 tools:
 
 | Tool | Input | Meaning |
 |---|---|---|
@@ -310,6 +342,8 @@ The MCP server exposes 21 tools:
 | `omg.security.audit` | `project` | Read-only project/IAM/budget security posture rollup |
 | `omg.sql.audit` | `project` | Read Cloud SQL instance and backup metadata |
 | `omg.storage.audit` | `project` | Read Cloud Storage bucket metadata and bucket IAM |
+| `omg.mcp.gateway.audit` | `config?`, `discover?` | Audit registered downstream MCP servers and tools |
+| `omg.mcp.gateway.call` | `server`, `tool`, `arguments?`, `config?` | Call allowlisted read-only downstream MCP tools |
 | `omg.secret.list` | `project?`, `limit?` | List Secret Manager metadata only |
 | `omg.secret.set` | `project?`, `name`, `value?`, `valueFile?`, `dryRun?`, `yes?` | Create a secret or add a version |
 | `omg.secret.delete` | `project?`, `name`, `dryRun?`, `yes?` | Delete a Secret Manager secret |
@@ -409,6 +443,12 @@ omg storage audit --project <id>
 
 omg sql audit --project <id>
 
+omg mcp gateway audit
+
+omg mcp gateway audit --discover
+
+omg mcp gateway call --server <id> --tool <name> --args-json "{}"
+
 omg mcp start
 ```
 
@@ -430,6 +470,7 @@ omg --output json <command>
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
 - [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md): Cloud SQL resource audit
+- [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md): downstream MCP gateway safety
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

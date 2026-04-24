@@ -8,6 +8,7 @@ export type OperationService =
   | "cloud-sql"
   | "cloud-storage"
   | "diagnostics"
+  | "downstream-mcp"
   | "firebase-hosting"
   | "firestore"
   | "iam"
@@ -32,6 +33,7 @@ export type AdapterId =
   | "firebase-cli"
   | "google-client"
   | "downstream-mcp"
+  | "downstream-mcp-readonly"
   | "unknown";
 
 export interface OperationIntent {
@@ -69,6 +71,8 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
   "gcp.auth.status": readOnly("auth", "gcloud-cli", "auth"),
   "planner.detect": readOnly("planner", "unknown", "repo"),
   "doctor.run": readOnly("diagnostics", "gcloud-cli", "doctor"),
+  "downstream.mcp.discover": readOnly("downstream-mcp", "downstream-mcp-readonly", "downstream-tools"),
+  "downstream.mcp.read": readOnly("downstream-mcp", "downstream-mcp-readonly", "downstream-tool"),
   "project.audit": readOnly("project-lifecycle", "gcloud-cli", "project"),
   "project.cleanup.plan": {
     ...readOnly("project-lifecycle", "gcloud-cli", "cleanup-plan"),
@@ -253,6 +257,12 @@ const ADAPTER_CAPABILITIES: Record<AdapterId, AdapterCapability> = {
     execution: "discovery-only",
     safetyBoundary: "deny-by-default",
   },
+  "downstream-mcp-readonly": {
+    id: "downstream-mcp-readonly",
+    kind: "mcp",
+    execution: "enabled",
+    safetyBoundary: "operation-intent",
+  },
   unknown: {
     id: "unknown",
     kind: "unknown",
@@ -292,6 +302,7 @@ export function listAdapterCapabilities(): AdapterCapability[] {
     ADAPTER_CAPABILITIES["gcloud-cli"],
     ADAPTER_CAPABILITIES["firebase-cli"],
     ADAPTER_CAPABILITIES["google-client"],
+    ADAPTER_CAPABILITIES["downstream-mcp-readonly"],
     ADAPTER_CAPABILITIES["downstream-mcp"],
     ADAPTER_CAPABILITIES.unknown,
   ];

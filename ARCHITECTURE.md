@@ -65,7 +65,7 @@ CLI surface                 MCP surface
 gcloud CLI   Firebase CLI   REST/SDK     downstream MCP
 ```
 
-This target shape is not fully implemented yet. It is the next refactoring direction for making current CLI-backed operations and future MCP-backed operations share one policy path.
+This target shape is partially implemented: downstream MCP read-only proxying now exists, while write/lifecycle proxying remains deferred until verifier semantics exist.
 
 ## Source Layout
 
@@ -112,6 +112,10 @@ src/
     secret-manager.ts
     sql-audit.ts
     storage-audit.ts
+  downstream-mcp/
+    client.ts
+    gateway.ts
+    registry.ts
   executor/
     apply.ts
   harness/
@@ -220,6 +224,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Project lifecycle: `project audit/cleanup/delete/undelete`
 - Firebase helpers: `firebase init/deploy/emulators`
 - MCP server: `mcp start`
+- Downstream MCP gateway: `mcp gateway audit`, `mcp gateway call`
 
 CLI responsibilities:
 
@@ -233,7 +238,7 @@ CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
 ## MCP Surface
 
-The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 21 tools:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 23 tools:
 
 - `omg.auth.context`
 - `omg.init`
@@ -249,6 +254,8 @@ The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 21 tools:
 - `omg.security.audit`
 - `omg.sql.audit`
 - `omg.storage.audit`
+- `omg.mcp.gateway.audit`
+- `omg.mcp.gateway.call`
 - `omg.secret.list`
 - `omg.secret.set`
 - `omg.secret.delete`
@@ -378,10 +385,11 @@ Most connectors intentionally rely on `gcloud` or Firebase CLI rather than dupli
 Current backend boundary:
 
 - `omg` is currently a CLI plus MCP server over shared TypeScript command functions.
-- It is not yet an MCP client or downstream MCP gateway.
+- It now includes a narrow downstream MCP gateway for registered, allowlisted read-only tool calls.
 - Existing service execution is mostly done through `gcloud`, Firebase CLI, and selected Google client libraries.
-- A future downstream MCP backend must be registered with capability metadata and evaluated through the safety kernel before execution.
-- Unknown downstream MCP tools should be denied by default.
+- Downstream MCP servers must be registered with capability metadata and evaluated through the safety kernel before execution.
+- Unknown downstream MCP tools are denied by default.
+- Downstream MCP write/lifecycle proxying is intentionally not implemented.
 
 ## Trust Model
 
@@ -484,6 +492,37 @@ Coverage invariant:
 - Budget guard is enforced for all currently known cost-bearing live operations: live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup.
 - Tests assert that any known cost-bearing operation intent or command mapping must require budget guard.
 - `budget enable-api` remains an explicit non-cost-bearing bootstrap exception for budget visibility.
+
+## Downstream MCP Gateway
+
+Downstream MCP files:
+
+- [src/downstream-mcp/registry.ts](./src/downstream-mcp/registry.ts)
+- [src/downstream-mcp/client.ts](./src/downstream-mcp/client.ts)
+- [src/downstream-mcp/gateway.ts](./src/downstream-mcp/gateway.ts)
+- [src/cli/commands/mcp.ts](./src/cli/commands/mcp.ts)
+- [src/mcp/tools/mcp-gateway.ts](./src/mcp/tools/mcp-gateway.ts)
+
+Registry path:
+
+- `.omg/mcp.yaml`
+
+Current behavior:
+
+- `mcp gateway audit` reads and validates the downstream MCP registry.
+- `mcp gateway audit --discover` starts registered stdio MCP servers and calls `tools/list` only.
+- `mcp gateway call` calls only explicitly allowlisted read-only downstream tools.
+- MCP `omg.mcp.gateway.audit` and `omg.mcp.gateway.call` call the same command core.
+- Stored env value maps are rejected; registry entries must use `envAllowlist`.
+- Unknown, unallowlisted, disabled, destructive, or non-read tools are denied.
+- Every downstream tool call attempt writes to `.omg/decisions.log.jsonl`.
+
+Adapter boundary:
+
+- `downstream-mcp` remains deny-by-default/discovery-only.
+- `downstream-mcp-readonly` is the only executable downstream adapter.
+- `downstream.mcp.discover` and `downstream.mcp.read` are L0 read-only operation intents.
+- Downstream write/lifecycle proxying needs a verifier before it can be implemented.
 
 ## IAM Audit
 
@@ -662,6 +701,7 @@ Implemented and verified:
 - command-level trust checks in deploy, secret, and project lifecycle routed through the shared safety decision wrapper
 - CLI/MCP implementation equivalence tests around concrete command implementations after safety-wrapper adoption
 - adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
+- downstream MCP registry, discovery, and allowlisted read-only gateway
 - approval workflow
 - read-only Firestore audit surface
 - read-only Cloud Storage audit surface
@@ -675,7 +715,7 @@ Implemented and verified:
 
 Not implemented:
 
-- downstream MCP client/gateway support
+- downstream MCP write/lifecycle proxying
 - budget creation/mutation
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows

@@ -154,6 +154,27 @@ describe("shared safety decision wrapper", () => {
       budgetRequired: false,
     });
   });
+
+  it("allows classified downstream MCP read proxy operations", async () => {
+    const profile = generateDefaultProfile("demo-project", "dev");
+    const intent = classifyOperation("downstream.mcp.read", {
+      projectId: "demo-project",
+      resource: "google/projects.list",
+    });
+
+    const decision = await evaluateSafety(intent, profile, {
+      cwd: process.cwd(),
+      jsonMode: true,
+      yes: true,
+    });
+
+    expect(decision).toMatchObject({
+      allowed: true,
+      decision: "allow",
+      code: "SAFETY_ALLOWED",
+      budgetRequired: false,
+    });
+  });
 });
 
 function configuredBudget(): BillingGuardAudit {

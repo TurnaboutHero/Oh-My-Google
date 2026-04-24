@@ -34,7 +34,7 @@ Implemented:
 - Trust Profile gates across L0/L1/L2/L3 actions
 - approval file queue with TTL, args hash validation, and consumed markers
 - decision log and handoff artifact generation
-- stdio MCP server with 21 tools
+- stdio MCP server with 23 tools
 - gcloud named configuration creation, listing, switching, and project selection
 - gcloud account vs ADC account mismatch detection and explicit ADC alignment
 - Secret Manager list/set/delete
@@ -46,6 +46,7 @@ Implemented:
 - Read-only Firestore database/index audit
 - Read-only Cloud Storage bucket/IAM audit
 - Read-only Cloud SQL instance/backup audit
+- Downstream MCP gateway registry audit, tool discovery, and allowlisted read-only proxy calls
 - active account mismatch blocking for project delete/undelete approvals
 
 Live validation completed:
@@ -62,7 +63,7 @@ Current safety status and pending scope:
 - The budget guard is currently enforced before live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup.
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
-- `omg` is currently an MCP server, but it is not yet a downstream MCP gateway that calls other Google/Firebase MCP servers internally.
+- `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
 - Budget creation and budget mutation are not implemented yet. Current support is audit plus Budget API enablement.
 - Firestore, Cloud Storage, Cloud SQL, IAM writes/provisioning, and `notify` admin surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
@@ -79,7 +80,7 @@ Next architecture direction:
 - Represent existing CLI-backed operations as `OperationIntent` objects and send them through one shared safety decision path.
 - Add adapter capability manifests for `gcloud-cli`, `firebase-cli`, and future downstream MCP/REST backends.
 - If Google/Firebase service MCPs are added, do not expose their raw privileged tools directly to agents; register them behind the `omg` safety gateway with deny-by-default classification.
-- Downstream MCP execution should start with read-only discovery and capability classification before any write proxy exists.
+- Downstream MCP write or lifecycle proxying is not implemented until a concrete verifier exists.
 
 ## Install And Verify
 
@@ -292,7 +293,7 @@ omg mcp start
 
 ## MCP Tools
 
-The MCP server exposes 21 tools:
+The MCP server exposes 23 tools:
 
 | Tool | Description |
 |---|---|
@@ -310,6 +311,8 @@ The MCP server exposes 21 tools:
 | `omg.security.audit` | Audit project security posture using read-only project, IAM, and budget checks |
 | `omg.sql.audit` | Audit Cloud SQL instances and backups |
 | `omg.storage.audit` | Audit Cloud Storage buckets and bucket IAM |
+| `omg.mcp.gateway.audit` | Audit and optionally discover registered downstream MCP tools |
+| `omg.mcp.gateway.call` | Call allowlisted read-only downstream MCP tools |
 | `omg.secret.list` | List Secret Manager metadata |
 | `omg.secret.set` | Create a secret or add a new secret version |
 | `omg.secret.delete` | Delete a Secret Manager secret |
@@ -383,6 +386,7 @@ Representative error codes:
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
 - [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md): Cloud SQL resource audit
+- [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md): downstream MCP gateway safety
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/secret-admin.md](./docs/runbooks/secret-admin.md): Secret Manager admin surface

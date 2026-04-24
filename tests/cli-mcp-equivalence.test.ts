@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runDeploy, type RunDeployOutcome } from "../src/cli/commands/deploy.js";
 import { runFirestoreAudit, type RunFirestoreOutcome } from "../src/cli/commands/firestore.js";
 import { runIamAudit, type RunIamOutcome } from "../src/cli/commands/iam.js";
+import { runMcpGatewayAudit, type RunMcpGatewayOutcome } from "../src/cli/commands/mcp.js";
 import {
   runProjectDelete,
   type RunProjectOutcome,
@@ -21,6 +22,7 @@ import { runStorageAudit, type RunStorageOutcome } from "../src/cli/commands/sto
 import { handleDeploy } from "../src/mcp/tools/deploy.js";
 import { handleFirestoreAudit } from "../src/mcp/tools/firestore.js";
 import { handleIamAudit } from "../src/mcp/tools/iam.js";
+import { handleMcpGatewayAudit } from "../src/mcp/tools/mcp-gateway.js";
 import { handleProjectDelete } from "../src/mcp/tools/project.js";
 import {
   handleSecretDelete,
@@ -346,6 +348,15 @@ describe("CLI/MCP command implementation equivalence", () => {
 
     expect(normalizeCliOutcome("storage:audit", cli)).toEqual(normalizeMcpResponse(mcp));
   });
+
+  it("returns the same downstream MCP gateway audit through CLI and MCP surfaces", async () => {
+    const cwd = await createTempWorkspace("gateway");
+
+    const cli = await runMcpGatewayAudit({ cwd });
+    const mcp = await withCwd(cwd, () => handleMcpGatewayAudit({}));
+
+    expect(normalizeCliOutcome("mcp:gateway:audit", cli)).toEqual(normalizeMcpResponse(mcp));
+  });
 });
 
 async function createPairedWorkspaces(): Promise<{ cliCwd: string; mcpCwd: string }> {
@@ -407,7 +418,8 @@ function normalizeCliOutcome(
     | RunSecurityOutcome
     | RunFirestoreOutcome
     | RunSqlOutcome
-    | RunStorageOutcome,
+    | RunStorageOutcome
+    | RunMcpGatewayOutcome,
 ): unknown {
   if (outcome.ok) {
     return normalizeDynamicValues({

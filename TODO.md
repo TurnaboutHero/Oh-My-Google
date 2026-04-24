@@ -27,6 +27,21 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Decide stronger Secret Manager integration is already covered by existing list/set/delete plus budget guard; version/access-policy audit remains deferred until a concrete workflow exists.
 - [x] Preserve the cost-bearing invariant across all Phase 4 read-only resource surfaces.
 
+### Phase 4B: Downstream MCP Gateway
+
+- [x] Add `.omg/mcp.yaml` downstream MCP registry parsing.
+- [x] Reject stored env value maps; use `envAllowlist` only.
+- [x] Add registry audit without downstream execution.
+- [x] Add optional downstream MCP tool discovery through `tools/list`.
+- [x] Add read-only allowlisted downstream MCP proxy calls.
+- [x] Deny unknown, unallowlisted, disabled, destructive, and non-read downstream tools.
+- [x] Keep raw `downstream-mcp` adapter deny-by-default while enabling only `downstream-mcp-readonly`.
+- [x] Add `downstream.mcp.discover` and `downstream.mcp.read` operation intents as L0.
+- [x] Log every downstream tool call attempt to `.omg/decisions.log.jsonl`.
+- [x] Add CLI coverage through `omg mcp gateway audit` and `omg mcp gateway call`.
+- [x] Add MCP coverage through `omg.mcp.gateway.audit` and `omg.mcp.gateway.call`.
+- [x] Add downstream MCP gateway tests and runbook.
+
 ### Phase 3D: Budget Guard Expansion
 
 - [x] Define the `budget` command scope and trust level.
@@ -88,8 +103,9 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 2. Keep `notify` deferred unless a concrete external notification workflow requires it.
 3. Preserve the cost-bearing invariant before any new live Google Cloud operation.
 4. Run optional live read-only audits only with explicit project/account approval.
-5. Treat Phase 4B downstream MCP gateway design as the next architectural candidate.
-6. Re-run the local verification suite before each push.
+5. Run optional downstream MCP gateway smoke only against a known benign MCP server.
+6. Pick the next product workflow before adding any downstream write/lifecycle proxy.
+7. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -171,6 +187,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] `omg.firestore.audit`.
 - [x] `omg.storage.audit`.
 - [x] `omg.sql.audit`.
+- [x] `omg.mcp.gateway.audit`.
+- [x] `omg.mcp.gateway.call`.
 
 ### Phase 1.1 Hardening
 
@@ -246,8 +264,9 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Budget alerts do not enforce a hard spend cap.
 - Budget visibility depends on billing permissions and the Budget API.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
-- `omg` is currently an MCP server, not yet a downstream MCP client/gateway.
-- Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools are not safety-wrapped yet.
+- `omg` now has a narrow downstream MCP gateway for registry audit, tool discovery, and allowlisted read-only tool calls.
+- Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools remain denied unless routed through the gateway allowlist.
+- Downstream MCP write/lifecycle proxying is intentionally not implemented until concrete verifiers exist.
 - IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.
 - Security audit is a read-only rollup, not Security Command Center integration.
 - Notify is intentionally deferred until external notification recipients/channels are specified.

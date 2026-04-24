@@ -52,7 +52,7 @@ Completed:
 
 - stdio MCP server.
 - Shared response envelope.
-- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, security audit, Firestore audit, Cloud Storage audit, and Cloud SQL audit.
+- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, security audit, Firestore audit, Cloud Storage audit, Cloud SQL audit, and downstream MCP gateway audit/call.
 
 ### Phase 2.5: Real-World Validation
 
@@ -287,7 +287,9 @@ Before any Phase 4 resource workflow is implemented, classify it as an `Operatio
 
 ### Phase 4B: Downstream MCP Gateway
 
-Candidate scope:
+Goal: let `omg` act as a safety gateway for external MCP servers without exposing raw privileged tools.
+
+Completed:
 
 - `.omg/mcp.yaml` for downstream MCP registration.
 - downstream tool discovery with no execution by default.
@@ -296,8 +298,18 @@ Candidate scope:
 - explicit deny for unknown or unclassified tools.
 - audit logging for every downstream tool call.
 - post-call verification when a tool claims to create, update, delete, or restore a resource.
+- CLI commands: `omg mcp gateway audit`, `omg mcp gateway audit --discover`, and `omg mcp gateway call`.
+- MCP tools: `omg.mcp.gateway.audit` and `omg.mcp.gateway.call`.
+- Adapter split: raw `downstream-mcp` stays deny-by-default; `downstream-mcp-readonly` is the only executable downstream adapter.
+- Non-read downstream tools are blocked until a concrete verifier is designed.
+- Added [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md).
 
 Principle: `omg` may become an MCP server and MCP client, but downstream MCPs stay behind the same safety kernel. Raw Google/Firebase service MCPs should not be exposed to agents for privileged work when `omg` is meant to enforce policy.
+
+Remaining:
+
+- Run optional live gateway smoke only against a known benign MCP server.
+- Do not add downstream write/lifecycle proxying until the workflow includes dry-run or post-verification semantics.
 
 ### Phase 5: AI And Analytics Integrations
 

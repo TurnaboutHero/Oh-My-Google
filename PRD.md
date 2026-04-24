@@ -18,6 +18,8 @@ The product exists because AI coding agents can write and deploy code, but Googl
 
 Current execution mostly uses official `gcloud` and Firebase CLI backends. Existing operations are now classified through an operation-intent model and shared safety decision path, so future Google/Firebase service MCPs can be added without bypassing the same guardrails.
 
+The current downstream MCP gateway supports registered servers, tool discovery, and allowlisted read-only proxy calls. It intentionally does not proxy write or lifecycle tools until concrete verification semantics exist.
+
 ## Problem
 
 Google Cloud and Firebase are powerful but easy for an autonomous agent to misuse.
@@ -130,6 +132,8 @@ Implemented admin and safety workflow:
 - `omg sql audit`
 - `omg secret list/set/delete`
 - `omg project audit/cleanup/delete/undelete`
+- `omg mcp gateway audit`
+- `omg mcp gateway call`
 
 Implemented MCP tools:
 
@@ -154,12 +158,15 @@ Implemented MCP tools:
 - `omg.project.cleanup`
 - `omg.project.delete`
 - `omg.project.undelete`
+- `omg.mcp.gateway.audit`
+- `omg.mcp.gateway.call`
 
 Current execution boundary:
 
 - CLI and MCP surfaces call shared TypeScript command functions.
 - Service execution currently uses narrow connectors over `gcloud`, Firebase CLI, and selected Google client libraries.
-- `omg` is not yet a downstream MCP client or MCP gateway. Future service MCPs must be routed through the same safety kernel rather than exposed as raw privileged tools.
+- `omg` has a downstream MCP gateway for registered, allowlisted read-only tools. Future service MCPs must be routed through the same safety kernel rather than exposed as raw privileged tools.
+- Downstream MCP write/lifecycle proxying is not implemented.
 
 ## Safety Requirements
 
@@ -232,6 +239,16 @@ Current execution boundary:
 - SQL instance/backup/export/import/lifecycle workflows must stay deferred until there is a concrete owner-approved workflow.
 - Future SQL live workflows must preserve the cost-bearing invariant.
 
+### Downstream MCP Gateway Safety
+
+- `.omg/mcp.yaml` must be the registry for downstream MCP servers.
+- Registry entries must use `envAllowlist`; secret environment values must not be stored in the registry.
+- Tool discovery may call `tools/list` but must not call arbitrary tools.
+- `omg.mcp.gateway.call` must allow only explicitly allowlisted read-only tools.
+- Unknown, unallowlisted, disabled, destructive, or non-read downstream tools must be denied.
+- Every downstream tool call attempt must write a decision log event.
+- Downstream write/lifecycle proxying must stay deferred until post-verification semantics are implemented.
+
 ## Validation State
 
 Completed validation:
@@ -252,11 +269,12 @@ Completed validation:
 - Read-only Firestore audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud Storage audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.
+- Downstream MCP registry, discovery, read-only proxy, denial, and decision log tests.
 
 Current open validation need:
 
 - Optional live Firestore, Cloud Storage, and Cloud SQL audit smoke on a known validation project.
-- Downstream MCP gateway design before any service MCP execution is added.
+- Optional downstream MCP gateway smoke against a known benign MCP server.
 
 ## Success Criteria
 

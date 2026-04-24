@@ -37,13 +37,13 @@ Safety/admin workflow:
 MCP surface:
 
 - `omg mcp start`
-- 21 MCP tools over the same core implementation
+- 23 MCP tools over the same core implementation
 
 Backend surface:
 
 - Current execution uses narrow `gcloud` and Firebase CLI connectors plus selected Google client libraries.
-- `omg` is not yet a downstream MCP client/gateway for other Google/Firebase MCP servers.
-- Future downstream MCP support must be routed through the same safety model, not exposed as raw privileged tools.
+- `omg` has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
+- Downstream MCP write/lifecycle proxying must be routed through the same safety model and is not implemented until concrete verifiers exist.
 
 ## Coding Principles
 
@@ -83,11 +83,13 @@ Important implemented guards:
 - Read-only `sql audit` reports visible instances, backup metadata, deletion protection, public IPv4, and public authorized networks.
 - Read-only `iam audit` reports visible IAM bindings, service accounts, public principals, primitive roles, and inaccessible policy areas.
 - Read-only `security audit` rolls up project, IAM, and budget posture without enabling new Google APIs.
+- Downstream MCP gateway audit/discovery reads `.omg/mcp.yaml` and `tools/list`.
+- Downstream MCP gateway call allows only explicitly allowlisted read-only tools and logs every call attempt.
 
 Important remaining gaps:
 
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
-- Downstream MCP discovery/execution is not implemented.
+- Downstream MCP write/lifecycle proxying is not implemented.
 - Budget creation/mutation is not implemented.
 - Firestore write/provisioning/data workflows are not implemented.
 - Cloud Storage bucket/object/IAM/lifecycle write workflows are not implemented.
@@ -104,6 +106,7 @@ Important remaining gaps:
 - Do not add new dependencies without explicit need.
 - Do not implement MCP by shelling out to the CLI.
 - Do not expose raw downstream Google/Firebase MCP tools for privileged operations.
+- Do not store secret env values in `.omg/mcp.yaml`; use `envAllowlist`.
 - Do not silently switch ADC after switching gcloud configuration.
 - Do not auto-select among multiple visible projects in JSON mode.
 - Do not broaden destructive cloud actions without approval and tests.

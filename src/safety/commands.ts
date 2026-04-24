@@ -12,6 +12,8 @@ export type CommandName =
   | "iam:audit"
   | "init"
   | "link"
+  | "mcp:gateway:audit"
+  | "mcp:gateway:call"
   | "project:audit"
   | "project:cleanup"
   | "project:delete"
@@ -45,6 +47,8 @@ const MCP_COMMANDS: Record<string, CommandName> = {
   "omg.iam.audit": "iam:audit",
   "omg.init": "init",
   "omg.link": "link",
+  "omg.mcp.gateway.audit": "mcp:gateway:audit",
+  "omg.mcp.gateway.call": "mcp:gateway:call",
   "omg.project.audit": "project:audit",
   "omg.project.cleanup": "project:cleanup",
   "omg.project.delete": "project:delete",
@@ -115,6 +119,10 @@ function getCommandOperationIds(
       return ["billing.audit", "billing.link", "apis.enable", "iam.role.grant"];
     case "link":
       return ["planner.detect"];
+    case "mcp:gateway:audit":
+      return ["downstream.mcp.discover"];
+    case "mcp:gateway:call":
+      return ["downstream.mcp.read"];
     case "project:audit":
       return ["project.audit"];
     case "project:cleanup":

@@ -78,6 +78,28 @@ describe("operation intent classification", () => {
       adapter: "gcloud-cli",
       requiresBudget: false,
     });
+
+    expect(classifyOperation("downstream.mcp.discover", { projectId: "demo-project" })).toMatchObject({
+      id: "downstream.mcp.discover",
+      service: "downstream-mcp",
+      action: "read",
+      trustLevel: "L0",
+      projectId: "demo-project",
+      resource: "downstream-tools",
+      adapter: "downstream-mcp-readonly",
+      requiresBudget: false,
+    });
+
+    expect(classifyOperation("downstream.mcp.read", { projectId: "demo-project" })).toMatchObject({
+      id: "downstream.mcp.read",
+      service: "downstream-mcp",
+      action: "read",
+      trustLevel: "L0",
+      projectId: "demo-project",
+      resource: "downstream-tool",
+      adapter: "downstream-mcp-readonly",
+      requiresBudget: false,
+    });
   });
 
   it("classifies deploy actions as cost-bearing writes that require budget guard", () => {
@@ -224,11 +246,18 @@ describe("adapter capability manifest", () => {
       execution: "discovery-only",
       safetyBoundary: "deny-by-default",
     });
+    expect(getAdapterCapability("downstream-mcp-readonly")).toMatchObject({
+      id: "downstream-mcp-readonly",
+      kind: "mcp",
+      execution: "enabled",
+      safetyBoundary: "operation-intent",
+    });
 
     expect(listAdapterCapabilities().map((capability) => capability.id)).toEqual([
       "gcloud-cli",
       "firebase-cli",
       "google-client",
+      "downstream-mcp-readonly",
       "downstream-mcp",
       "unknown",
     ]);

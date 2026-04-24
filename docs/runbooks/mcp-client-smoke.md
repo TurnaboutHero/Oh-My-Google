@@ -2,7 +2,7 @@
 
 Purpose: verify that a real MCP client can consume `omg mcp start`, list tools, and call at least one low-risk tool.
 
-Scope note: this runbook covers the `omg` MCP server itself. It does not validate downstream Google/Firebase MCP servers behind `omg`; that gateway layer is not implemented yet.
+Scope note: this runbook covers the `omg` MCP server itself. Downstream MCP gateway smoke is separate and should only target a known benign MCP server.
 
 ## Prerequisites
 
@@ -31,6 +31,8 @@ node bin/omg mcp start
 - `omg.security.audit`
 - `omg.sql.audit`
 - `omg.storage.audit`
+- `omg.mcp.gateway.audit`
+- `omg.mcp.gateway.call`
 - `omg.init`
 - `omg.link`
 - `omg.secret.list`

@@ -31,6 +31,12 @@ import {
 import { securityAuditTool, handleSecurityAudit } from "./tools/security.js";
 import { handleSqlAudit, sqlAuditTool } from "./tools/sql.js";
 import { handleStorageAudit, storageAuditTool } from "./tools/storage.js";
+import {
+  handleMcpGatewayAudit,
+  handleMcpGatewayCall,
+  mcpGatewayAuditTool,
+  mcpGatewayCallTool,
+} from "./tools/mcp-gateway.js";
 import type { OmgResponse } from "./tools/types.js";
 
 const tools = [
@@ -55,6 +61,8 @@ const tools = [
   securityAuditTool,
   sqlAuditTool,
   storageAuditTool,
+  mcpGatewayAuditTool,
+  mcpGatewayCallTool,
 ];
 
 export async function startMcpServer(opts: { transport: "stdio" }): Promise<void> {
@@ -144,6 +152,12 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === storageAuditTool.name) {
     return handleStorageAudit(args ?? {});
+  }
+  if (name === mcpGatewayAuditTool.name) {
+    return handleMcpGatewayAudit(args ?? {});
+  }
+  if (name === mcpGatewayCallTool.name) {
+    return handleMcpGatewayCall(args ?? {});
   }
 
   return {

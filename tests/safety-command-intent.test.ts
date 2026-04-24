@@ -119,6 +119,26 @@ describe("command-level operation intent mapping", () => {
     });
   });
 
+  it("maps downstream MCP gateway commands as read-only command intents", () => {
+    expect(classifyCommand("mcp:gateway:audit", { projectId: "demo-project" }).intents[0])
+      .toMatchObject({
+        id: "downstream.mcp.discover",
+        service: "downstream-mcp",
+        action: "read",
+        trustLevel: "L0",
+        requiresBudget: false,
+      });
+
+    expect(classifyCommand("mcp:gateway:call", { projectId: "demo-project" }).intents[0])
+      .toMatchObject({
+        id: "downstream.mcp.read",
+        service: "downstream-mcp",
+        action: "read",
+        trustLevel: "L0",
+        requiresBudget: false,
+      });
+  });
+
   it("normalizes equivalent CLI and MCP surfaces to the same command plan", () => {
     expect(
       classifySurfaceCommand("cli", "deploy", {
@@ -193,6 +213,26 @@ describe("command-level operation intent mapping", () => {
         projectId: "demo-project",
       }),
     );
+
+    expect(
+      classifySurfaceCommand("cli", "mcp:gateway:audit", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.mcp.gateway.audit", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "mcp:gateway:call", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.mcp.gateway.call", {
+        projectId: "demo-project",
+      }),
+    );
   });
 
   it("keeps every cost-bearing command intent budget-gated", () => {
@@ -212,6 +252,8 @@ describe("command-level operation intent mapping", () => {
       { command: "iam:audit", context: { projectId: "demo-project" } },
       { command: "init", context: { projectId: "demo-project" } },
       { command: "link" },
+      { command: "mcp:gateway:audit", context: { projectId: "demo-project" } },
+      { command: "mcp:gateway:call", context: { projectId: "demo-project" } },
       { command: "project:audit", context: { projectId: "demo-project" } },
       { command: "project:cleanup", context: { projectId: "demo-project" } },
       { command: "project:delete", context: { projectId: "demo-project" } },

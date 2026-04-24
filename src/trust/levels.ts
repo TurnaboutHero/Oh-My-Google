@@ -6,6 +6,8 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "gcp.auth.status": "L0",
   "planner.detect": "L0",
   "doctor.run": "L0",
+  "downstream.mcp.discover": "L0",
+  "downstream.mcp.read": "L0",
   "project.audit": "L0",
   "project.cleanup.plan": "L0",
   "billing.audit": "L0",
