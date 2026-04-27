@@ -214,7 +214,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Core: `init`, `link`, `deploy`, `doctor`, `setup`
 - Auth: `auth status/list/create/context/switch/project/refresh/logout`
 - Approval: `approve`, `reject`, `approvals list`
-- Budget: `budget audit`, `budget enable-api`
+- Budget: `budget audit`, `budget enable-api`, `budget ensure --dry-run`, `budget notifications audit`, `budget notifications ensure --dry-run`
 - Firestore: `firestore audit`
 - IAM: `iam audit`
 - Security: `security audit`
@@ -473,8 +473,12 @@ Current behavior:
 
 - `budget audit` checks billing state and visible budgets.
 - `budget enable-api` explicitly enables `billingbudgets.googleapis.com`.
+- `budget ensure --dry-run` normalizes an expected budget policy and compares it with visible budgets.
+- `budget notifications audit` reports whether visible budgets have Pub/Sub notification routing and can optionally inspect a target Pub/Sub topic/IAM policy.
+- `budget notifications ensure --dry-run` plans the expected `notificationsRule.pubsubTopic` and schema version for the target budget after read-only Pub/Sub topic/IAM audit.
 - Budget audit is read-only.
-- Budget creation is not implemented.
+- Live budget creation/update is not implemented and `budget ensure --yes` is blocked.
+- Live budget notification mutation is not implemented and `budget notifications ensure --yes` is blocked.
 - Live `secret set` is blocked unless budget audit returns `risk: configured`.
 - Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
 - Live `omg firebase deploy --execute` is blocked unless budget audit returns `risk: configured`.
@@ -486,6 +490,33 @@ Risk states:
 - `missing_budget`
 - `billing_disabled`
 - `review`
+
+Budget ensure dry-run actions:
+
+- `none`: the expected named budget policy is visible.
+- `create`: no expected named budget is visible.
+- `update`: the expected named budget is visible but amount or thresholds differ.
+- `blocked`: billing or budget visibility is incomplete.
+
+Budget notification audit posture:
+
+- `configured`: every visible budget has a Pub/Sub topic and schema version `1.0`.
+- `partial`: at least one visible budget has incomplete notification routing, or only some visible budgets are configured.
+- `none`: no visible budget has Pub/Sub notification routing.
+- `blocked`: budget audit cannot safely inspect the billing/budget state.
+
+Budget notification ensure dry-run actions:
+
+- `none`: the target budget already has the expected Pub/Sub topic and schema version.
+- `update`: the target budget exists and needs a `notificationsRule` update.
+- `blocked`: budget audit failed, the target budget is not visible, the Pub/Sub topic is missing, or Publisher binding/IAM readiness is not visible.
+
+Pub/Sub topic audit states:
+
+- `low`: topic exists and a Pub/Sub Publisher binding is visible.
+- `missing_topic`: the topic does not exist or is not visible.
+- `missing_publisher`: topic IAM is visible, but no `roles/pubsub.publisher` binding is visible.
+- `review`: topic or topic IAM cannot be fully inspected.
 
 Coverage invariant:
 
@@ -716,12 +747,12 @@ Implemented and verified:
 Not implemented:
 
 - downstream MCP write/lifecycle proxying
-- budget creation/mutation
+- live budget creation/mutation
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows
 - Cloud SQL instance/backup/export/import/lifecycle write workflows
 - IAM write/grant workflows
-- `notify` admin surface
+- external `notify` sender surface
 - advanced rollback orchestration
 - Next.js SSR deployment
 

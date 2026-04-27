@@ -7,11 +7,17 @@ Commands:
 - `omg budget audit --project <id>`
 - `omg budget enable-api --project <id> --dry-run`
 - `omg budget enable-api --project <id> --yes`
+- `omg budget ensure --project <id> --amount <n> --currency <code> --dry-run`
+- `omg budget notifications audit --project <id> [--topic <topic>]`
+- `omg budget notifications ensure --project <id> --topic <topic> --dry-run`
 - MCP tool `omg.budget.audit`
 
 `budget audit` never creates budgets, enables APIs, links billing, disables billing, or changes project state.
 `budget enable-api` is the only command in this surface that changes project state; it enables `billingbudgets.googleapis.com`, requires explicit `--yes`, and should be run after `--dry-run`.
-`omg budget create` is intentionally deferred. Budget creation stays a console/manual owner action because budget policy depends on billing-account ownership, currency, notification routing, and organization spending rules.
+`budget ensure --dry-run` plans the expected budget policy and compares it with visible budgets. It does not create or update budgets.
+`budget notifications audit` and `budget notifications ensure --dry-run` inspect and plan Pub/Sub notification routing only. They can read a target Pub/Sub topic and topic IAM policy, but they do not create Pub/Sub topics, grant IAM, update budgets, or send external notifications.
+Live budget creation/update is still blocked in the current safe implementation. `budget ensure --yes` returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED` until the live Budget API executor and post-verification workflow are implemented.
+Live budget notification mutation is also blocked. `budget notifications ensure --yes` returns `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED` until live notification update, optional topic/IAM setup, and budget notification post-verification are implemented.
 
 ## Audit
 
@@ -38,7 +44,8 @@ Risk classifications:
 - Treat `missing_budget` and `review` as blockers for autonomous live writes.
 - If budgets are inaccessible because `billingbudgets.googleapis.com` is disabled, do not auto-enable it from `budget audit`.
 - Budget API enablement is explicit through `budget enable-api`.
-- Budget creation is not automated. Create or adjust budgets manually in the Cloud Billing console, then verify visibility with `omg budget audit --project <id>`.
+- Budget ensure live mutation is not automated yet. Use `budget ensure --dry-run` to plan the expected policy, then create or adjust budgets manually in the Cloud Billing console until the live executor exists.
+- Budget notification live mutation is not automated yet. Use `budget notifications audit --topic` and `budget notifications ensure --dry-run` to inspect routing/topic/IAM readiness, then configure Pub/Sub notifications manually in Cloud Billing until the live executor exists.
 - Live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup run this guard before cost-expanding writes. Dry-runs do not run the guard and do not write cloud resources.
 - Operation intent and command-mapping tests assert that known cost-bearing operations require budget guard.
 
@@ -59,6 +66,50 @@ omg --output json budget audit --project <project-id>
 ```
 
 Proceed with live cost-bearing `omg` operations only when the audit returns `risk: configured`.
+
+## Budget Ensure Dry-Run
+
+Use this path to make the expected budget policy explicit before implementing live budget mutation:
+
+```bash
+omg --output json budget ensure --project <project-id> --amount 50000 --currency KRW --thresholds 0.5,0.9,1 --dry-run
+```
+
+The dry-run returns:
+
+- expected display name, amount, currency, and thresholds
+- visible linked billing account
+- current budget audit risk
+- one of `create`, `update`, `none`, or `blocked`
+- exact policy changes that would be needed
+
+Default display name:
+
+```text
+omg budget guard: <project-id>
+```
+
+Current safety boundary:
+
+- `--dry-run` is implemented and read-only.
+- `--yes` is intentionally blocked.
+- The command does not call Budget API create/update yet.
+- MCP coverage is deferred until live executor semantics are stable.
+
+Live executor design:
+
+- [docs/runbooks/budget-ensure-live-executor.md](./budget-ensure-live-executor.md)
+
+## Budget Notifications Dry-Run
+
+Use this path to inspect and plan Pub/Sub notification routing before adding external notification senders:
+
+```bash
+omg --output json budget notifications audit --project <project-id> --topic budget-alerts
+omg --output json budget notifications ensure --project <project-id> --topic budget-alerts --dry-run
+```
+
+Notification posture and live mutation gates are tracked in [budget-notifications.md](./budget-notifications.md).
 
 ## MCP Example
 

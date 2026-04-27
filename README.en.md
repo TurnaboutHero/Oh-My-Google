@@ -39,6 +39,8 @@ Implemented:
 - gcloud account vs ADC account mismatch detection and explicit ADC alignment
 - Secret Manager list/set/delete
 - Budget audit and Budget API enable workflow
+- Budget ensure dry-run policy planning
+- Budget Pub/Sub notification audit and dry-run routing planning
 - budget guard before live `omg deploy`, `omg firebase deploy --execute`, Secret Manager writes, and `omg init` billing/API/IAM setup
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
 - Read-only IAM audit
@@ -64,8 +66,8 @@ Current safety status and pending scope:
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
-- Budget creation and budget mutation are not implemented yet. Current support is audit plus Budget API enablement.
-- Firestore, Cloud Storage, Cloud SQL, IAM writes/provisioning, and `notify` admin surfaces are not designed or implemented yet.
+- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, budget notification audit/dry-run planning, and read-only Pub/Sub topic/IAM audit.
+- Firestore, Cloud Storage, Cloud SQL, IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
@@ -225,6 +227,9 @@ Budget:
 omg budget audit --project <id>
 omg budget enable-api --project <id> --dry-run
 omg budget enable-api --project <id> --yes
+omg budget ensure --project <id> --amount 50000 --currency KRW --dry-run
+omg budget notifications audit --project <id> --topic budget-alerts
+omg budget notifications ensure --project <id> --topic budget-alerts --dry-run
 ```
 
 IAM:

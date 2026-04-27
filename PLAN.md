@@ -222,6 +222,36 @@ Remaining:
 
 ## Active Phase
 
+### Phase 5A/5B: Operational Safety Closure - Budget Policy And Notifications
+
+Goal: make the budget guard more concrete without unsafe live mutation.
+
+Current safe-scope progress:
+
+- Added `omg budget ensure --project <id> --amount <n> --currency <code> --dry-run`.
+- Added budget policy normalization for amount, currency, thresholds, and display name.
+- Added dry-run comparison against visible budgets with actions: `create`, `update`, `none`, and `blocked`.
+- Added `budget.ensure` operation intent as L2 billing governance with dry-run and post-verification semantics.
+- Kept live budget create/update blocked with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`, even if `--yes` is supplied.
+- Added a live executor design/runbook and pure Budget API mutation contract tests without opening cloud writes.
+- Added `omg budget notifications audit --project <id>`.
+- Added `omg budget notifications ensure --project <id> --topic <topic> --dry-run`.
+- Added budget notification posture reporting with `configured`, `partial`, `none`, and `blocked`.
+- Added dry-run planning for budget `notificationsRule.pubsubTopic` and schema version `1.0`.
+- Added read-only Pub/Sub topic existence and topic IAM audit for notification planning.
+- Added blocker reporting when the target topic is missing, topic IAM is inaccessible, or no `roles/pubsub.publisher` binding is visible.
+- Kept live budget notification mutation blocked with `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED`, even if `--yes` is supplied.
+- Added [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md).
+
+Remaining:
+
+- Implement Budget API create/update executor only after the owner-approved live workflow is designed.
+- Post-verify live ensure by re-running budget audit and matching the expected policy.
+- Add MCP coverage only after the CLI contract and live executor stabilize.
+- Decide whether to support automatic Pub/Sub topic creation and IAM grant, or keep those as manual console steps.
+- Add local cost lock after notification posture is ready to feed it.
+- Add agent IAM planning/bootstrap after budget controls are stable.
+
 ### Phase 4: Resource Add Workflows
 
 Goal: add resource surfaces only when they remain understandable, reversible, and safe for agents.
@@ -314,7 +344,7 @@ Remaining:
 - Run optional external live gateway smoke only against a known benign MCP server.
 - Do not add downstream write/lifecycle proxying until the workflow includes dry-run or post-verification semantics.
 
-### Phase 5: AI And Analytics Integrations
+### Later Candidate Phase: AI And Analytics Integrations
 
 Candidate integrations:
 

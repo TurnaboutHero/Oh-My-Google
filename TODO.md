@@ -1,10 +1,33 @@
 # TODO
 
-Status snapshot: 2026-04-24
+Status snapshot: 2026-04-27
 
 This file tracks current implementation state. Product rationale lives in [PRD.md](./PRD.md). Sequencing and phase intent live in [PLAN.md](./PLAN.md).
 
 ## Now
+
+### Phase 5A: Operational Safety Closure - Budget Policy Ensure
+
+- [x] Add `omg budget ensure --project <id> --amount <n> --currency <code> --dry-run` as a safe policy-planning command.
+- [x] Add budget policy normalization for amount, currency, thresholds, and expected display name.
+- [x] Compare the expected budget policy against visible billing budgets and return `create`, `update`, `none`, or `blocked`.
+- [x] Keep live budget creation/update blocked in this safe foundation pass, even when `--yes` is supplied.
+- [x] Classify `budget.ensure` as L2 billing governance with dry-run and post-verification semantics.
+- [x] Add tests for budget policy planning, CLI behavior, and safety intent mapping.
+- [x] Add live executor design/runbook and pure Budget API mutation contract tests without cloud calls.
+- [ ] Implement the live Budget API executor for create/update after owner approval and post-verification design.
+- [ ] Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
+- [x] Add Pub/Sub budget notification audit/ensure dry-run planning after budget policy ensure is live-safe.
+- [x] Parse visible budget `notificationsRule` metadata from budget audit output.
+- [x] Report notification posture as `configured`, `partial`, `none`, or `blocked`.
+- [x] Keep live budget notification mutation blocked in this safe foundation pass, even when `--yes` is supplied.
+- [x] Add tests for notification posture, dry-run routing plans, mutation contract, CLI behavior, and safety intent mapping.
+- [x] Add budget notification runbook.
+- [x] Add Pub/Sub topic existence audit before opening live notification mutation.
+- [x] Add read-only Pub/Sub topic IAM audit and Publisher binding readiness reporting before opening live notification mutation.
+- [ ] Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
+- [ ] Add local cost lock after notification posture is defined.
+- [ ] Add agent IAM planning/bootstrap after budget controls are stable.
 
 ### Phase 4: Resource Add Workflows
 
@@ -102,13 +125,15 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Keep Firestore, Cloud Storage, Cloud SQL, and IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
-2. Keep `notify` deferred unless a concrete external notification workflow requires it.
-3. Preserve the cost-bearing invariant before any new live Google Cloud operation.
-4. Run optional live read-only audits only with explicit project/account approval.
-5. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
-6. Pick the next product workflow before adding any downstream write/lifecycle proxy.
-7. Re-run the local verification suite before each push.
+1. Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
+2. Add local cost lock before any hard cloud-level budget response.
+3. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
+4. Keep `budget ensure --yes` and `budget notifications ensure --yes` blocked until their live executors exist.
+5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
+6. Preserve the cost-bearing invariant before any new live Google Cloud operation.
+7. Run optional live read-only audits only with explicit project/account approval.
+8. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
+9. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -266,6 +291,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 - Budget alerts do not enforce a hard spend cap.
 - Budget visibility depends on billing permissions and the Budget API.
+- `budget ensure` currently plans expected budget policy in dry-run only; live budget create/update is intentionally blocked until the executor and post-verification are implemented.
+- `budget notifications ensure` currently plans Pub/Sub routing in dry-run only and performs read-only topic/IAM audit; live notification mutation, Pub/Sub topic creation, and IAM grants are intentionally blocked.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
 - `omg` now has a narrow downstream MCP gateway for registry audit, tool discovery, and allowlisted read-only tool calls.
 - Local stdio fixture coverage exists for the downstream MCP gateway, but external downstream MCP smoke still requires a known benign target.
@@ -273,7 +300,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Downstream MCP write/lifecycle proxying is intentionally not implemented until concrete verifiers exist.
 - IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.
 - Security audit is a read-only rollup, not Security Command Center integration.
-- Notify is intentionally deferred until external notification recipients/channels are specified.
+- External notify senders are intentionally deferred until budget Pub/Sub notification posture and recipients/channels are specified.
 - Firestore audit is read-only; Firestore write/provisioning/data workflows are intentionally not implemented.
 - Cloud Storage audit is read-only; bucket/object/IAM/lifecycle write workflows are intentionally not implemented.
 - Cloud SQL audit is read-only; instance/backup/export/import/lifecycle write workflows are intentionally not implemented.

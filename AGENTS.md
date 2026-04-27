@@ -138,7 +138,15 @@ omg --output json budget enable-api --project <project-id> --dry-run
 omg --output json budget enable-api --project <project-id> --yes
 ```
 
-Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
+Budget policy planning is read-only in the current implementation:
+
+```bash
+omg --output json budget ensure --project <project-id> --amount 50000 --currency KRW --dry-run
+omg --output json budget notifications audit --project <project-id> --topic budget-alerts
+omg --output json budget notifications ensure --project <project-id> --topic budget-alerts --dry-run
+```
+
+Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked.
 
 ### IAM Audit
 
@@ -419,6 +427,9 @@ omg approvals list [--status <s>] [--action <a>]
 
 omg budget audit --project <id>
 omg budget enable-api --project <id> [--dry-run] [--yes]
+omg budget ensure --project <id> --amount <n> --currency <code> [--thresholds <list>] --dry-run
+omg budget notifications audit --project <id> [--topic <topic>]
+omg budget notifications ensure --project <id> --topic <topic> [--display-name <name>] --dry-run
 
 omg iam audit --project <id>
 
@@ -474,4 +485,5 @@ omg --output json <command>
 - [docs/runbooks/phase-4-4b-release-notes.md](./docs/runbooks/phase-4-4b-release-notes.md): Phase 4 and Phase 4B release notes
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
+- [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

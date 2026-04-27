@@ -54,7 +54,7 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 - Supporting every GCP service.
 - Silent account switching.
 - Silent ADC switching.
-- Creating or mutating budgets without an explicit future workflow.
+- Creating or mutating budgets or budget notification rules without an explicit workflow.
 - Fully preventing spend through budgets; Google Cloud budgets are alerts, not hard caps.
 - Supporting Next.js SSR deployment in the current phase.
 - Exposing arbitrary downstream MCP tools directly to agents without operation classification, capability metadata, and safety review.
@@ -125,6 +125,9 @@ Implemented admin and safety workflow:
 
 - `omg budget audit`
 - `omg budget enable-api`
+- `omg budget ensure --dry-run`
+- `omg budget notifications audit`
+- `omg budget notifications ensure --dry-run`
 - `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
@@ -193,6 +196,8 @@ Current execution boundary:
 
 - Budget audit must be read-only.
 - Budget API enablement must require explicit `--yes` after a dry-run option.
+- Budget policy ensure must remain dry-run only until live create/update has approval and post-verification.
+- Budget notification ensure must remain dry-run only until Pub/Sub topic existence, visible Publisher binding readiness, and budget notification rule post-verification are implemented.
 - Live deploys, Firebase helper deploys, `secret set`, and `init` billing/API/IAM setup must be blocked unless budget audit returns `risk: configured`.
 - `budget enable-api` is the explicit onboarding exception for budget visibility bootstrap.
 - Budget guard coverage must expand before additional broad live operations are added.

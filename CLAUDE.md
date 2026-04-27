@@ -26,6 +26,9 @@ Safety/admin workflow:
 
 - `omg budget audit`
 - `omg budget enable-api`
+- `omg budget ensure --dry-run`
+- `omg budget notifications audit`
+- `omg budget notifications ensure --dry-run`
 - `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
@@ -78,6 +81,8 @@ Important implemented guards:
 - Project deletion blocks protected, billing-enabled, do-not-touch, and non-owner cases before approval.
 - Project undeletion only runs for `DELETE_REQUESTED`.
 - Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
+- `budget ensure --dry-run` plans expected budget policy, but live budget create/update remains blocked.
+- `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible routing plus Pub/Sub topic/IAM state, but live notification mutation remains blocked.
 - Read-only `firestore audit` reports visible databases, composite indexes, and protection/PITR posture.
 - Read-only `storage audit` reports visible buckets, bucket posture, bucket IAM, and public principals.
 - Read-only `sql audit` reports visible instances, backup metadata, deletion protection, public IPv4, and public authorized networks.
@@ -90,12 +95,12 @@ Important remaining gaps:
 
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 - Downstream MCP write/lifecycle proxying is not implemented.
-- Budget creation/mutation is not implemented.
+- Live budget creation/mutation is not implemented.
 - Firestore write/provisioning/data workflows are not implemented.
 - Cloud Storage bucket/object/IAM/lifecycle write workflows are not implemented.
 - Cloud SQL instance/backup/export/import/lifecycle write workflows are not implemented.
 - IAM write/grant workflows are not implemented.
-- `notify` is deferred until a concrete external notification workflow exists.
+- External `notify` senders are deferred until budget Pub/Sub notification posture exists and concrete recipients/channels are specified.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
