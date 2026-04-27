@@ -14,6 +14,7 @@ export type OperationService =
   | "iam"
   | "planner"
   | "project-lifecycle"
+  | "pubsub"
   | "secret-manager"
   | "security"
   | "service-usage"
@@ -80,6 +81,30 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
     supportsDryRun: true,
   },
   "billing.audit": readOnly("billing", "gcloud-cli", "budget"),
+  "budget.ensure": {
+    service: "billing",
+    action: "write",
+    adapter: "gcloud-cli",
+    costBearing: false,
+    destructive: false,
+    secretTouching: false,
+    requiresBudget: false,
+    supportsDryRun: true,
+    postVerify: true,
+  },
+  "budget.notifications.audit": readOnly("billing", "gcloud-cli", "budget-notifications"),
+  "pubsub.topic.audit": readOnly("pubsub", "gcloud-cli", "pubsub-topic"),
+  "budget.notifications.ensure": {
+    service: "billing",
+    action: "write",
+    adapter: "gcloud-cli",
+    costBearing: false,
+    destructive: false,
+    secretTouching: false,
+    requiresBudget: false,
+    supportsDryRun: true,
+    postVerify: true,
+  },
   "firestore.audit": readOnly("firestore", "gcloud-cli", "firestore-databases"),
   "iam.audit": readOnly("iam", "gcloud-cli", "iam-policy"),
   "security.audit": readOnly("security", "gcloud-cli", "security-posture"),

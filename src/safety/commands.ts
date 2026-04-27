@@ -4,6 +4,9 @@ export type CommandName =
   | "auth:context"
   | "auth:list"
   | "budget:audit"
+  | "budget:ensure"
+  | "budget:notifications:audit"
+  | "budget:notifications:ensure"
   | "budget:enable-api"
   | "deploy"
   | "doctor"
@@ -103,6 +106,12 @@ function getCommandOperationIds(
       return ["gcp.auth.status"];
     case "budget:audit":
       return ["billing.audit"];
+    case "budget:ensure":
+      return ["billing.audit", "budget.ensure"];
+    case "budget:notifications:audit":
+      return ["billing.audit", "budget.notifications.audit", "pubsub.topic.audit"];
+    case "budget:notifications:ensure":
+      return ["billing.audit", "pubsub.topic.audit", "budget.notifications.ensure"];
     case "budget:enable-api":
       return ["budget.enable-api"];
     case "deploy":
@@ -150,6 +159,10 @@ function getCommandNotes(command: CommandName): string[] {
   switch (command) {
     case "budget:enable-api":
       return ["Budget API enablement is a bootstrap exception for budget visibility."];
+    case "budget:ensure":
+      return ["Budget ensure starts as dry-run policy planning; live mutation needs explicit executor support and post-verification."];
+    case "budget:notifications:ensure":
+      return ["Budget notification ensure starts as dry-run routing planning; live mutation needs explicit executor support and post-verification."];
     case "init":
       return ["Init is a multi-action setup flow; budget audit must run before billing link/API/IAM writes."];
     case "project:delete":

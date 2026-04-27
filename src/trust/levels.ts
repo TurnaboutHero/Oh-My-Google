@@ -11,6 +11,9 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "project.audit": "L0",
   "project.cleanup.plan": "L0",
   "billing.audit": "L0",
+  "budget.ensure": "L2",
+  "budget.notifications.audit": "L0",
+  "pubsub.topic.audit": "L0",
   "firestore.audit": "L0",
   "iam.audit": "L0",
   "security.audit": "L0",
@@ -30,6 +33,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "billing.link": "L2",
   "deploy.prod": "L2",
   "secret.set": "L2",
+  "budget.notifications.ensure": "L2",
 
   // L3 destructive or high-risk lifecycle actions
   "secret.delete": "L3",

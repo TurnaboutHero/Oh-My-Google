@@ -54,6 +54,65 @@ describe("command-level operation intent mapping", () => {
     expect(plan.notes).toContain("Budget API enablement is a bootstrap exception for budget visibility.");
   });
 
+  it("maps budget ensure as dry-run-capable billing governance", () => {
+    const plan = classifyCommand("budget:ensure", { projectId: "demo-project" });
+
+    expect(plan.intents.map((intent) => intent.id)).toEqual(["billing.audit", "budget.ensure"]);
+    expect(plan.intents[1]).toMatchObject({
+      id: "budget.ensure",
+      service: "billing",
+      action: "write",
+      trustLevel: "L2",
+      costBearing: false,
+      requiresBudget: false,
+      supportsDryRun: true,
+      postVerify: true,
+    });
+  });
+
+  it("maps budget notification commands as audit-first billing governance", () => {
+    const auditPlan = classifyCommand("budget:notifications:audit", { projectId: "demo-project" });
+
+    expect(auditPlan.intents.map((intent) => intent.id)).toEqual([
+      "billing.audit",
+      "budget.notifications.audit",
+      "pubsub.topic.audit",
+    ]);
+    expect(auditPlan.intents[1]).toMatchObject({
+      id: "budget.notifications.audit",
+      service: "billing",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+    expect(auditPlan.intents[2]).toMatchObject({
+      id: "pubsub.topic.audit",
+      service: "pubsub",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+
+    const ensurePlan = classifyCommand("budget:notifications:ensure", { projectId: "demo-project" });
+
+    expect(ensurePlan.intents.map((intent) => intent.id)).toEqual([
+      "billing.audit",
+      "pubsub.topic.audit",
+      "budget.notifications.ensure",
+    ]);
+    expect(ensurePlan.intents[2]).toMatchObject({
+      id: "budget.notifications.ensure",
+      service: "billing",
+      action: "write",
+      trustLevel: "L2",
+      costBearing: false,
+      requiresBudget: false,
+      supportsDryRun: true,
+      postVerify: true,
+    });
+  });
+
+
   it("maps IAM audit as a read-only command intent", () => {
     const plan = classifyCommand("iam:audit", { projectId: "demo-project" });
 
@@ -243,6 +302,9 @@ describe("command-level operation intent mapping", () => {
       { command: "auth:context" },
       { command: "auth:list" },
       { command: "budget:audit", context: { projectId: "demo-project" } },
+      { command: "budget:ensure", context: { projectId: "demo-project" } },
+      { command: "budget:notifications:audit", context: { projectId: "demo-project" } },
+      { command: "budget:notifications:ensure", context: { projectId: "demo-project" } },
       { command: "budget:enable-api", context: { projectId: "demo-project" } },
       { command: "deploy", context: { projectId: "demo-project", deployTarget: "cloud-run" } },
       { command: "deploy", context: { projectId: "demo-project", deployTarget: "firebase-hosting" } },

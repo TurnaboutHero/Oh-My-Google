@@ -224,6 +224,54 @@ describe("operation intent classification", () => {
         supportsDryRun: true,
       });
   });
+
+  it("classifies budget ensure as non-cost-bearing billing governance with post verification", () => {
+    expect(classifyOperation("budget.ensure", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "budget.ensure",
+        service: "billing",
+        action: "write",
+        trustLevel: "L2",
+        costBearing: false,
+        requiresBudget: false,
+        supportsDryRun: true,
+        postVerify: true,
+      });
+  });
+
+  it("classifies budget notification routing as audit-first billing governance", () => {
+    expect(classifyOperation("budget.notifications.audit", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "budget.notifications.audit",
+        service: "billing",
+        action: "read",
+        trustLevel: "L0",
+        costBearing: false,
+        requiresBudget: false,
+      });
+
+    expect(classifyOperation("pubsub.topic.audit", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "pubsub.topic.audit",
+        service: "pubsub",
+        action: "read",
+        trustLevel: "L0",
+        costBearing: false,
+        requiresBudget: false,
+      });
+
+    expect(classifyOperation("budget.notifications.ensure", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "budget.notifications.ensure",
+        service: "billing",
+        action: "write",
+        trustLevel: "L2",
+        costBearing: false,
+        requiresBudget: false,
+        supportsDryRun: true,
+        postVerify: true,
+      });
+  });
 });
 
 describe("adapter capability manifest", () => {
