@@ -13,6 +13,15 @@ export interface BillingBudgetSummary {
     nanos?: number;
   };
   thresholdPercents: number[];
+  notificationsRule?: BillingBudgetNotificationsRule;
+}
+
+export interface BillingBudgetNotificationsRule {
+  pubsubTopic?: string;
+  schemaVersion?: string;
+  monitoringNotificationChannels?: string[];
+  disableDefaultIamRecipients?: boolean;
+  enableProjectLevelRecipients?: boolean;
 }
 
 export interface BillingGuardAudit {
@@ -129,6 +138,7 @@ async function readBudgets(
 
 function parseBudget(row: Record<string, unknown>): BillingBudgetSummary {
   const amount = getRecord(getRecord(row.amount)?.specifiedAmount);
+  const notificationsRule = parseNotificationsRule(getRecord(row.notificationsRule));
   return {
     name: stringValue(row.name),
     displayName: stringValue(row.displayName) || stringValue(row.name),
@@ -142,7 +152,32 @@ function parseBudget(row: Record<string, unknown>): BillingBudgetSummary {
     thresholdPercents: arrayValue(row.thresholdRules)
       .map((rule) => getRecord(rule)?.thresholdPercent)
       .filter((value): value is number => typeof value === "number"),
+    ...(notificationsRule ? { notificationsRule } : {}),
   };
+}
+
+function parseNotificationsRule(
+  rule: Record<string, unknown> | undefined,
+): BillingBudgetNotificationsRule | undefined {
+  if (!rule) {
+    return undefined;
+  }
+
+  const monitoringNotificationChannels = arrayValue(rule.monitoringNotificationChannels)
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const parsed: BillingBudgetNotificationsRule = {
+    ...(stringValue(rule.pubsubTopic) ? { pubsubTopic: stringValue(rule.pubsubTopic) } : {}),
+    ...(stringValue(rule.schemaVersion) ? { schemaVersion: stringValue(rule.schemaVersion) } : {}),
+    ...(monitoringNotificationChannels.length > 0 ? { monitoringNotificationChannels } : {}),
+    ...(typeof rule.disableDefaultIamRecipients === "boolean"
+      ? { disableDefaultIamRecipients: rule.disableDefaultIamRecipients }
+      : {}),
+    ...(typeof rule.enableProjectLevelRecipients === "boolean"
+      ? { enableProjectLevelRecipients: rule.enableProjectLevelRecipients }
+      : {}),
+  };
+
+  return Object.keys(parsed).length > 0 ? parsed : undefined;
 }
 
 function buildSignals(budgets: BillingBudgetSummary[], inaccessible: string[]): string[] {
