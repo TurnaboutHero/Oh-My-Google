@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildCreateBudgetRequest,
   buildUpdateBudgetRequest,
+  BudgetApiTransportError,
+  createBudgetApiFetchExecutor,
   executeBudgetApiMutation,
   executeBudgetEnsureWithPostVerification,
+  getGcloudBudgetApiAccessToken,
   mapBudgetApiHttpFailure,
   mapBudgetApiTokenFailure,
+  type BudgetApiFetch,
   type BudgetApiRequestExecutor,
 } from "../src/connectors/budget-api.js";
 import { planBudgetApiMutation, planBudgetEnsure } from "../src/connectors/budget-policy.js";
@@ -215,6 +219,141 @@ describe("budget API executor core", () => {
       code: "BUDGET_API_UNAVAILABLE",
       retryable: true,
       statusCode: 503,
+    });
+  });
+
+  it("gets a gcloud access token through an injected token command executor", async () => {
+    const executor = vi.fn(async (args: string[]) => ({
+      stdout: " ya29.test-token \n",
+      stderr: "",
+      args,
+    }));
+
+    await expect(getGcloudBudgetApiAccessToken({ executor })).resolves.toBe("ya29.test-token");
+    expect(executor).toHaveBeenCalledWith(["auth", "print-access-token"]);
+  });
+
+  it("maps gcloud token command failure to a transport error", async () => {
+    const executor = vi.fn(async () => {
+      throw Object.assign(new Error("not authenticated"), {
+        stderr: "ERROR: no active account selected",
+        code: 1,
+      });
+    });
+
+    await expect(getGcloudBudgetApiAccessToken({ executor })).rejects.toMatchObject({
+      failure: {
+        code: "NO_AUTH",
+        retryable: false,
+      },
+    });
+  });
+
+  it("executes Budget API requests with bearer auth and quota project headers through injected fetch", async () => {
+    const fetchImpl = vi.fn<BudgetApiFetch>(async (_url, _init) => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      headers: { get: () => null },
+      text: async () => JSON.stringify({
+        name: "billingAccounts/ABC-123/budgets/budget-2",
+        displayName: "omg budget guard: demo-project",
+        budgetFilter: {
+          projects: ["projects/demo-project"],
+          calendarPeriod: "MONTH",
+          creditTypesTreatment: "INCLUDE_ALL_CREDITS",
+        },
+        amount: { specifiedAmount: { currencyCode: "KRW", units: "50000" } },
+        thresholdRules: [{ thresholdPercent: 1, spendBasis: "CURRENT_SPEND" }],
+      }),
+    }));
+    const executor = createBudgetApiFetchExecutor({
+      apiUserProjectId: "demo-project",
+      tokenProvider: async () => "ya29.test-token",
+      fetchImpl,
+    });
+    const mutation = planBudgetApiMutation(createPlan());
+    const request = buildCreateBudgetRequest({
+      apiUserProjectId: "demo-project",
+      parent: "billingAccounts/ABC-123",
+      budget: mutation.budget!,
+    });
+
+    await expect(executor(request)).resolves.toMatchObject({
+      displayName: "omg budget guard: demo-project",
+    });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://billingbudgets.googleapis.com/v1/billingAccounts/ABC-123/budgets",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({
+          authorization: "Bearer ya29.test-token",
+          "content-type": "application/json",
+          "x-goog-user-project": "demo-project",
+        }),
+      }),
+    );
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toMatchObject({
+      displayName: "omg budget guard: demo-project",
+    });
+  });
+
+  it("does not call fetch when the token provider returns an empty token", async () => {
+    const fetchImpl = vi.fn<BudgetApiFetch>();
+    const executor = createBudgetApiFetchExecutor({
+      apiUserProjectId: "demo-project",
+      tokenProvider: async () => " ",
+      fetchImpl,
+    });
+    const request = buildCreateBudgetRequest({
+      apiUserProjectId: "demo-project",
+      parent: "billingAccounts/ABC-123",
+      budget: planBudgetApiMutation(createPlan()).budget!,
+    });
+
+    await expect(executor(request)).rejects.toMatchObject({
+      failure: {
+        code: "BUDGET_API_TOKEN_COMMAND_FAILED",
+        retryable: false,
+      },
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("maps Budget API fetch failures through the transport error contract", async () => {
+    const fetchImpl = vi.fn<BudgetApiFetch>(async () => ({
+      ok: false,
+      status: 403,
+      statusText: "Forbidden",
+      headers: { get: () => null },
+      text: async () => JSON.stringify({
+        error: {
+          status: "PERMISSION_DENIED",
+          message: "caller lacks billing.budgets.create",
+        },
+      }),
+    }));
+    const executor = createBudgetApiFetchExecutor({
+      apiUserProjectId: "demo-project",
+      tokenProvider: async () => "ya29.test-token",
+      fetchImpl,
+    });
+    const request = buildCreateBudgetRequest({
+      apiUserProjectId: "demo-project",
+      parent: "billingAccounts/ABC-123",
+      budget: planBudgetApiMutation(createPlan()).budget!,
+    });
+
+    const result = executor(request);
+
+    await expect(result).rejects.toBeInstanceOf(BudgetApiTransportError);
+    await expect(result).rejects.toMatchObject({
+      failure: {
+        code: "BUDGET_API_PERMISSION_DENIED",
+        retryable: false,
+        reason: "PERMISSION_DENIED: caller lacks billing.budgets.create",
+      },
     });
   });
 });

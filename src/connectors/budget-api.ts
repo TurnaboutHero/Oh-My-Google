@@ -7,6 +7,7 @@ import {
   type BudgetEnsurePlan,
   type BudgetEnsurePostVerification,
 } from "./budget-policy.js";
+import { execCliFile } from "../system/cli-runner.js";
 import { ValidationError } from "../types/errors.js";
 
 const BUDGET_API_BASE_URL = "https://billingbudgets.googleapis.com/v1";
@@ -45,6 +46,33 @@ export type BudgetEnsureAuditProvider = (
   projectId: string,
 ) => Promise<BillingGuardAudit>;
 
+export type BudgetApiTokenProvider = () => Promise<string>;
+
+export type BudgetApiTokenCommandExecutor = (
+  args: string[],
+) => Promise<{ stdout: string; stderr: string }>;
+
+export interface BudgetApiFetchInit {
+  method: BudgetApiHttpMethod;
+  headers: Record<string, string>;
+  body: string;
+}
+
+export interface BudgetApiFetchResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers?: {
+    get: (name: string) => string | null;
+  };
+  text: () => Promise<string>;
+}
+
+export type BudgetApiFetch = (
+  url: string,
+  init: BudgetApiFetchInit,
+) => Promise<BudgetApiFetchResponse>;
+
 export interface BudgetApiTransportFailure {
   code: BudgetApiTransportFailureCode;
   message: string;
@@ -54,6 +82,13 @@ export interface BudgetApiTransportFailure {
   retryAfterMs?: number;
   reason?: string;
   next: string[];
+}
+
+export class BudgetApiTransportError extends Error {
+  constructor(public readonly failure: BudgetApiTransportFailure) {
+    super(failure.message);
+    this.name = "BudgetApiTransportError";
+  }
 }
 
 export interface CreateBudgetInput {
@@ -133,6 +168,78 @@ export function buildUpdateBudgetRequest(input: UpdateBudgetInput): BudgetApiReq
     path,
     headers: buildHeaders(apiUserProjectId),
     body: input.budget,
+  };
+}
+
+export async function getGcloudBudgetApiAccessToken(input: {
+  expectedAccount?: string;
+  activeAccount?: string;
+  executor?: BudgetApiTokenCommandExecutor;
+} = {}): Promise<string> {
+  const executor = input.executor ?? runGcloudTokenCommand;
+  try {
+    const { stdout } = await executor(["auth", "print-access-token"]);
+    const token = stdout.trim();
+    if (!token) {
+      throw new BudgetApiTransportError(mapBudgetApiTokenFailure({
+        expectedAccount: input.expectedAccount,
+        activeAccount: input.activeAccount,
+        message: "gcloud auth print-access-token returned an empty token.",
+      }));
+    }
+    return token;
+  } catch (error) {
+    if (error instanceof BudgetApiTransportError) {
+      throw error;
+    }
+    throw new BudgetApiTransportError(mapBudgetApiTokenFailure({
+      expectedAccount: input.expectedAccount,
+      activeAccount: input.activeAccount,
+      exitCode: getExitCode(error),
+      stderr: getErrorText(error),
+      message: error instanceof Error ? error.message : undefined,
+    }));
+  }
+}
+
+export function createBudgetApiFetchExecutor(input: {
+  apiUserProjectId: string;
+  tokenProvider?: BudgetApiTokenProvider;
+  fetchImpl?: BudgetApiFetch;
+}): BudgetApiRequestExecutor {
+  const apiUserProjectId = normalizeProjectId(input.apiUserProjectId);
+  const tokenProvider = input.tokenProvider ?? (() => getGcloudBudgetApiAccessToken());
+  const fetchImpl = input.fetchImpl ?? defaultBudgetApiFetch;
+
+  return async (request) => {
+    const token = (await tokenProvider()).trim();
+    if (!token) {
+      throw new BudgetApiTransportError(mapBudgetApiTokenFailure({
+        message: "Budget API token provider returned an empty token.",
+      }));
+    }
+    const response = await fetchImpl(request.url, {
+      method: request.method,
+      headers: {
+        ...request.headers,
+        authorization: `Bearer ${token}`,
+        "x-goog-user-project": apiUserProjectId,
+      },
+      body: JSON.stringify(request.body),
+    });
+    const responseBody = await readBudgetApiResponseBody(response);
+
+    if (!response.ok) {
+      throw new BudgetApiTransportError(mapBudgetApiHttpFailure({
+        statusCode: response.status,
+        projectId: apiUserProjectId,
+        responseBody,
+        message: response.statusText,
+        retryAfterMs: parseRetryAfterMs(response.headers?.get("retry-after")),
+      }));
+    }
+
+    return parseBudgetApiPayload(responseBody, apiUserProjectId);
   };
 }
 
@@ -416,11 +523,94 @@ export async function executeBudgetEnsureWithPostVerification(input: {
   };
 }
 
+async function runGcloudTokenCommand(args: string[]): Promise<{ stdout: string; stderr: string }> {
+  return execCliFile("gcloud", args, {
+    encoding: "utf-8",
+    windowsHide: true,
+    maxBuffer: 1024 * 1024,
+  });
+}
+
+async function defaultBudgetApiFetch(
+  url: string,
+  init: BudgetApiFetchInit,
+): Promise<BudgetApiFetchResponse> {
+  const fetchImpl = (globalThis as { fetch?: BudgetApiFetch }).fetch;
+  if (!fetchImpl) {
+    throw new BudgetApiTransportError({
+      code: "BUDGET_API_REQUEST_FAILED",
+      message: "No fetch implementation is available for Budget API transport.",
+      recoverable: true,
+      retryable: false,
+      reason: "Node.js fetch is unavailable in this runtime.",
+      next: ["Use Node.js 20 or inject a BudgetApiFetch implementation."],
+    });
+  }
+  return fetchImpl(url, init);
+}
+
+async function readBudgetApiResponseBody(response: BudgetApiFetchResponse): Promise<unknown> {
+  const text = await response.text();
+  if (!text.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { message: text };
+  }
+}
+
+function parseBudgetApiPayload(responseBody: unknown, projectId: string): BudgetApiBudgetPayload {
+  if (!responseBody || typeof responseBody !== "object" || Array.isArray(responseBody)) {
+    throw invalidBudgetApiResponse(projectId, "Budget API response was not a JSON object.");
+  }
+
+  const record = responseBody as Record<string, unknown>;
+  if (typeof record.displayName !== "string") {
+    throw invalidBudgetApiResponse(projectId, "Budget API response did not include a displayName.");
+  }
+  return record as unknown as BudgetApiBudgetPayload;
+}
+
+function invalidBudgetApiResponse(projectId: string, reason: string): BudgetApiTransportError {
+  return new BudgetApiTransportError({
+    code: "BUDGET_API_REQUEST_FAILED",
+    message: "Budget API returned an invalid response.",
+    recoverable: true,
+    retryable: false,
+    reason,
+    next: [
+      `omg budget audit --project ${projectId}`,
+      `omg budget ensure --project ${projectId} --amount <amount> --currency <code> --dry-run`,
+    ],
+  });
+}
+
 function buildHeaders(apiUserProjectId: string): BudgetApiRequest["headers"] {
   return {
     "content-type": "application/json",
     "x-goog-user-project": apiUserProjectId,
   };
+}
+
+function parseRetryAfterMs(value: string | null | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.round(seconds * 1000);
+  }
+
+  const date = Date.parse(value);
+  if (!Number.isNaN(date)) {
+    return Math.max(0, date - Date.now());
+  }
+
+  return undefined;
 }
 
 function getBudgetApiHttpFailureNext(statusCode: number, projectId: string | undefined): string[] {
@@ -464,6 +654,22 @@ function summarizeFailureReason(reason: string): string | undefined {
     return undefined;
   }
   return trimmed.length > 300 ? `${trimmed.slice(0, 297)}...` : trimmed;
+}
+
+function getErrorText(error: unknown): string | undefined {
+  const candidate = error as Error & { stderr?: string; stdout?: string };
+  return `${candidate.stderr ?? candidate.message ?? ""}`.trim() || undefined;
+}
+
+function getExitCode(error: unknown): number | undefined {
+  const candidate = error as { code?: unknown; exitCode?: unknown };
+  if (typeof candidate.code === "number") {
+    return candidate.code;
+  }
+  if (typeof candidate.exitCode === "number") {
+    return candidate.exitCode;
+  }
+  return undefined;
 }
 
 function missingMutationFields(action: "create" | "update"): BudgetApiMutationExecutionResult {

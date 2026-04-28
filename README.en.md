@@ -70,7 +70,7 @@ Current safety status and pending scope:
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
-- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, injected Budget API executor core, live gate contract, transport failure mapping, budget notification audit/dry-run planning, read-only Pub/Sub topic/IAM audit, and budget alert to cost lock ingestion dry-run planning. Pub/Sub topic/IAM setup, alert ingestion setup, and live agent IAM bootstrap stay behind a manual-first boundary.
+- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, injected Budget API executor core, live gate contract, transport failure mapping, opt-in transport factory, budget notification audit/dry-run planning, read-only Pub/Sub topic/IAM audit, and budget alert to cost lock ingestion dry-run planning. Pub/Sub topic/IAM setup, alert ingestion setup, and live agent IAM bootstrap stay behind a manual-first boundary.
 - Firestore, Cloud Storage, Cloud SQL, live IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.

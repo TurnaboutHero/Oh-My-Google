@@ -240,6 +240,7 @@ Current safe-scope progress:
 - Added injected Budget API create/update request execution and post-verification core without wiring live CLI mutation.
 - Added a live gate contract for Budget API transport/auth, L2 approval, decision logging, and `BUDGET_ENSURE_POST_VERIFY_FAILED` error envelope without opening live CLI mutation.
 - Added Budget API token command and HTTP status failure mapping, including retryability, without opening live transport.
+- Added opt-in Budget API live transport factory with gcloud token provider, fetch execution, bearer/quota headers, and mock-only tests while keeping CLI live mutation blocked.
 - Added `omg budget notifications audit --project <id>`.
 - Added `omg budget notifications ensure --project <id> --topic <topic> --dry-run`.
 - Added budget notification posture reporting with `configured`, `partial`, `none`, and `blocked`.
@@ -261,7 +262,7 @@ Current safe-scope progress:
 
 Remaining:
 
-- Wire Budget API create/update executor into `budget ensure --yes` only after the owner-approved live workflow and live transport implementation are designed.
+- Wire Budget API create/update executor into `budget ensure --yes` only after the owner-approved live workflow, approval consumption, and decision logging integration are reviewed.
 - Add MCP coverage only after the CLI contract and live executor stabilize.
 - Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and live agent IAM bootstrap manual-first unless a new owner-approved verifier and rollback plan exists.
 

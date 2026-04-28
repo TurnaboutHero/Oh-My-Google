@@ -1,6 +1,6 @@
 # Budget Ensure Live Executor Design
 
-Status: injected executor core and live gate contract tests exist; live CLI mutation is still blocked
+Status: injected executor core, live gate contract, and opt-in transport factory exist; live CLI mutation is still blocked
 
 This runbook defines the contract for the future live executor behind:
 
@@ -105,8 +105,11 @@ The injected request executor core lives in `src/connectors/budget-api.ts` and i
 - `updateBudget`
 - `executeBudgetApiMutation`
 - `executeBudgetEnsureWithPostVerification`
+- `getGcloudBudgetApiAccessToken`
+- `createBudgetApiFetchExecutor`
+- `BudgetApiTransportError`
 
-The executor core requires an injected `BudgetApiRequestExecutor`; there is no default live transport wired into the CLI. This keeps `budget ensure --yes` blocked while preserving the request and post-verification contract for review.
+The executor core requires an explicit `BudgetApiRequestExecutor`. An opt-in fetch transport factory exists, but there is no live transport wired into the CLI. This keeps `budget ensure --yes` blocked while preserving the request, transport, and post-verification contract for review.
 
 The live gate contract lives in `src/connectors/budget-live-gate.ts` and fixes the non-negotiable behavior before live CLI wiring:
 
@@ -119,15 +122,15 @@ The live gate contract lives in `src/connectors/budget-live-gate.ts` and fixes t
 - retryable transport failures are limited to `BUDGET_API_RATE_LIMITED` and `BUDGET_API_UNAVAILABLE`
 - auth, account mismatch, permission, not found, validation, conflict, and unknown request failures are non-retryable until the operator rechecks context/audit/dry-run output
 
-## Future Live Transport Shape
+## Transport Shape
 
-Future implementation should add the live HTTP/auth transport behind the existing connector instead of placing HTTP logic in the CLI command:
+Transport code lives behind the existing connector instead of placing HTTP logic in the CLI command:
 
 ```text
 src/connectors/budget-api.ts
 ```
 
-Expected live transport integration point:
+Live transport integration point:
 
 ```ts
 createBudget(input: {
@@ -144,10 +147,13 @@ updateBudget(input: {
 }): Promise<BudgetApiBudgetPayload>
 ```
 
-The transport can use either:
+The implemented transport shape is:
 
-- REST with `gcloud auth print-access-token`, `x-goog-user-project`, and `execFile`-safe argument handling; or
-- an official Google client if it avoids broad dependency or auth-context ambiguity.
+- token provider: `gcloud auth print-access-token` through `execFile`-safe command execution
+- HTTP executor: injected or runtime `fetch`
+- headers: `Authorization: Bearer <token>`, `content-type: application/json`, and `x-goog-user-project`
+- response: JSON budget payload parsed after successful status
+- failure: token/HTTP failures mapped to the structured failure contract
 
 Do not add service account key support.
 
@@ -197,7 +203,8 @@ BUDGET_ENSURE_POST_VERIFY_FAILED
 - CLI/MCP-shaped error envelope for `BUDGET_ENSURE_POST_VERIFY_FAILED` includes `liveMutationAttempted`, mutation action, post-verification details, and audit/dry-run next steps. Implemented in live gate contract tests.
 - `--yes` without Trust Profile permission fails before executor invocation.
 - Live transport/auth failure mapping is implemented as a pure contract without cloud calls.
-- Live transport implementation is reviewed.
+- Live transport uses bearer auth and quota project headers. Implemented with injected token/fetch tests only.
+- CLI approval consumption, decision log, and live wiring are reviewed.
 - CLI `--yes` wiring keeps approval and decision log behavior intact.
 - No test uses live Google Cloud.
 
