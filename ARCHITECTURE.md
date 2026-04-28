@@ -1,6 +1,6 @@
 # Architecture
 
-Last updated: 2026-04-24
+Last updated: 2026-04-28
 
 This document describes the current `main` implementation. Product intent lives in [PRD.md](./PRD.md), execution sequencing lives in [PLAN.md](./PLAN.md), and checklist status lives in [TODO.md](./TODO.md).
 
@@ -15,7 +15,7 @@ The architecture is intentionally not a general cloud abstraction layer. It is a
 - one structured response envelope
 - one Trust Profile safety model
 - auditable approvals and artifacts
-- explicit account, project, and budget checks before risky operations
+- explicit account, project, budget, and local cost-lock checks before risky operations
 
 ## High-Level Shape
 
@@ -61,8 +61,8 @@ CLI surface                 MCP surface
           safety kernel
                 |
   +-------------+-------------+----------------+
-  |             |             |                |
-gcloud CLI   Firebase CLI   REST/SDK     downstream MCP
+  |             |             |           |                |
+gcloud CLI   Firebase CLI   local state   REST/SDK     downstream MCP
 ```
 
 This target shape is partially implemented: downstream MCP read-only proxying now exists, while write/lifecycle proxying remains deferred until verifier semantics exist.
@@ -88,6 +88,7 @@ src/
       approvals.ts
       approve.ts
       budget.ts
+      cost.ts
       deploy.ts
       firebase.ts
       firestore.ts
@@ -112,6 +113,8 @@ src/
     secret-manager.ts
     sql-audit.ts
     storage-audit.ts
+  cost-lock/
+    state.ts
   downstream-mcp/
     client.ts
     gateway.ts
@@ -215,6 +218,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Auth: `auth status/list/create/context/switch/project/refresh/logout`
 - Approval: `approve`, `reject`, `approvals list`
 - Budget: `budget audit`, `budget enable-api`, `budget ensure --dry-run`, `budget notifications audit`, `budget notifications ensure --dry-run`
+- Cost lock: `cost status`, `cost lock`, `cost unlock --yes`
 - Firestore: `firestore audit`
 - IAM: `iam audit`
 - Security: `security audit`
@@ -386,6 +390,7 @@ Current backend boundary:
 
 - `omg` is currently a CLI plus MCP server over shared TypeScript command functions.
 - It now includes a narrow downstream MCP gateway for registered, allowlisted read-only tool calls.
+- Local safety state such as cost lock is stored under `.omg/` and classified through the `local-state` adapter.
 - Existing service execution is mostly done through `gcloud`, Firebase CLI, and selected Google client libraries.
 - Downstream MCP servers must be registered with capability metadata and evaluated through the safety kernel before execution.
 - Unknown downstream MCP tools are denied by default.
@@ -469,6 +474,11 @@ Budget command:
 
 - [src/cli/commands/budget.ts](./src/cli/commands/budget.ts)
 
+Local cost-lock command and state:
+
+- [src/cli/commands/cost.ts](./src/cli/commands/cost.ts)
+- [src/cost-lock/state.ts](./src/cost-lock/state.ts)
+
 Current behavior:
 
 - `budget audit` checks billing state and visible budgets.
@@ -483,6 +493,10 @@ Current behavior:
 - Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
 - Live `omg firebase deploy --execute` is blocked unless budget audit returns `risk: configured`.
 - `omg init` checks the selected billing account before billing link, default API enablement, and IAM setup.
+- `cost status` reads local `.omg/cost-lock.json` state.
+- `cost lock --project <id> --reason <text>` records a local project-scoped blocker.
+- `cost unlock --project <id> --yes` clears a local blocker and requires explicit confirmation.
+- Active cost locks block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup before budget audit or cloud execution.
 
 Risk states:
 
@@ -520,7 +534,7 @@ Pub/Sub topic audit states:
 
 Coverage invariant:
 
-- Budget guard is enforced for all currently known cost-bearing live operations: live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup.
+- Budget guard and local cost-lock checks are enforced for all currently known cost-bearing live operations: live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` before billing link/default API enable/IAM setup.
 - Tests assert that any known cost-bearing operation intent or command mapping must require budget guard.
 - `budget enable-api` remains an explicit non-cost-bearing bootstrap exception for budget visibility.
 
@@ -731,7 +745,8 @@ Implemented and verified:
 - shared safety decision wrapper over adapter capability, Trust Profile, approvals, and supplied or provider-fetched budget guard evidence
 - command-level trust checks in deploy, secret, and project lifecycle routed through the shared safety decision wrapper
 - CLI/MCP implementation equivalence tests around concrete command implementations after safety-wrapper adoption
-- adapter capability manifest for current CLI/client-library backends and deny-by-default downstream MCP
+- adapter capability manifest for current CLI/client-library backends, local state, and deny-by-default downstream MCP
+- local cost-lock state and CLI controls for blocking currently known cost-bearing live operations before budget audit
 - downstream MCP registry, discovery, and allowlisted read-only gateway
 - approval workflow
 - read-only Firestore audit surface
@@ -740,7 +755,7 @@ Implemented and verified:
 - Secret Manager admin surface
 - read-only IAM audit surface
 - read-only security posture audit surface
-- budget audit and budget guard for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
+- budget audit, budget guard, and local cost-lock check for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
 - cost-bearing operation invariant tests for operation intents and command mappings
 - project cleanup/delete/undelete safety surface
 
@@ -748,6 +763,7 @@ Not implemented:
 
 - downstream MCP write/lifecycle proxying
 - live budget creation/mutation
+- automatic Budget Pub/Sub notification ingestion into local cost lock
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows
 - Cloud SQL instance/backup/export/import/lifecycle write workflows

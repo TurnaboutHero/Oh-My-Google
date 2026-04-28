@@ -1,7 +1,7 @@
 # Product Requirements Document: oh-my-google
 
-Version: 0.3 safety-gateway direction refresh
-Last updated: 2026-04-24
+Version: 0.4 local cost-lock safety refresh
+Last updated: 2026-04-28
 
 ## Summary
 
@@ -14,7 +14,7 @@ The product exists because AI coding agents can write and deploy code, but Googl
 - CLI: `omg --output json <command>`
 - MCP: `omg mcp start`
 - Shared core: the same implementation path underneath both surfaces
-- Safety layer: Trust Profile, approvals, account checks, and budget guard
+- Safety layer: Trust Profile, approvals, account checks, budget guard, and local cost lock
 
 Current execution mostly uses official `gcloud` and Firebase CLI backends. Existing operations are now classified through an operation-intent model and shared safety decision path, so future Google/Firebase service MCPs can be added without bypassing the same guardrails.
 
@@ -42,7 +42,7 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 2. Make every response structured and machine-actionable.
 3. Keep human approval in the loop for destructive, high-risk, production, or ambiguous actions.
 4. Detect account/project mismatches before live operations.
-5. Make cost-bearing operations increasingly dependent on explicit budget visibility.
+5. Make cost-bearing operations increasingly dependent on explicit budget visibility and explicit local unlock state.
 6. Keep CLI and MCP behavior equivalent by sharing core implementation.
 7. Prepare a common operation classification layer for CLI, Firebase CLI, gcloud, REST/SDK, and downstream MCP adapters.
 8. Prefer narrow, composable workflows over a broad cloud automation layer.
@@ -128,6 +128,7 @@ Implemented admin and safety workflow:
 - `omg budget ensure --dry-run`
 - `omg budget notifications audit`
 - `omg budget notifications ensure --dry-run`
+- `omg cost status/lock/unlock`
 - `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
@@ -168,6 +169,7 @@ Current execution boundary:
 
 - CLI and MCP surfaces call shared TypeScript command functions.
 - Service execution currently uses narrow connectors over `gcloud`, Firebase CLI, and selected Google client libraries.
+- Local safety state uses a `local-state` adapter and `.omg/` artifacts rather than cloud APIs.
 - `omg` has a downstream MCP gateway for registered, allowlisted read-only tools. Future service MCPs must be routed through the same safety kernel rather than exposed as raw privileged tools.
 - Downstream MCP write/lifecycle proxying is not implemented.
 
@@ -198,8 +200,12 @@ Current execution boundary:
 - Budget API enablement must require explicit `--yes` after a dry-run option.
 - Budget policy ensure must remain dry-run only until live create/update has approval and post-verification.
 - Budget notification ensure must remain dry-run only until Pub/Sub topic existence, visible Publisher binding readiness, and budget notification rule post-verification are implemented.
+- `omg cost lock` must write only local `.omg/cost-lock.json` state and require a project ID plus reason.
+- `omg cost unlock` must require explicit `--yes`.
+- An active cost lock must block currently known cost-bearing live `omg` operations before budget audit or cloud execution.
 - Live deploys, Firebase helper deploys, `secret set`, and `init` billing/API/IAM setup must be blocked unless budget audit returns `risk: configured`.
 - `budget enable-api` is the explicit onboarding exception for budget visibility bootstrap.
+- Local cost lock is an operator-controlled safety brake, not a Google Cloud hard spend cap and not an automatic budget-alert response yet.
 - Budget guard coverage must expand before additional broad live operations are added.
 
 ### Secret Safety
@@ -271,6 +277,7 @@ Completed validation:
 - OperationIntent and shared safety decision regression tests.
 - CLI/MCP implementation equivalence tests for adopted command paths.
 - Cost-bearing operation invariant tests for operation intents and command mappings.
+- Local cost lock state, command, safety-decision, deploy, Firebase deploy, secret set, and init blocker tests.
 - Read-only Firestore audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud Storage audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.
@@ -290,11 +297,11 @@ Short-term:
 - Agents can inspect, initialize, link, dry-run, and deploy supported apps without parsing human text.
 - Agents can switch and inspect account context without silently mutating ADC.
 - Project cleanup/recovery operations are auditable and approval-gated.
-- Live deploys, Secret Manager writes, Firebase helper deploys, and `init` billing/API/IAM setup are guarded by budget visibility.
+- Live deploys, Secret Manager writes, Firebase helper deploys, and `init` billing/API/IAM setup are guarded by budget visibility and local cost lock state.
 
 Medium-term:
 
-- All cost-bearing live Google Cloud operations have a budget guard or explicit onboarding exception.
+- All cost-bearing live Google Cloud operations have a budget guard, local cost-lock check, or explicit onboarding exception.
 - Remaining admin surfaces and downstream MCP adapters are added only when justified by actual workflows.
 - MCP and CLI remain equivalent surfaces over the same core.
 

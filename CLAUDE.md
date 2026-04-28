@@ -1,6 +1,6 @@
 # oh-my-google (omg) — Project Instructions
 
-Last updated: 2026-04-24
+Last updated: 2026-04-28
 
 ## Identity
 
@@ -29,6 +29,7 @@ Safety/admin workflow:
 - `omg budget ensure --dry-run`
 - `omg budget notifications audit`
 - `omg budget notifications ensure --dry-run`
+- `omg cost status/lock/unlock`
 - `omg firestore audit`
 - `omg iam audit`
 - `omg security audit`
@@ -45,6 +46,7 @@ MCP surface:
 Backend surface:
 
 - Current execution uses narrow `gcloud` and Firebase CLI connectors plus selected Google client libraries.
+- Local cost-lock state uses `.omg/cost-lock.json` and the `local-state` adapter, not a cloud API.
 - `omg` has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
 - Downstream MCP write/lifecycle proxying must be routed through the same safety model and is not implemented until concrete verifiers exist.
 
@@ -80,7 +82,8 @@ Important implemented guards:
 - `--expect-account` guard for project delete/undelete.
 - Project deletion blocks protected, billing-enabled, do-not-touch, and non-owner cases before approval.
 - Project undeletion only runs for `DELETE_REQUESTED`.
-- Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require budget audit `risk: configured`.
+- Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require no active local cost lock and budget audit `risk: configured`.
+- `omg cost lock` records a local project-scoped blocker; `omg cost unlock` requires `--yes`.
 - `budget ensure --dry-run` plans expected budget policy, but live budget create/update remains blocked.
 - `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible routing plus Pub/Sub topic/IAM state, but live notification mutation remains blocked.
 - Read-only `firestore audit` reports visible databases, composite indexes, and protection/PITR posture.
@@ -94,6 +97,7 @@ Important implemented guards:
 Important remaining gaps:
 
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
+- Local cost lock is operator-driven and is not yet automatically triggered by Budget Pub/Sub notifications.
 - Downstream MCP write/lifecycle proxying is not implemented.
 - Live budget creation/mutation is not implemented.
 - Firestore write/provisioning/data workflows are not implemented.
@@ -126,6 +130,7 @@ src/
   auth/         local config and gcloud/ADC context
   cli/          commander commands and output formatting
   connectors/   thin service-specific execution/audit adapters
+  cost-lock/    local cost lock state
   executor/     sequential plan execution
   harness/      decision log and handoff artifacts
   mcp/          stdio MCP server and tools

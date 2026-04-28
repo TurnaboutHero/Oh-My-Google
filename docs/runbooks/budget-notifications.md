@@ -133,6 +133,6 @@ BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED
 
 - Creating Pub/Sub topics.
 - Granting Pub/Sub IAM.
-- Connecting notification ingestion to `cost lock`.
+- Automatically connecting notification ingestion to `cost lock`.
 - Slack, Discord, webhook, email, or other external notification senders.
 - MCP exposure for budget notification commands.

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-04-24
+Last updated: 2026-04-28
 
 This plan explains the implementation direction for `oh-my-google`. Current task state is tracked in [TODO.md](./TODO.md). Product rationale is tracked in [PRD.md](./PRD.md).
 
@@ -222,7 +222,7 @@ Remaining:
 
 ## Active Phase
 
-### Phase 5A/5B: Operational Safety Closure - Budget Policy And Notifications
+### Phase 5A/5B/5C: Operational Safety Closure - Budget Policy, Notifications, And Local Cost Lock
 
 Goal: make the budget guard more concrete without unsafe live mutation.
 
@@ -242,6 +242,11 @@ Current safe-scope progress:
 - Added blocker reporting when the target topic is missing, topic IAM is inaccessible, or no `roles/pubsub.publisher` binding is visible.
 - Kept live budget notification mutation blocked with `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED`, even if `--yes` is supplied.
 - Added [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md).
+- Added local `.omg/cost-lock.json` state for project-scoped cost locks.
+- Added `omg cost status`, `omg cost lock --project <id> --reason <text>`, and `omg cost unlock --project <id> --yes`.
+- Added `local-state` adapter classification and operation intents for `cost.status`, `cost.lock`, and `cost.unlock`.
+- Active cost locks block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup before budget audit or cloud execution.
+- Added [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md).
 
 Remaining:
 
@@ -249,7 +254,7 @@ Remaining:
 - Post-verify live ensure by re-running budget audit and matching the expected policy.
 - Add MCP coverage only after the CLI contract and live executor stabilize.
 - Decide whether to support automatic Pub/Sub topic creation and IAM grant, or keep those as manual console steps.
-- Add local cost lock after notification posture is ready to feed it.
+- Decide whether Budget Pub/Sub notification ingestion should automatically trigger local cost lock or remain operator-driven.
 - Add agent IAM planning/bootstrap after budget controls are stable.
 
 ### Phase 4: Resource Add Workflows

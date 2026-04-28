@@ -1,6 +1,6 @@
 # AGENTS.md — How AI Agents Should Use omg
 
-Last updated: 2026-04-24
+Last updated: 2026-04-28
 
 This file is the project-local operating guide for AI coding agents using `oh-my-google` (`omg`) in this repository.
 
@@ -35,6 +35,7 @@ Current downstream MCP note: `omg` now supports a narrow gateway for registered 
 10. Verify final state before claiming that a live resource was created, deleted, restored, or cleaned up.
 11. Do not call raw downstream Google/Firebase MCP tools for privileged operations unless they are routed through `omg` safety checks.
 12. Treat unclassified downstream MCP tools as denied by default.
+13. Treat active local cost locks as blockers for autonomous cost-bearing live operations.
 
 ## Response Contract
 
@@ -147,6 +148,24 @@ omg --output json budget notifications ensure --project <project-id> --topic bud
 ```
 
 Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked.
+
+### Local Cost Lock
+
+Local cost lock is an operator-controlled blocker stored in `.omg/cost-lock.json`:
+
+```bash
+omg --output json cost status
+omg --output json cost status --project <project-id>
+omg --output json cost lock --project <project-id> --reason "budget alert threshold exceeded"
+omg --output json cost unlock --project <project-id> --yes
+```
+
+Rules:
+
+- Active local cost lock blocks currently known cost-bearing live operations before budget audit or cloud execution.
+- `cost lock` writes only local state and requires a project ID plus reason.
+- `cost unlock` requires explicit `--yes`.
+- Cost lock is not a Google Cloud hard cap and is not yet automatically triggered by Budget Pub/Sub notifications.
 
 ### IAM Audit
 
@@ -405,6 +424,7 @@ Approval rules:
 | `PROJECT_SELECTION_REQUIRED` | Multiple/no visible projects | Ask user to choose project |
 | `ACCOUNT_MISMATCH` | Active account differs from expected/approved account | Switch explicitly or ask user |
 | `BUDGET_GUARD_BLOCKED` | Budget guard not configured | Stop; inspect budget state |
+| `COST_LOCKED` | Local cost lock blocks cost-bearing live execution | Stop; inspect `omg cost status --project <id>` |
 
 ## CLI Reference
 
@@ -430,6 +450,10 @@ omg budget enable-api --project <id> [--dry-run] [--yes]
 omg budget ensure --project <id> --amount <n> --currency <code> [--thresholds <list>] --dry-run
 omg budget notifications audit --project <id> [--topic <topic>]
 omg budget notifications ensure --project <id> --topic <topic> [--display-name <name>] --dry-run
+
+omg cost status [--project <id>]
+omg cost lock --project <id> --reason <text> [--locked-by <actor>]
+omg cost unlock --project <id> --yes
 
 omg iam audit --project <id>
 
@@ -486,4 +510,5 @@ omg --output json <command>
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
+- [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

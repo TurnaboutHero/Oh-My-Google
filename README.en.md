@@ -25,7 +25,7 @@ For product background, read [PRD.md](./PRD.md). For implementation sequencing, 
 
 ## Current Status
 
-Status snapshot: 2026-04-24
+Status snapshot: 2026-04-28
 
 Implemented:
 
@@ -41,6 +41,7 @@ Implemented:
 - Budget audit and Budget API enable workflow
 - Budget ensure dry-run policy planning
 - Budget Pub/Sub notification audit and dry-run routing planning
+- Local cost lock: `omg cost status/lock/unlock`
 - budget guard before live `omg deploy`, `omg firebase deploy --execute`, Secret Manager writes, and `omg init` billing/API/IAM setup
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
 - Read-only IAM audit
@@ -63,6 +64,7 @@ Live validation completed:
 Current safety status and pending scope:
 
 - The budget guard is currently enforced before live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup.
+- If a project has an active local cost lock, those cost-bearing live operations fail with `COST_LOCKED` before budget audit runs.
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
@@ -232,6 +234,15 @@ omg budget notifications audit --project <id> --topic budget-alerts
 omg budget notifications ensure --project <id> --topic budget-alerts --dry-run
 ```
 
+Cost lock:
+
+```bash
+omg cost status
+omg cost status --project <id>
+omg cost lock --project <id> --reason "budget alert threshold exceeded"
+omg cost unlock --project <id> --yes
+```
+
 IAM:
 
 ```bash
@@ -377,7 +388,7 @@ Representative error codes:
 - `TRUST_DENIED`, `TRUST_REQUIRES_CONFIRM`, `TRUST_REQUIRES_APPROVAL`
 - `APPROVAL_REQUIRED`, `APPROVAL_NOT_FOUND`, `APPROVAL_EXPIRED`, `APPROVAL_NOT_APPROVED`, `APPROVAL_MISMATCH`, `APPROVAL_CONSUMED`, `APPROVAL_ALREADY_FINALIZED`
 - `PROJECT_ACCESS_DENIED`, `PROJECT_SELECTION_REQUIRED`, `ACCOUNT_MISMATCH`
-- `BUDGET_GUARD_BLOCKED`
+- `BUDGET_GUARD_BLOCKED`, `COST_LOCKED`
 
 ## Documentation Map
 
@@ -388,6 +399,7 @@ Representative error codes:
 - [docs/runbooks/gcp-e2e.md](./docs/runbooks/gcp-e2e.md): disposable GCP E2E validation
 - [docs/runbooks/project-cleanup-audit.md](./docs/runbooks/project-cleanup-audit.md): project lifecycle safety
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
+- [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
 - [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md): Cloud SQL resource audit
@@ -405,5 +417,6 @@ Representative error codes:
 - Human approval is surfaced through `approval` and `next`, never hidden.
 - Run dry-runs first; live writes and deletes must be explicit.
 - Do not guess accounts or projects. Ask, select, or return a structured error.
+- Treat an active cost lock as a hard blocker for cost-bearing live work.
 - Preserve the cost-bearing invariant before adding broader live operations.
 - Route external Google/Firebase MCP tools through the `omg` safety layer before exposing privileged execution to agents.

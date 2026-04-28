@@ -1,6 +1,6 @@
 # TODO
 
-Status snapshot: 2026-04-27
+Status snapshot: 2026-04-28
 
 This file tracks current implementation state. Product rationale lives in [PRD.md](./PRD.md). Sequencing and phase intent live in [PLAN.md](./PLAN.md).
 
@@ -26,7 +26,11 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add Pub/Sub topic existence audit before opening live notification mutation.
 - [x] Add read-only Pub/Sub topic IAM audit and Publisher binding readiness reporting before opening live notification mutation.
 - [ ] Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
-- [ ] Add local cost lock after notification posture is defined.
+- [x] Add local cost lock after notification posture is defined.
+- [x] Add `omg cost status`, `omg cost lock`, and `omg cost unlock --yes` over local `.omg/cost-lock.json` state.
+- [x] Block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup when a project cost lock is active.
+- [x] Add tests proving active cost lock blocks before budget audit or cloud execution.
+- [ ] Decide whether budget Pub/Sub notification ingestion should automatically set cost lock or remain an operator-driven follow-up.
 - [ ] Add agent IAM planning/bootstrap after budget controls are stable.
 
 ### Phase 4: Resource Add Workflows
@@ -126,14 +130,15 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 ## Recommended Next Work
 
 1. Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
-2. Add local cost lock before any hard cloud-level budget response.
-3. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
-4. Keep `budget ensure --yes` and `budget notifications ensure --yes` blocked until their live executors exist.
-5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
-6. Preserve the cost-bearing invariant before any new live Google Cloud operation.
-7. Run optional live read-only audits only with explicit project/account approval.
-8. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
-9. Re-run the local verification suite before each push.
+2. Decide whether budget Pub/Sub notification ingestion should trigger local cost lock or stay operator-driven.
+3. Add agent IAM planning/bootstrap after budget and local cost controls are stable.
+4. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
+5. Keep `budget ensure --yes` and `budget notifications ensure --yes` blocked until their live executors exist.
+6. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
+7. Preserve the cost-bearing invariant before any new live Google Cloud operation.
+8. Run optional live read-only audits only with explicit project/account approval.
+9. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
+10. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -294,6 +299,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - `budget ensure` currently plans expected budget policy in dry-run only; live budget create/update is intentionally blocked until the executor and post-verification are implemented.
 - `budget notifications ensure` currently plans Pub/Sub routing in dry-run only and performs read-only topic/IAM audit; live notification mutation, Pub/Sub topic creation, and IAM grants are intentionally blocked.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
+- Local cost lock is an operator-controlled local blocker, not a cloud billing hard cap and not yet automatically triggered by Budget Pub/Sub notifications.
+- An active local cost lock blocks currently known cost-bearing live `omg` operations before budget audit or cloud execution, but raw `gcloud`/Firebase CLI commands outside `omg` are out of scope.
 - `omg` now has a narrow downstream MCP gateway for registry audit, tool discovery, and allowlisted read-only tool calls.
 - Local stdio fixture coverage exists for the downstream MCP gateway, but external downstream MCP smoke still requires a known benign target.
 - Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools remain denied unless routed through the gateway allowlist.
