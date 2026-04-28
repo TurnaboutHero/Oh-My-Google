@@ -15,7 +15,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Classify `budget.ensure` as L2 billing governance with dry-run and post-verification semantics.
 - [x] Add tests for budget policy planning, CLI behavior, and safety intent mapping.
 - [x] Add live executor design/runbook and pure Budget API mutation contract tests without cloud calls.
-- [ ] Implement the live Budget API executor for create/update after owner approval and post-verification design.
+- [x] Add injected Budget API request executor core and post-verification contract tests without cloud calls.
+- [ ] Wire the Budget API executor into `budget ensure --yes` only after owner approval, live transport design, and post-verification failure handling are reviewed.
 - [ ] Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
 - [x] Add Pub/Sub budget notification audit/ensure dry-run planning after budget policy ensure is live-safe.
 - [x] Parse visible budget `notificationsRule` metadata from budget audit output.
@@ -137,7 +138,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 ## Recommended Next Work
 
 1. Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and agent IAM bootstrap manual-first unless a new owner-approved live executor/verifier is designed.
-2. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
+2. Wire live `budget ensure --yes` only after Budget API transport/auth, approval policy, and post-verification failure handling are reviewed.
 3. Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
 4. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
@@ -302,7 +303,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 - Budget alerts do not enforce a hard spend cap.
 - Budget visibility depends on billing permissions and the Budget API.
-- `budget ensure` currently plans expected budget policy in dry-run only; live budget create/update is intentionally blocked until the executor and post-verification are implemented.
+- `budget ensure` currently plans expected budget policy in dry-run only; live CLI create/update is intentionally blocked until transport/auth, approval, and post-verification failure handling are reviewed.
+- Budget API request execution and post-verification are available as injected core functions, but CLI live mutation remains blocked.
 - `budget notifications ensure` currently plans Pub/Sub routing in dry-run only and performs read-only topic/IAM audit; live notification mutation, Pub/Sub topic creation, and IAM grants are intentionally blocked.
 - Pub/Sub topic creation, Publisher grants, subscription setup, Subscriber grants, handler setup, and live agent IAM bootstrap are accepted manual-first boundaries, not autonomous setup paths.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.

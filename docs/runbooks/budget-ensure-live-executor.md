@@ -1,6 +1,6 @@
 # Budget Ensure Live Executor Design
 
-Status: design and contract only; live mutation is still blocked
+Status: injected executor core and contract tests exist; live CLI mutation is still blocked
 
 This runbook defines the contract for the future live executor behind:
 
@@ -8,7 +8,7 @@ This runbook defines the contract for the future live executor behind:
 omg budget ensure --project <id> --amount <n> --currency <code> --yes
 ```
 
-The current implementation only supports `--dry-run`. Supplying `--yes` still returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`.
+The CLI implementation only supports `--dry-run`. Supplying `--yes` still returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`.
 
 ## Official API Grounding
 
@@ -91,15 +91,30 @@ Update plan:
 }
 ```
 
-## Executor Shape
+## Implemented Foundation
 
-Future implementation should add a separate connector instead of placing HTTP logic in the CLI command:
+The pure mutation plan lives in `src/connectors/budget-policy.ts`.
+
+The injected request executor core lives in `src/connectors/budget-api.ts` and is covered without live Google Cloud calls:
+
+- `buildCreateBudgetRequest`
+- `buildUpdateBudgetRequest`
+- `createBudget`
+- `updateBudget`
+- `executeBudgetApiMutation`
+- `executeBudgetEnsureWithPostVerification`
+
+The executor core requires an injected `BudgetApiRequestExecutor`; there is no default live transport wired into the CLI. This keeps `budget ensure --yes` blocked while preserving the request and post-verification contract for review.
+
+## Future Live Transport Shape
+
+Future implementation should add the live HTTP/auth transport behind the existing connector instead of placing HTTP logic in the CLI command:
 
 ```text
 src/connectors/budget-api.ts
 ```
 
-Expected exported functions:
+Expected live transport integration point:
 
 ```ts
 createBudget(input: {
@@ -116,7 +131,7 @@ updateBudget(input: {
 }): Promise<BudgetApiBudgetPayload>
 ```
 
-The connector can use either:
+The transport can use either:
 
 - REST with `gcloud auth print-access-token`, `x-goog-user-project`, and `execFile`-safe argument handling; or
 - an official Google client if it avoids broad dependency or auth-context ambiguity.
@@ -139,16 +154,17 @@ Recommended error code:
 BUDGET_ENSURE_POST_VERIFY_FAILED
 ```
 
-## Tests Required Before Opening Live Mutation
+## Tests Required Before Opening Live CLI Mutation
 
-- Create request payload has project scope, monthly period, specified amount, current-spend thresholds, and no notification rule.
-- Update request payload includes the existing budget resource name and conservative update mask.
-- `action: none` does not call the executor.
-- `action: blocked` does not call the executor.
+- Create request payload has project scope, monthly period, specified amount, current-spend thresholds, and no notification rule. Implemented in contract tests.
+- Update request payload includes the existing budget resource name and conservative update mask. Implemented in contract tests.
+- `action: none` does not call the executor. Implemented in contract tests.
+- `action: blocked` does not call the executor. Implemented in contract tests.
+- Successful create/update runs post-verification through an injected audit provider. Implemented in contract tests.
+- Post-verification failure returns `BUDGET_ENSURE_POST_VERIFY_FAILED` from the executor core. Implemented in contract tests.
 - `--yes` without Trust Profile permission fails before executor invocation.
-- Create path calls executor then post-verifies.
-- Update path calls executor then post-verifies.
-- Post-verification failure returns `BUDGET_ENSURE_POST_VERIFY_FAILED`.
+- Live transport/auth failure mapping is reviewed.
+- CLI `--yes` wiring keeps approval and decision log behavior intact.
 - No test uses live Google Cloud.
 
 ## Still Deferred

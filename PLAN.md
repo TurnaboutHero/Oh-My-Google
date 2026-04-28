@@ -237,6 +237,7 @@ Current safe-scope progress:
 - Added `budget.ensure` operation intent as L2 billing governance with dry-run and post-verification semantics.
 - Kept live budget create/update blocked with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`, even if `--yes` is supplied.
 - Added a live executor design/runbook and pure Budget API mutation contract tests without opening cloud writes.
+- Added injected Budget API create/update request execution and post-verification core without wiring live CLI mutation.
 - Added `omg budget notifications audit --project <id>`.
 - Added `omg budget notifications ensure --project <id> --topic <topic> --dry-run`.
 - Added budget notification posture reporting with `configured`, `partial`, `none`, and `blocked`.
@@ -258,8 +259,8 @@ Current safe-scope progress:
 
 Remaining:
 
-- Implement Budget API create/update executor only after the owner-approved live workflow is designed.
-- Post-verify live ensure by re-running budget audit and matching the expected policy.
+- Wire Budget API create/update executor into `budget ensure --yes` only after the owner-approved live workflow is designed.
+- Keep post-verification failure handling explicit before any live CLI mutation is opened.
 - Add MCP coverage only after the CLI contract and live executor stabilize.
 - Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and live agent IAM bootstrap manual-first unless a new owner-approved verifier and rollback plan exists.
 

@@ -202,7 +202,7 @@ Current execution boundary:
 
 - Budget audit must be read-only.
 - Budget API enablement must require explicit `--yes` after a dry-run option.
-- Budget policy ensure must remain dry-run only until live create/update has approval and post-verification.
+- Budget policy ensure must remain CLI dry-run only until live create/update has approval, transport/auth review, and post-verification failure handling. Internal injected executor core may exist before the live gate opens.
 - Budget notification ensure must remain dry-run only; Pub/Sub topic creation, Publisher IAM grants, and notification rule live mutation are manual-first until a separate owner-approved executor and verifier exist.
 - Budget notification to cost lock ingestion must remain dry-run only; subscription creation, Subscriber IAM, handler runtime, local state write, and acknowledgement semantics are operator-driven until a reviewed live handler exists.
 - `omg cost lock` must write only local `.omg/cost-lock.json` state and require a project ID plus reason.
