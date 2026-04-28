@@ -273,6 +273,30 @@ describe("operation intent classification", () => {
       });
   });
 
+  it("classifies agent IAM planning and bootstrap dry-run without budget requirements", () => {
+    expect(classifyOperation("iam.plan", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "iam.plan",
+        service: "iam",
+        action: "read",
+        trustLevel: "L0",
+        costBearing: false,
+        requiresBudget: false,
+      });
+
+    expect(classifyOperation("iam.bootstrap", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "iam.bootstrap",
+        service: "iam",
+        action: "iam",
+        trustLevel: "L2",
+        costBearing: false,
+        requiresBudget: false,
+        supportsDryRun: true,
+        postVerify: true,
+      });
+  });
+
   it("classifies local cost lock controls without budget guard requirements", () => {
     expect(classifyOperation("cost.status", { projectId: "demo-project" }))
       .toMatchObject({

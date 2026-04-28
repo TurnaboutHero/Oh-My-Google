@@ -16,6 +16,8 @@ export type CommandName =
   | "firebase:deploy"
   | "firestore:audit"
   | "iam:audit"
+  | "iam:plan"
+  | "iam:bootstrap"
   | "init"
   | "link"
   | "mcp:gateway:audit"
@@ -133,6 +135,10 @@ function getCommandOperationIds(
       return ["firestore.audit"];
     case "iam:audit":
       return ["iam.audit"];
+    case "iam:plan":
+      return ["iam.audit", "iam.plan"];
+    case "iam:bootstrap":
+      return ["iam.audit", "iam.plan", "iam.bootstrap"];
     case "init":
       return ["billing.audit", "billing.link", "apis.enable", "iam.role.grant"];
     case "link":
@@ -178,6 +184,8 @@ function getCommandNotes(command: CommandName): string[] {
       return ["Cost unlock restores future omg cost-bearing live operations and requires explicit confirmation."];
     case "init":
       return ["Init is a multi-action setup flow; budget audit must run before billing link/API/IAM writes."];
+    case "iam:bootstrap":
+      return ["IAM bootstrap is dry-run planning only; live service account creation and IAM grants are not implemented."];
     case "project:delete":
       return ["Project delete must pass read-only audit before approval-gated lifecycle execution."];
     case "project:undelete":

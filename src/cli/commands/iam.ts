@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { auditIam } from "../../connectors/iam-audit.js";
+import { planAgentIam } from "../../iam/agent-plan.js";
 import { OmgError, ValidationError, type OmgError as OmgErrorType } from "../../types/errors.js";
 import { fail, success } from "../output.js";
 
@@ -34,21 +35,61 @@ iamCommand
     emitOutcomeError("iam:audit", outcome.error);
   });
 
+iamCommand
+  .command("plan")
+  .description("Plan separated agent IAM identities without applying grants")
+  .requiredOption("--project <id>", "Google Cloud project ID")
+  .option("--prefix <name>", "Service account ID prefix", "omg-agent")
+  .action(async (opts) => {
+    const outcome = await runIamPlan({
+      project: opts.project as string | undefined,
+      prefix: opts.prefix as string | undefined,
+    });
+    if (outcome.ok) {
+      success("iam:plan", "Agent IAM plan ready.", outcome.data, outcome.next);
+      return;
+    }
+
+    emitOutcomeError("iam:plan", outcome.error);
+  });
+
+iamCommand
+  .command("bootstrap")
+  .description("Dry-run separated agent IAM bootstrap steps")
+  .requiredOption("--project <id>", "Google Cloud project ID")
+  .option("--prefix <name>", "Service account ID prefix", "omg-agent")
+  .option("--dry-run", "Plan service account and IAM grant changes without applying them")
+  .option("-y, --yes", "Reserved for future live IAM bootstrap")
+  .action(async (opts) => {
+    const outcome = await runIamBootstrap({
+      project: opts.project as string | undefined,
+      prefix: opts.prefix as string | undefined,
+      dryRun: !!opts.dryRun,
+      yes: !!opts.yes,
+    });
+    if (outcome.ok) {
+      success("iam:bootstrap", "Agent IAM bootstrap dry-run ready.", outcome.data, outcome.next);
+      return;
+    }
+
+    emitOutcomeError("iam:bootstrap", outcome.error);
+  });
+
 iamCommand.addHelpText(
   "afterAll",
   `
 Examples:
   omg --output json iam audit --project my-project
+  omg --output json iam plan --project my-project
+  omg --output json iam bootstrap --project my-project --dry-run
 `,
 );
 
 export async function runIamAudit(input: { project?: string }): Promise<RunIamOutcome> {
   try {
-    if (!input.project?.trim()) {
-      throw new ValidationError("Project ID is required.");
-    }
+    const projectId = requireProjectId(input.project);
 
-    const audit = await auditIam(input.project);
+    const audit = await auditIam(projectId);
     return {
       ok: true,
       data: { ...audit },
@@ -57,6 +98,90 @@ export async function runIamAudit(input: { project?: string }): Promise<RunIamOu
   } catch (error) {
     return { ok: false, error: toOutcomeError(error) };
   }
+}
+
+export async function runIamPlan(input: {
+  project?: string;
+  prefix?: string;
+}): Promise<RunIamOutcome> {
+  try {
+    const projectId = requireProjectId(input.project);
+
+    const audit = await auditIam(projectId);
+    const plan = planAgentIam(audit, { prefix: input.prefix });
+    return {
+      ok: true,
+      data: { ...plan },
+      next: plan.next,
+    };
+  } catch (error) {
+    return { ok: false, error: toOutcomeError(error) };
+  }
+}
+
+export async function runIamBootstrap(input: {
+  project?: string;
+  prefix?: string;
+  dryRun?: boolean;
+  yes?: boolean;
+}): Promise<RunIamOutcome> {
+  try {
+    const projectId = requireProjectId(input.project);
+
+    if (!input.dryRun) {
+      return {
+        ok: false,
+        error: input.yes
+          ? {
+              code: "IAM_BOOTSTRAP_LIVE_NOT_IMPLEMENTED",
+              message: "Live agent IAM bootstrap is not implemented in this safe foundation pass.",
+              recoverable: true,
+              hint: "Run --dry-run first and implement a reviewed IAM grant executor before enabling live mutation.",
+              data: {
+                projectId,
+                liveMutation: false,
+              },
+              next: [`omg iam bootstrap --project ${projectId} --dry-run`],
+            }
+          : {
+              code: "TRUST_REQUIRES_CONFIRM",
+              message: "IAM bootstrap requires --dry-run in the current safe implementation.",
+              recoverable: true,
+              hint: "Run with --dry-run to inspect proposed service accounts and IAM bindings without mutation.",
+              data: {
+                projectId,
+                liveMutation: false,
+              },
+              next: [`omg iam bootstrap --project ${projectId} --dry-run`],
+            },
+      };
+    }
+
+    const audit = await auditIam(projectId);
+    const plan = planAgentIam(audit, { prefix: input.prefix });
+    return {
+      ok: true,
+      data: {
+        dryRun: true,
+        liveMutation: false,
+        ...plan,
+      },
+      next: plan.next,
+    };
+  } catch (error) {
+    return { ok: false, error: toOutcomeError(error) };
+  }
+}
+
+function requireProjectId(project: string | undefined): string {
+  const projectId = project?.trim() ?? "";
+  if (!projectId) {
+    throw new ValidationError("Project ID is required.");
+  }
+  if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(projectId)) {
+    throw new ValidationError("A valid project ID is required.");
+  }
+  return projectId;
 }
 
 function getIamAuditNext(audit: { risk?: unknown; projectId?: unknown }): string[] {

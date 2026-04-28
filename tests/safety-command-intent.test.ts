@@ -167,6 +167,40 @@ describe("command-level operation intent mapping", () => {
     });
   });
 
+  it("maps agent IAM plan and bootstrap as audit-first IAM governance", () => {
+    const plan = classifyCommand("iam:plan", { projectId: "demo-project" });
+
+    expect(plan.intents.map((intent) => intent.id)).toEqual(["iam.audit", "iam.plan"]);
+    expect(plan.intents[1]).toMatchObject({
+      id: "iam.plan",
+      service: "iam",
+      action: "read",
+      trustLevel: "L0",
+      requiresBudget: false,
+    });
+
+    const bootstrapPlan = classifyCommand("iam:bootstrap", { projectId: "demo-project" });
+
+    expect(bootstrapPlan.intents.map((intent) => intent.id)).toEqual([
+      "iam.audit",
+      "iam.plan",
+      "iam.bootstrap",
+    ]);
+    expect(bootstrapPlan.intents[2]).toMatchObject({
+      id: "iam.bootstrap",
+      service: "iam",
+      action: "iam",
+      trustLevel: "L2",
+      costBearing: false,
+      requiresBudget: false,
+      supportsDryRun: true,
+      postVerify: true,
+    });
+    expect(bootstrapPlan.notes).toContain(
+      "IAM bootstrap is dry-run planning only; live service account creation and IAM grants are not implemented.",
+    );
+  });
+
   it("maps security audit as a read-only command intent", () => {
     const plan = classifyCommand("security:audit", { projectId: "demo-project" });
 
@@ -356,6 +390,8 @@ describe("command-level operation intent mapping", () => {
       { command: "firebase:deploy", context: { projectId: "demo-project" } },
       { command: "firestore:audit", context: { projectId: "demo-project" } },
       { command: "iam:audit", context: { projectId: "demo-project" } },
+      { command: "iam:plan", context: { projectId: "demo-project" } },
+      { command: "iam:bootstrap", context: { projectId: "demo-project" } },
       { command: "init", context: { projectId: "demo-project" } },
       { command: "link" },
       { command: "mcp:gateway:audit", context: { projectId: "demo-project" } },

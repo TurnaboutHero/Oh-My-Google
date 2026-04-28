@@ -17,6 +17,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "cost.status": "L0",
   "firestore.audit": "L0",
   "iam.audit": "L0",
+  "iam.plan": "L0",
   "security.audit": "L0",
   "secret.list": "L0",
   "sql.audit": "L0",
@@ -32,6 +33,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
 
   // L2 IAM, billing, production, and secret writes
   "iam.role.grant": "L2",
+  "iam.bootstrap": "L2",
   "billing.link": "L2",
   "deploy.prod": "L2",
   "secret.set": "L2",
