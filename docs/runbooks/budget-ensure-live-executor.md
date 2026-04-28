@@ -30,6 +30,8 @@ Sources:
 
 - https://docs.cloud.google.com/billing/docs/reference/budget/rest/v1/billingAccounts.budgets
 - https://docs.cloud.google.com/billing/docs/how-to/budget-api
+- https://docs.cloud.google.com/billing/docs/authentication
+- https://docs.cloud.google.com/sdk/gcloud/reference/auth/print-access-token
 - https://docs.cloud.google.com/billing/docs/how-to/budgets-programmatic-notifications
 
 ## Live Mutation Preconditions
@@ -114,6 +116,8 @@ The live gate contract lives in `src/connectors/budget-live-gate.ts` and fixes t
 - approval args are hash-bound to project ID, amount, currency, thresholds, and display name
 - decision logging must cover `live-gate`, `api-mutation`, and `post-verify` phases
 - post-verification failure maps to `BUDGET_ENSURE_POST_VERIFY_FAILED` with audit and dry-run next steps
+- retryable transport failures are limited to `BUDGET_API_RATE_LIMITED` and `BUDGET_API_UNAVAILABLE`
+- auth, account mismatch, permission, not found, validation, conflict, and unknown request failures are non-retryable until the operator rechecks context/audit/dry-run output
 
 ## Future Live Transport Shape
 
@@ -147,6 +151,25 @@ The transport can use either:
 
 Do not add service account key support.
 
+## Transport Failure Mapping
+
+The live transport failure mapper is implemented without making live calls:
+
+- Token command failures:
+  - `NO_AUTH`: gcloud has no usable active auth context.
+  - `ACCOUNT_MISMATCH`: active account differs from the expected account.
+  - `BUDGET_API_TOKEN_COMMAND_FAILED`: token command failed for another reason.
+- HTTP failures:
+  - `400` -> `BUDGET_API_INVALID_REQUEST`, non-retryable.
+  - `401` -> `BUDGET_API_UNAUTHENTICATED`, non-retryable until auth is inspected.
+  - `403` -> `BUDGET_API_PERMISSION_DENIED`, non-retryable until permissions are fixed.
+  - `404` -> `BUDGET_API_NOT_FOUND`, non-retryable until budget audit/dry-run is refreshed.
+  - `409` -> `BUDGET_API_CONFLICT`, non-retryable until audit/dry-run is refreshed.
+  - `429` -> `BUDGET_API_RATE_LIMITED`, retryable after backoff.
+  - `5xx` -> `BUDGET_API_UNAVAILABLE`, retryable after backoff.
+
+The mapper can return `retryable: true`, but live CLI wiring must still avoid blind repeat execution after a write. Retry policy must be explicit in the caller.
+
 ## Post-Verification Contract
 
 After a live create/update:
@@ -173,7 +196,8 @@ BUDGET_ENSURE_POST_VERIFY_FAILED
 - Post-verification failure returns `BUDGET_ENSURE_POST_VERIFY_FAILED` from the executor core. Implemented in contract tests.
 - CLI/MCP-shaped error envelope for `BUDGET_ENSURE_POST_VERIFY_FAILED` includes `liveMutationAttempted`, mutation action, post-verification details, and audit/dry-run next steps. Implemented in live gate contract tests.
 - `--yes` without Trust Profile permission fails before executor invocation.
-- Live transport/auth failure mapping is reviewed.
+- Live transport/auth failure mapping is implemented as a pure contract without cloud calls.
+- Live transport implementation is reviewed.
 - CLI `--yes` wiring keeps approval and decision log behavior intact.
 - No test uses live Google Cloud.
 

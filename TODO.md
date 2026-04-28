@@ -17,7 +17,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add live executor design/runbook and pure Budget API mutation contract tests without cloud calls.
 - [x] Add injected Budget API request executor core and post-verification contract tests without cloud calls.
 - [x] Add live gate contract for Budget API transport/auth, approval, decision log, and post-verification failure envelope without opening live mutation.
-- [ ] Wire the Budget API executor into `budget ensure --yes` only after owner approval and live transport failure handling are reviewed.
+- [x] Add Budget API live transport token/HTTP failure mapping and retryability contract without cloud calls.
+- [ ] Wire the Budget API executor into `budget ensure --yes` only after owner approval and live transport implementation are reviewed.
 - [ ] Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
 - [x] Add Pub/Sub budget notification audit/ensure dry-run planning after budget policy ensure is live-safe.
 - [x] Parse visible budget `notificationsRule` metadata from budget audit output.
@@ -139,7 +140,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 ## Recommended Next Work
 
 1. Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and agent IAM bootstrap manual-first unless a new owner-approved live executor/verifier is designed.
-2. Wire live `budget ensure --yes` only after Budget API transport/auth failure handling and owner approval are reviewed.
+2. Wire live `budget ensure --yes` only after Budget API transport implementation and owner approval are reviewed.
 3. Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
 4. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
@@ -307,6 +308,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - `budget ensure` currently plans expected budget policy in dry-run only; live CLI create/update is intentionally blocked until transport/auth, approval, and post-verification failure handling are reviewed.
 - Budget API request execution and post-verification are available as injected core functions, but CLI live mutation remains blocked.
 - Budget ensure live gate contract now fixes transport/auth, approval, decision-log, and post-verification failure envelope expectations before live CLI wiring.
+- Budget API token and HTTP failure mapping now distinguishes non-retryable auth/permission/conflict failures from retryable rate-limit/server failures.
 - `budget notifications ensure` currently plans Pub/Sub routing in dry-run only and performs read-only topic/IAM audit; live notification mutation, Pub/Sub topic creation, and IAM grants are intentionally blocked.
 - Pub/Sub topic creation, Publisher grants, subscription setup, Subscriber grants, handler setup, and live agent IAM bootstrap are accepted manual-first boundaries, not autonomous setup paths.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.

@@ -20,6 +20,18 @@ export interface BudgetEnsureLiveGateContract {
     requiredHeaders: ["authorization", "content-type", "x-goog-user-project"];
     tokenLogging: "forbidden";
     quotaProjectHeader: "x-goog-user-project";
+    retryableFailureCodes: ["BUDGET_API_RATE_LIMITED", "BUDGET_API_UNAVAILABLE"];
+    nonRetryableFailureCodes: [
+      "NO_AUTH",
+      "ACCOUNT_MISMATCH",
+      "BUDGET_API_TOKEN_COMMAND_FAILED",
+      "BUDGET_API_INVALID_REQUEST",
+      "BUDGET_API_UNAUTHENTICATED",
+      "BUDGET_API_PERMISSION_DENIED",
+      "BUDGET_API_NOT_FOUND",
+      "BUDGET_API_CONFLICT",
+      "BUDGET_API_REQUEST_FAILED",
+    ];
   };
   approval: {
     required: true;
@@ -73,6 +85,18 @@ export function describeBudgetEnsureLiveGate(
       requiredHeaders: ["authorization", "content-type", "x-goog-user-project"],
       tokenLogging: "forbidden",
       quotaProjectHeader: "x-goog-user-project",
+      retryableFailureCodes: ["BUDGET_API_RATE_LIMITED", "BUDGET_API_UNAVAILABLE"],
+      nonRetryableFailureCodes: [
+        "NO_AUTH",
+        "ACCOUNT_MISMATCH",
+        "BUDGET_API_TOKEN_COMMAND_FAILED",
+        "BUDGET_API_INVALID_REQUEST",
+        "BUDGET_API_UNAUTHENTICATED",
+        "BUDGET_API_PERMISSION_DENIED",
+        "BUDGET_API_NOT_FOUND",
+        "BUDGET_API_CONFLICT",
+        "BUDGET_API_REQUEST_FAILED",
+      ],
     },
     approval: {
       required: true,

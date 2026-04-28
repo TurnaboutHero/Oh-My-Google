@@ -4,6 +4,8 @@ import {
   buildUpdateBudgetRequest,
   executeBudgetApiMutation,
   executeBudgetEnsureWithPostVerification,
+  mapBudgetApiHttpFailure,
+  mapBudgetApiTokenFailure,
   type BudgetApiRequestExecutor,
 } from "../src/connectors/budget-api.js";
 import { planBudgetApiMutation, planBudgetEnsure } from "../src/connectors/budget-policy.js";
@@ -130,6 +132,90 @@ describe("budget API executor core", () => {
     expect(result.ok).toBe(false);
     expect(result.ok ? undefined : result.errorCode).toBe("BUDGET_ENSURE_POST_VERIFY_FAILED");
     expect(result.ok ? undefined : result.postVerification?.verified).toBe(false);
+  });
+
+  it("maps token command auth and account failures without retrying", () => {
+    expect(mapBudgetApiTokenFailure({
+      expectedAccount: "owner@example.com",
+      activeAccount: "other@example.com",
+    })).toMatchObject({
+      code: "ACCOUNT_MISMATCH",
+      recoverable: true,
+      retryable: false,
+      next: ["omg auth context", "Switch accounts explicitly before retrying."],
+    });
+
+    expect(mapBudgetApiTokenFailure({
+      stderr: "ERROR: (gcloud.auth.print-access-token) You do not currently have an active account selected.",
+    })).toMatchObject({
+      code: "NO_AUTH",
+      retryable: false,
+      next: ["omg auth context", "omg setup --login"],
+    });
+
+    expect(mapBudgetApiTokenFailure({
+      exitCode: 2,
+      stderr: "unexpected gcloud failure",
+    })).toMatchObject({
+      code: "BUDGET_API_TOKEN_COMMAND_FAILED",
+      retryable: false,
+      reason: "unexpected gcloud failure",
+    });
+  });
+
+  it("maps non-retryable Budget API HTTP failures to structured codes", () => {
+    const cases = [
+      [400, "BUDGET_API_INVALID_REQUEST"],
+      [401, "BUDGET_API_UNAUTHENTICATED"],
+      [403, "BUDGET_API_PERMISSION_DENIED"],
+      [404, "BUDGET_API_NOT_FOUND"],
+      [409, "BUDGET_API_CONFLICT"],
+    ] as const;
+
+    for (const [statusCode, code] of cases) {
+      const failure = mapBudgetApiHttpFailure({
+        statusCode,
+        projectId: "demo-project",
+        responseBody: {
+          error: {
+            status: "PERMISSION_DENIED",
+            message: "caller lacks permission",
+          },
+        },
+      });
+
+      expect(failure).toMatchObject({
+        code,
+        statusCode,
+        recoverable: true,
+        retryable: false,
+        reason: "PERMISSION_DENIED: caller lacks permission",
+      });
+      expect(failure.next).toContain("omg budget audit --project demo-project");
+    }
+  });
+
+  it("marks rate limit and server Budget API failures as retryable", () => {
+    expect(mapBudgetApiHttpFailure({
+      statusCode: 429,
+      projectId: "demo-project",
+      retryAfterMs: 30_000,
+      responseBody: { error: { status: "RESOURCE_EXHAUSTED", message: "quota exceeded" } },
+    })).toMatchObject({
+      code: "BUDGET_API_RATE_LIMITED",
+      retryable: true,
+      retryAfterMs: 30_000,
+    });
+
+    expect(mapBudgetApiHttpFailure({
+      statusCode: 503,
+      projectId: "demo-project",
+      responseBody: { error: { status: "UNAVAILABLE", message: "backend unavailable" } },
+    })).toMatchObject({
+      code: "BUDGET_API_UNAVAILABLE",
+      retryable: true,
+      statusCode: 503,
+    });
   });
 });
 

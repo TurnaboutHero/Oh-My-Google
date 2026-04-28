@@ -88,7 +88,7 @@ Important implemented guards:
 - Live `omg deploy`, `omg firebase deploy --execute`, `secret set`, and `omg init` billing/API/IAM setup require no active local cost lock and budget audit `risk: configured`.
 - `omg cost lock` records a local project-scoped blocker; `omg cost unlock` requires `--yes`.
 - `budget ensure --dry-run` plans expected budget policy, but live budget create/update remains blocked.
-- Budget API create/update request execution and post-verification core exist behind injected functions; CLI live mutation is not wired.
+- Budget API create/update request execution, post-verification core, and transport failure mapping exist behind injected functions; CLI live mutation is not wired.
 - Budget ensure live gate contract fixes transport/auth, L2 approval, decision-log, and post-verification failure envelope expectations before live wiring.
 - `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible routing plus Pub/Sub topic/IAM state, but live notification mutation remains blocked.
 - `budget notifications lock-ingestion --dry-run` plans a subscriber/handler path into local cost lock, but live subscription, IAM, and handler setup remain blocked.

@@ -28,6 +28,7 @@ describe("budget ensure live gate contract", () => {
         tokenCommand: ["gcloud", "auth", "print-access-token"],
         quotaProjectHeader: "x-goog-user-project",
         tokenLogging: "forbidden",
+        retryableFailureCodes: ["BUDGET_API_RATE_LIMITED", "BUDGET_API_UNAVAILABLE"],
       },
       approval: {
         required: true,
@@ -44,6 +45,8 @@ describe("budget ensure live gate contract", () => {
       },
     });
     expect(contract.transport.requiredHeaders).toEqual(["authorization", "content-type", "x-goog-user-project"]);
+    expect(contract.transport.nonRetryableFailureCodes).toContain("BUDGET_API_PERMISSION_DENIED");
+    expect(contract.transport.nonRetryableFailureCodes).toContain("BUDGET_API_CONFLICT");
   });
 
   it("formats the recovery dry-run command without dropping optional fields", () => {
