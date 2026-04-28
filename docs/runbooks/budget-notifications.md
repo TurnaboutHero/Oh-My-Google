@@ -6,8 +6,9 @@ This runbook covers:
 
 - `omg budget notifications audit --project <id> [--topic <topic>]`
 - `omg budget notifications ensure --project <id> --topic <topic> --dry-run`
+- `omg budget notifications lock-ingestion --project <id> --topic <topic> --dry-run`
 
-The current implementation never creates Pub/Sub topics, mutates budget notification rules, grants IAM, or sends external notifications. It can read a target topic and topic IAM policy. Supplying `--yes` to notification ensure returns `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED`.
+The current implementation never creates Pub/Sub topics, mutates budget notification rules, creates subscriptions, grants IAM, starts handlers, or sends external notifications. It can read a target topic and topic IAM policy. Supplying `--yes` to notification ensure returns `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED`; supplying `--yes` to lock-ingestion returns `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED`.
 
 ## Official API Grounding
 
@@ -129,10 +130,27 @@ returns:
 BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED
 ```
 
+## Cost Lock Ingestion Dry-Run
+
+Use this path to plan, but not create, a Budget Pub/Sub alert subscriber that would set local cost lock:
+
+```bash
+omg --output json budget notifications lock-ingestion --project <project-id> --topic budget-alerts --dry-run
+```
+
+The plan checks budget notification routing and Pub/Sub topic/IAM readiness, then returns:
+
+- subscription command preview
+- handler responsibilities
+- the local `omg cost lock` command the handler would run
+- manual steps for subscriber permission and runtime review
+
+Live subscription creation, subscriber IAM grants, and handler setup are intentionally blocked. Detailed behavior is tracked in [budget-cost-lock-ingestion.md](./budget-cost-lock-ingestion.md).
+
 ## Still Deferred
 
 - Creating Pub/Sub topics.
 - Granting Pub/Sub IAM.
-- Automatically connecting notification ingestion to `cost lock`.
+- Live automatic notification ingestion to `cost lock`.
 - Slack, Discord, webhook, email, or other external notification senders.
 - MCP exposure for budget notification commands.

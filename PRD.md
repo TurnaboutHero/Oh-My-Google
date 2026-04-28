@@ -1,6 +1,6 @@
 # Product Requirements Document: oh-my-google
 
-Version: 0.5 agent IAM planning refresh
+Version: 0.6 budget alert ingestion planning refresh
 Last updated: 2026-04-28
 
 ## Summary
@@ -128,6 +128,7 @@ Implemented admin and safety workflow:
 - `omg budget ensure --dry-run`
 - `omg budget notifications audit`
 - `omg budget notifications ensure --dry-run`
+- `omg budget notifications lock-ingestion --dry-run`
 - `omg cost status/lock/unlock`
 - `omg firestore audit`
 - `omg iam audit`
@@ -202,12 +203,13 @@ Current execution boundary:
 - Budget API enablement must require explicit `--yes` after a dry-run option.
 - Budget policy ensure must remain dry-run only until live create/update has approval and post-verification.
 - Budget notification ensure must remain dry-run only until Pub/Sub topic existence, visible Publisher binding readiness, and budget notification rule post-verification are implemented.
+- Budget notification to cost lock ingestion must remain dry-run only until subscription creation, subscriber IAM, handler runtime, local state write, and acknowledgement semantics are reviewed.
 - `omg cost lock` must write only local `.omg/cost-lock.json` state and require a project ID plus reason.
 - `omg cost unlock` must require explicit `--yes`.
 - An active cost lock must block currently known cost-bearing live `omg` operations before budget audit or cloud execution.
 - Live deploys, Firebase helper deploys, `secret set`, and `init` billing/API/IAM setup must be blocked unless budget audit returns `risk: configured`.
 - `budget enable-api` is the explicit onboarding exception for budget visibility bootstrap.
-- Local cost lock is an operator-controlled safety brake, not a Google Cloud hard spend cap and not an automatic budget-alert response yet.
+- Local cost lock is an operator-controlled safety brake, not a Google Cloud hard spend cap. Budget alert ingestion planning may describe automatic paths, but live setup must stay blocked until a reviewed executor exists.
 - Budget guard coverage must expand before additional broad live operations are added.
 
 ### Secret Safety
@@ -283,6 +285,7 @@ Completed validation:
 - Cost-bearing operation invariant tests for operation intents and command mappings.
 - Local cost lock state, command, safety-decision, deploy, Firebase deploy, secret set, and init blocker tests.
 - Agent IAM plan generation, dry-run-only bootstrap, and safety intent mapping tests.
+- Budget Pub/Sub alert to cost lock ingestion plan, CLI, and safety intent mapping tests.
 - Read-only Firestore audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud Storage audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.

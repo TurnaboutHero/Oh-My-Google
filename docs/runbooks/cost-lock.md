@@ -96,7 +96,7 @@ Cost lock is not:
 - an automatic budget alert response
 - protection against raw `gcloud`, raw Firebase CLI, or console actions outside `omg`
 
-Budget Pub/Sub notification ingestion is still deferred. Until that exists, an operator or agent must explicitly run `omg cost lock` after reviewing a budget alert.
+Budget Pub/Sub notification ingestion now has a dry-run plan through `omg budget notifications lock-ingestion --dry-run`, but live subscription, IAM, and handler setup are still deferred. Until a reviewed handler exists, an operator or agent must explicitly run `omg cost lock` after reviewing a budget alert.
 
 ## Verification
 

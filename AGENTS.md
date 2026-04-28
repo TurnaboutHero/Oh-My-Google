@@ -145,9 +145,10 @@ Budget policy planning is read-only in the current implementation:
 omg --output json budget ensure --project <project-id> --amount 50000 --currency KRW --dry-run
 omg --output json budget notifications audit --project <project-id> --topic budget-alerts
 omg --output json budget notifications ensure --project <project-id> --topic budget-alerts --dry-run
+omg --output json budget notifications lock-ingestion --project <project-id> --topic budget-alerts --dry-run
 ```
 
-Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked.
+Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked. `budget notifications lock-ingestion --dry-run` plans a subscriber path into local cost lock; live subscription creation, subscriber IAM grants, and handler setup are still blocked.
 
 ### Local Cost Lock
 
@@ -165,7 +166,7 @@ Rules:
 - Active local cost lock blocks currently known cost-bearing live operations before budget audit or cloud execution.
 - `cost lock` writes only local state and requires a project ID plus reason.
 - `cost unlock` requires explicit `--yes`.
-- Cost lock is not a Google Cloud hard cap and is not yet automatically triggered by Budget Pub/Sub notifications.
+- Cost lock is not a Google Cloud hard cap; Budget Pub/Sub ingestion is planning-only until a reviewed live handler exists.
 
 ### IAM Audit And Agent IAM Planning
 
@@ -434,6 +435,7 @@ Approval rules:
 | `ACCOUNT_MISMATCH` | Active account differs from expected/approved account | Switch explicitly or ask user |
 | `BUDGET_GUARD_BLOCKED` | Budget guard not configured | Stop; inspect budget state |
 | `COST_LOCKED` | Local cost lock blocks cost-bearing live execution | Stop; inspect `omg cost status --project <id>` |
+| `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED` | Live budget alert to cost lock ingestion setup is blocked | Use `budget notifications lock-ingestion --dry-run` |
 | `IAM_BOOTSTRAP_LIVE_NOT_IMPLEMENTED` | Live agent IAM bootstrap is blocked | Use `omg iam bootstrap --project <id> --dry-run` |
 
 ## CLI Reference
@@ -460,6 +462,7 @@ omg budget enable-api --project <id> [--dry-run] [--yes]
 omg budget ensure --project <id> --amount <n> --currency <code> [--thresholds <list>] --dry-run
 omg budget notifications audit --project <id> [--topic <topic>]
 omg budget notifications ensure --project <id> --topic <topic> [--display-name <name>] --dry-run
+omg budget notifications lock-ingestion --project <id> --topic <topic> [--display-name <name>] --dry-run
 
 omg cost status [--project <id>]
 omg cost lock --project <id> --reason <text> [--locked-by <actor>]
@@ -524,4 +527,5 @@ omg --output json <command>
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
+- [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md): Budget Pub/Sub alert to cost lock ingestion planning
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

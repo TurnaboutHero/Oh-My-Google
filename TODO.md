@@ -30,7 +30,10 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add `omg cost status`, `omg cost lock`, and `omg cost unlock --yes` over local `.omg/cost-lock.json` state.
 - [x] Block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup when a project cost lock is active.
 - [x] Add tests proving active cost lock blocks before budget audit or cloud execution.
-- [ ] Decide whether budget Pub/Sub notification ingestion should automatically set cost lock or remain an operator-driven follow-up.
+- [x] Add budget Pub/Sub notification to local cost lock ingestion dry-run planning.
+- [x] Add `omg budget notifications lock-ingestion --project <id> --topic <topic> --dry-run`.
+- [x] Keep live subscription/handler setup blocked with `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED`.
+- [ ] Decide whether budget Pub/Sub notification ingestion should become a live gated workflow or remain an operator-driven follow-up.
 - [x] Add agent IAM planning/bootstrap dry-run after budget controls are stable.
 - [x] Add `omg iam plan --project <id>` to propose separated auditor/deployer/secret-admin identities from IAM audit state.
 - [x] Add `omg iam bootstrap --project <id> --dry-run` and keep live service account creation/IAM grants blocked.
@@ -134,10 +137,10 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 ## Recommended Next Work
 
 1. Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
-2. Decide whether budget Pub/Sub notification ingestion should trigger local cost lock or stay operator-driven.
+2. Decide whether budget Pub/Sub notification ingestion live setup should trigger local cost lock or stay operator-driven.
 3. Decide whether live agent IAM bootstrap should remain manual or become a gated workflow.
 4. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
-5. Keep `budget ensure --yes`, `budget notifications ensure --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
+5. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 6. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
 7. Preserve the cost-bearing invariant before any new live Google Cloud operation.
 8. Run optional live read-only audits only with explicit project/account approval.
@@ -303,7 +306,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - `budget ensure` currently plans expected budget policy in dry-run only; live budget create/update is intentionally blocked until the executor and post-verification are implemented.
 - `budget notifications ensure` currently plans Pub/Sub routing in dry-run only and performs read-only topic/IAM audit; live notification mutation, Pub/Sub topic creation, and IAM grants are intentionally blocked.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
-- Local cost lock is an operator-controlled local blocker, not a cloud billing hard cap and not yet automatically triggered by Budget Pub/Sub notifications.
+- Local cost lock is an operator-controlled local blocker, not a cloud billing hard cap; Budget Pub/Sub ingestion is dry-run planning only until a reviewed live handler exists.
+- Budget Pub/Sub to cost lock ingestion is dry-run planning only; live subscription creation, subscriber permission grants, and handler setup are intentionally not implemented.
 - An active local cost lock blocks currently known cost-bearing live `omg` operations before budget audit or cloud execution, but raw `gcloud`/Firebase CLI commands outside `omg` are out of scope.
 - `omg` now has a narrow downstream MCP gateway for registry audit, tool discovery, and allowlisted read-only tool calls.
 - Local stdio fixture coverage exists for the downstream MCP gateway, but external downstream MCP smoke still requires a known benign target.

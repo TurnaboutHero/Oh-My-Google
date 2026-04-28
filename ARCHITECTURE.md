@@ -220,6 +220,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Auth: `auth status/list/create/context/switch/project/refresh/logout`
 - Approval: `approve`, `reject`, `approvals list`
 - Budget: `budget audit`, `budget enable-api`, `budget ensure --dry-run`, `budget notifications audit`, `budget notifications ensure --dry-run`
+- Budget cost-lock ingestion: `budget notifications lock-ingestion --dry-run`
 - Cost lock: `cost status`, `cost lock`, `cost unlock --yes`
 - Firestore: `firestore audit`
 - IAM: `iam audit`, `iam plan`, `iam bootstrap --dry-run`
@@ -488,9 +489,11 @@ Current behavior:
 - `budget ensure --dry-run` normalizes an expected budget policy and compares it with visible budgets.
 - `budget notifications audit` reports whether visible budgets have Pub/Sub notification routing and can optionally inspect a target Pub/Sub topic/IAM policy.
 - `budget notifications ensure --dry-run` plans the expected `notificationsRule.pubsubTopic` and schema version for the target budget after read-only Pub/Sub topic/IAM audit.
+- `budget notifications lock-ingestion --dry-run` plans a reviewed subscriber path from Budget Pub/Sub alerts into local cost lock.
 - Budget audit is read-only.
 - Live budget creation/update is not implemented and `budget ensure --yes` is blocked.
 - Live budget notification mutation is not implemented and `budget notifications ensure --yes` is blocked.
+- Live subscription creation, subscriber IAM grants, and handler setup are not implemented and `budget notifications lock-ingestion --yes` is blocked.
 - Live `secret set` is blocked unless budget audit returns `risk: configured`.
 - Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
 - Live `omg firebase deploy --execute` is blocked unless budget audit returns `risk: configured`.
@@ -526,6 +529,12 @@ Budget notification ensure dry-run actions:
 - `none`: the target budget already has the expected Pub/Sub topic and schema version.
 - `update`: the target budget exists and needs a `notificationsRule` update.
 - `blocked`: budget audit failed, the target budget is not visible, the Pub/Sub topic is missing, or Publisher binding/IAM readiness is not visible.
+
+Budget cost-lock ingestion dry-run status:
+
+- `ready`: the expected budget notification route and Pub/Sub Publisher binding are visible; a reviewed subscriber handler can be designed.
+- `review`: budget notification routing still needs an update before ingestion can work.
+- `blocked`: budget notification or Pub/Sub topic readiness blockers prevent ingestion planning.
 
 Pub/Sub topic audit states:
 
@@ -772,7 +781,7 @@ Not implemented:
 
 - downstream MCP write/lifecycle proxying
 - live budget creation/mutation
-- automatic Budget Pub/Sub notification ingestion into local cost lock
+- live Budget Pub/Sub notification ingestion into local cost lock
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows
 - Cloud SQL instance/backup/export/import/lifecycle write workflows

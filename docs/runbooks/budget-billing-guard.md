@@ -10,6 +10,7 @@ Commands:
 - `omg budget ensure --project <id> --amount <n> --currency <code> --dry-run`
 - `omg budget notifications audit --project <id> [--topic <topic>]`
 - `omg budget notifications ensure --project <id> --topic <topic> --dry-run`
+- `omg budget notifications lock-ingestion --project <id> --topic <topic> --dry-run`
 - `omg cost status [--project <id>]`
 - `omg cost lock --project <id> --reason <text>`
 - `omg cost unlock --project <id> --yes`
@@ -18,9 +19,10 @@ Commands:
 `budget audit` never creates budgets, enables APIs, links billing, disables billing, or changes project state.
 `budget enable-api` is the only command in this surface that changes project state; it enables `billingbudgets.googleapis.com`, requires explicit `--yes`, and should be run after `--dry-run`.
 `budget ensure --dry-run` plans the expected budget policy and compares it with visible budgets. It does not create or update budgets.
-`budget notifications audit` and `budget notifications ensure --dry-run` inspect and plan Pub/Sub notification routing only. They can read a target Pub/Sub topic and topic IAM policy, but they do not create Pub/Sub topics, grant IAM, update budgets, or send external notifications.
+`budget notifications audit`, `budget notifications ensure --dry-run`, and `budget notifications lock-ingestion --dry-run` inspect and plan Pub/Sub notification routing only. They can read a target Pub/Sub topic and topic IAM policy, but they do not create Pub/Sub topics, create subscriptions, grant IAM, update budgets, start handlers, or send external notifications.
 Live budget creation/update is still blocked in the current safe implementation. `budget ensure --yes` returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED` until the live Budget API executor and post-verification workflow are implemented.
 Live budget notification mutation is also blocked. `budget notifications ensure --yes` returns `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED` until live notification update, optional topic/IAM setup, and budget notification post-verification are implemented.
+Live budget alert to cost lock ingestion setup is blocked. `budget notifications lock-ingestion --yes` returns `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED` until subscription creation, subscriber IAM, handler runtime, local lock write, and acknowledgement semantics are reviewed.
 Local cost lock is an additional operator-controlled safety brake. It writes only `.omg/cost-lock.json`; active locks block currently known cost-bearing live `omg` operations before budget audit or cloud execution.
 
 ## Audit
@@ -114,6 +116,7 @@ omg --output json budget notifications ensure --project <project-id> --topic bud
 ```
 
 Notification posture and live mutation gates are tracked in [budget-notifications.md](./budget-notifications.md).
+Cost lock ingestion planning is tracked in [budget-cost-lock-ingestion.md](./budget-cost-lock-ingestion.md).
 
 ## Local Cost Lock
 

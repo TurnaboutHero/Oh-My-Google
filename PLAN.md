@@ -249,7 +249,11 @@ Current safe-scope progress:
 - Added `omg cost status`, `omg cost lock --project <id> --reason <text>`, and `omg cost unlock --project <id> --yes`.
 - Added `local-state` adapter classification and operation intents for `cost.status`, `cost.lock`, and `cost.unlock`.
 - Active cost locks block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup before budget audit or cloud execution.
+- Added `omg budget notifications lock-ingestion --project <id> --topic <topic> --dry-run`.
+- Added dry-run planning for a reviewed Budget Pub/Sub subscriber path that would call local cost lock.
+- Kept live subscription creation, subscriber IAM grants, and handler setup blocked with `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED`.
 - Added [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md).
+- Added [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md).
 
 Remaining:
 
@@ -257,7 +261,7 @@ Remaining:
 - Post-verify live ensure by re-running budget audit and matching the expected policy.
 - Add MCP coverage only after the CLI contract and live executor stabilize.
 - Decide whether to support automatic Pub/Sub topic creation and IAM grant, or keep those as manual console steps.
-- Decide whether Budget Pub/Sub notification ingestion should automatically trigger local cost lock or remain operator-driven.
+- Decide whether Budget Pub/Sub notification ingestion live setup should become a gated workflow or remain operator-driven.
 - Decide whether live agent IAM bootstrap should remain manual or become a gated workflow.
 
 ### Phase 4: Resource Add Workflows

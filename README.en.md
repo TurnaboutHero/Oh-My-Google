@@ -41,6 +41,7 @@ Implemented:
 - Budget audit and Budget API enable workflow
 - Budget ensure dry-run policy planning
 - Budget Pub/Sub notification audit and dry-run routing planning
+- Budget Pub/Sub alert to local cost lock ingestion dry-run planning
 - Local cost lock: `omg cost status/lock/unlock`
 - budget guard before live `omg deploy`, `omg firebase deploy --execute`, Secret Manager writes, and `omg init` billing/API/IAM setup
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
@@ -69,7 +70,7 @@ Current safety status and pending scope:
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
-- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, budget notification audit/dry-run planning, and read-only Pub/Sub topic/IAM audit.
+- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, budget notification audit/dry-run planning, read-only Pub/Sub topic/IAM audit, and budget alert to cost lock ingestion dry-run planning.
 - Firestore, Cloud Storage, Cloud SQL, live IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
@@ -233,6 +234,7 @@ omg budget enable-api --project <id> --yes
 omg budget ensure --project <id> --amount 50000 --currency KRW --dry-run
 omg budget notifications audit --project <id> --topic budget-alerts
 omg budget notifications ensure --project <id> --topic budget-alerts --dry-run
+omg budget notifications lock-ingestion --project <id> --topic budget-alerts --dry-run
 ```
 
 Cost lock:
@@ -403,6 +405,7 @@ Representative error codes:
 - [docs/runbooks/project-cleanup-audit.md](./docs/runbooks/project-cleanup-audit.md): project lifecycle safety
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
+- [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md): Budget Pub/Sub alert to cost lock ingestion planning
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
 - [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md): Cloud SQL resource audit
