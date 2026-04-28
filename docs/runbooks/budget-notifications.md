@@ -110,11 +110,13 @@ Existing email notification settings from `notificationsRule` are preserved in t
 
 ## Live Mutation Gate
 
+Manual-first decision: `omg` does not create Pub/Sub topics or grant Pub/Sub Publisher IAM for budget notifications. Operators must apply those cloud writes deliberately, then re-run audit/ensure dry-run to verify readiness. The accepted boundary is documented in [manual-first-cloud-writes.md](./manual-first-cloud-writes.md).
+
 Live notification updates remain deferred until all conditions are true:
 
 1. Budget policy ensure has a live executor and post-verification path.
 2. Pub/Sub topic existence and topic IAM readiness are visible.
-3. The team decides whether missing topic/IAM setup stays manual or becomes a gated live workflow.
+3. Any change from manual Pub/Sub topic/IAM setup to a live workflow has owner approval, post-verification, and cleanup design.
 4. Budget notification update is routed through Trust Profile L2 approval semantics.
 5. Post-verification confirms the visible budget has the expected topic and schema.
 
@@ -152,5 +154,6 @@ Live subscription creation, subscriber IAM grants, and handler setup are intenti
 - Creating Pub/Sub topics.
 - Granting Pub/Sub IAM.
 - Live automatic notification ingestion to `cost lock`.
+- Live agent IAM bootstrap for notification or ingestion identities.
 - Slack, Discord, webhook, email, or other external notification senders.
 - MCP exposure for budget notification commands.

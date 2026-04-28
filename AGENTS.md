@@ -150,6 +150,8 @@ omg --output json budget notifications lock-ingestion --project <project-id> --t
 
 Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked. `budget notifications lock-ingestion --dry-run` plans a subscriber path into local cost lock; live subscription creation, subscriber IAM grants, and handler setup are still blocked.
 
+Manual-first decision: Pub/Sub topic creation, Pub/Sub Publisher grants, budget alert subscription setup, Subscriber grants, handler runtime setup, and live agent IAM bootstrap remain operator-run. Agents should stop at audit/dry-run evidence and follow [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md).
+
 ### Local Cost Lock
 
 Local cost lock is an operator-controlled blocker stored in `.omg/cost-lock.json`:
@@ -528,4 +530,5 @@ omg --output json <command>
 - [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
 - [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md): Budget Pub/Sub alert to cost lock ingestion planning
+- [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md): manual-first boundaries for Pub/Sub and IAM setup
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

@@ -55,6 +55,7 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 - Silent account switching.
 - Silent ADC switching.
 - Creating or mutating budgets or budget notification rules without an explicit workflow.
+- Automatically creating Pub/Sub topics, applying Pub/Sub IAM grants, deploying budget alert handlers, or creating agent service accounts in the current phase.
 - Fully preventing spend through budgets; Google Cloud budgets are alerts, not hard caps.
 - Supporting Next.js SSR deployment in the current phase.
 - Exposing arbitrary downstream MCP tools directly to agents without operation classification, capability metadata, and safety review.
@@ -202,8 +203,8 @@ Current execution boundary:
 - Budget audit must be read-only.
 - Budget API enablement must require explicit `--yes` after a dry-run option.
 - Budget policy ensure must remain dry-run only until live create/update has approval and post-verification.
-- Budget notification ensure must remain dry-run only until Pub/Sub topic existence, visible Publisher binding readiness, and budget notification rule post-verification are implemented.
-- Budget notification to cost lock ingestion must remain dry-run only until subscription creation, subscriber IAM, handler runtime, local state write, and acknowledgement semantics are reviewed.
+- Budget notification ensure must remain dry-run only; Pub/Sub topic creation, Publisher IAM grants, and notification rule live mutation are manual-first until a separate owner-approved executor and verifier exist.
+- Budget notification to cost lock ingestion must remain dry-run only; subscription creation, Subscriber IAM, handler runtime, local state write, and acknowledgement semantics are operator-driven until a reviewed live handler exists.
 - `omg cost lock` must write only local `.omg/cost-lock.json` state and require a project ID plus reason.
 - `omg cost unlock` must require explicit `--yes`.
 - An active cost lock must block currently known cost-bearing live `omg` operations before budget audit or cloud execution.
@@ -225,7 +226,7 @@ Current execution boundary:
 - IAM audit must not grant, revoke, create, delete, or mutate IAM resources.
 - `iam plan` must use read-only audit state to propose separated agent identities without applying grants.
 - `iam bootstrap --dry-run` must return proposed service account creation and IAM binding steps without applying them.
-- Live IAM service account creation and IAM grants must stay deferred until there is a concrete owner-approved workflow and verifier.
+- Live IAM service account creation and IAM grants must stay manual-first until there is a concrete owner-approved workflow, verifier, and least-privilege grant design.
 - Public principals, primitive roles, high-impact IAM administration roles, and missing IAM policy visibility must be surfaced as structured audit signals.
 
 ### Security Audit Safety

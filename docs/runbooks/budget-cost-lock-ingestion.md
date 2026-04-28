@@ -20,6 +20,8 @@ Cloud Billing budgets can publish alerts to Pub/Sub, but local cost lock is work
 
 That handler has its own trust, IAM, runtime, and operational risks, so `omg` only plans it for now.
 
+Manual-first decision: subscription creation, Subscriber IAM grants, and handler setup remain operator-driven. `omg` must stop at dry-run evidence until a separate owner-approved live executor and verifier exist. See [manual-first-cloud-writes.md](./manual-first-cloud-writes.md).
+
 ## Dry-Run
 
 ```bash
@@ -59,7 +61,7 @@ With `--yes`, live setup is still blocked:
 BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED
 ```
 
-Live setup remains deferred until all of these are designed and verified:
+Live setup remains deferred until all of these are designed, owner-approved, and verified:
 
 1. Dedicated Pub/Sub subscription creation.
 2. Narrow `roles/pubsub.subscriber` grant for the selected handler identity.

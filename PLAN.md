@@ -254,15 +254,14 @@ Current safe-scope progress:
 - Kept live subscription creation, subscriber IAM grants, and handler setup blocked with `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED`.
 - Added [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md).
 - Added [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md).
+- Accepted a manual-first boundary for Pub/Sub topic creation, Pub/Sub IAM grants, budget alert ingestion setup, and live agent IAM bootstrap in [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md).
 
 Remaining:
 
 - Implement Budget API create/update executor only after the owner-approved live workflow is designed.
 - Post-verify live ensure by re-running budget audit and matching the expected policy.
 - Add MCP coverage only after the CLI contract and live executor stabilize.
-- Decide whether to support automatic Pub/Sub topic creation and IAM grant, or keep those as manual console steps.
-- Decide whether Budget Pub/Sub notification ingestion live setup should become a gated workflow or remain operator-driven.
-- Decide whether live agent IAM bootstrap should remain manual or become a gated workflow.
+- Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and live agent IAM bootstrap manual-first unless a new owner-approved verifier and rollback plan exists.
 
 ### Phase 4: Resource Add Workflows
 

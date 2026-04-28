@@ -70,7 +70,7 @@ Current safety status and pending scope:
 - `budget enable-api` remains an explicit onboarding exception for budget visibility bootstrap and requires dry-run/`--yes`.
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
-- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, budget notification audit/dry-run planning, read-only Pub/Sub topic/IAM audit, and budget alert to cost lock ingestion dry-run planning.
+- Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, budget notification audit/dry-run planning, read-only Pub/Sub topic/IAM audit, and budget alert to cost lock ingestion dry-run planning. Pub/Sub topic/IAM setup, alert ingestion setup, and live agent IAM bootstrap stay behind a manual-first boundary.
 - Firestore, Cloud Storage, Cloud SQL, live IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
@@ -404,8 +404,10 @@ Representative error codes:
 - [docs/runbooks/gcp-e2e.md](./docs/runbooks/gcp-e2e.md): disposable GCP E2E validation
 - [docs/runbooks/project-cleanup-audit.md](./docs/runbooks/project-cleanup-audit.md): project lifecycle safety
 - [docs/runbooks/budget-billing-guard.md](./docs/runbooks/budget-billing-guard.md): budget guard audit
+- [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
 - [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md): Budget Pub/Sub alert to cost lock ingestion planning
+- [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md): Pub/Sub/IAM live setup manual-first decision
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
 - [docs/runbooks/sql-audit.md](./docs/runbooks/sql-audit.md): Cloud SQL resource audit

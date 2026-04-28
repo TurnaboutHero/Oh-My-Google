@@ -90,6 +90,7 @@ Important implemented guards:
 - `budget ensure --dry-run` plans expected budget policy, but live budget create/update remains blocked.
 - `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible routing plus Pub/Sub topic/IAM state, but live notification mutation remains blocked.
 - `budget notifications lock-ingestion --dry-run` plans a subscriber/handler path into local cost lock, but live subscription, IAM, and handler setup remain blocked.
+- Pub/Sub topic creation, Pub/Sub Publisher grants, budget alert ingestion setup, and live agent IAM bootstrap are manual-first boundaries.
 - Read-only `firestore audit` reports visible databases, composite indexes, and protection/PITR posture.
 - Read-only `storage audit` reports visible buckets, bucket posture, bucket IAM, and public principals.
 - Read-only `sql audit` reports visible instances, backup metadata, deletion protection, public IPv4, and public authorized networks.
@@ -103,6 +104,7 @@ Important remaining gaps:
 
 - `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility.
 - Local cost lock is operator-driven unless a separately reviewed Budget Pub/Sub ingestion handler is implemented outside the current live scope.
+- Manual-first cloud write boundaries are documented in `docs/runbooks/manual-first-cloud-writes.md`.
 - Downstream MCP write/lifecycle proxying is not implemented.
 - Live budget creation/mutation is not implemented.
 - Firestore write/provisioning/data workflows are not implemented.

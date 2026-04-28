@@ -493,6 +493,7 @@ Current behavior:
 - Budget audit is read-only.
 - Live budget creation/update is not implemented and `budget ensure --yes` is blocked.
 - Live budget notification mutation is not implemented and `budget notifications ensure --yes` is blocked.
+- Pub/Sub topic creation and Publisher IAM grants for budget alerts are manual-first and not implemented as live `omg` setup.
 - Live subscription creation, subscriber IAM grants, and handler setup are not implemented and `budget notifications lock-ingestion --yes` is blocked.
 - Live `secret set` is blocked unless budget audit returns `risk: configured`.
 - Live `omg deploy` is blocked unless budget audit returns `risk: configured`.
@@ -781,6 +782,7 @@ Not implemented:
 
 - downstream MCP write/lifecycle proxying
 - live budget creation/mutation
+- live Pub/Sub topic creation and Publisher IAM grants for budget alerts
 - live Budget Pub/Sub notification ingestion into local cost lock
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows

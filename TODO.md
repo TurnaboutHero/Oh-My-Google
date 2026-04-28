@@ -25,7 +25,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add budget notification runbook.
 - [x] Add Pub/Sub topic existence audit before opening live notification mutation.
 - [x] Add read-only Pub/Sub topic IAM audit and Publisher binding readiness reporting before opening live notification mutation.
-- [ ] Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
+- [x] Decide Pub/Sub topic creation and IAM grants stay manual-first until a separate owner-approved live executor and verifier exist.
 - [x] Add local cost lock after notification posture is defined.
 - [x] Add `omg cost status`, `omg cost lock`, and `omg cost unlock --yes` over local `.omg/cost-lock.json` state.
 - [x] Block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup when a project cost lock is active.
@@ -33,12 +33,12 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add budget Pub/Sub notification to local cost lock ingestion dry-run planning.
 - [x] Add `omg budget notifications lock-ingestion --project <id> --topic <topic> --dry-run`.
 - [x] Keep live subscription/handler setup blocked with `BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED`.
-- [ ] Decide whether budget Pub/Sub notification ingestion should become a live gated workflow or remain an operator-driven follow-up.
+- [x] Decide budget Pub/Sub notification ingestion remains operator-driven until a reviewed subscriber, handler, and verifier exist.
 - [x] Add agent IAM planning/bootstrap dry-run after budget controls are stable.
 - [x] Add `omg iam plan --project <id>` to propose separated auditor/deployer/secret-admin identities from IAM audit state.
 - [x] Add `omg iam bootstrap --project <id> --dry-run` and keep live service account creation/IAM grants blocked.
 - [x] Add tests for agent IAM plan generation, dry-run-only bootstrap, and safety intent mapping.
-- [ ] Decide whether live agent IAM bootstrap should create service accounts and apply grants after owner-approved verifier design.
+- [x] Decide live agent IAM bootstrap remains manual-first until owner-approved verifier and least-privilege grant design exist.
 
 ### Phase 4: Resource Add Workflows
 
@@ -136,16 +136,15 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 ## Recommended Next Work
 
-1. Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
-2. Decide whether budget Pub/Sub notification ingestion live setup should trigger local cost lock or stay operator-driven.
-3. Decide whether live agent IAM bootstrap should remain manual or become a gated workflow.
-4. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
-5. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
-6. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
-7. Preserve the cost-bearing invariant before any new live Google Cloud operation.
-8. Run optional live read-only audits only with explicit project/account approval.
-9. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
-10. Re-run the local verification suite before each push.
+1. Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and agent IAM bootstrap manual-first unless a new owner-approved live executor/verifier is designed.
+2. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
+3. Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
+4. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
+5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
+6. Preserve the cost-bearing invariant before any new live Google Cloud operation.
+7. Run optional live read-only audits only with explicit project/account approval.
+8. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
+9. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -305,6 +304,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Budget visibility depends on billing permissions and the Budget API.
 - `budget ensure` currently plans expected budget policy in dry-run only; live budget create/update is intentionally blocked until the executor and post-verification are implemented.
 - `budget notifications ensure` currently plans Pub/Sub routing in dry-run only and performs read-only topic/IAM audit; live notification mutation, Pub/Sub topic creation, and IAM grants are intentionally blocked.
+- Pub/Sub topic creation, Publisher grants, subscription setup, Subscriber grants, handler setup, and live agent IAM bootstrap are accepted manual-first boundaries, not autonomous setup paths.
 - Budget guard covers all currently known cost-bearing live operations; invariant tests should fail if a new cost-bearing intent omits budget guard.
 - Local cost lock is an operator-controlled local blocker, not a cloud billing hard cap; Budget Pub/Sub ingestion is dry-run planning only until a reviewed live handler exists.
 - Budget Pub/Sub to cost lock ingestion is dry-run planning only; live subscription creation, subscriber permission grants, and handler setup are intentionally not implemented.

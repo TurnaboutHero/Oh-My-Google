@@ -64,6 +64,10 @@ With `--yes`, live execution is still blocked:
 IAM_BOOTSTRAP_LIVE_NOT_IMPLEMENTED
 ```
 
+## Manual-First Decision
+
+Live agent IAM bootstrap remains manual-first. `omg` may propose separated auditor, deployer, and secret-admin identities, but it must not create service accounts or apply project, resource, or billing IAM grants. The accepted boundary is documented in [manual-first-cloud-writes.md](./manual-first-cloud-writes.md).
+
 ## Manual Review Items
 
 The plan keeps these out of automatic execution:
