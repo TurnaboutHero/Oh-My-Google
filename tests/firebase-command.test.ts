@@ -1,10 +1,16 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { firebaseCommand } from "../src/cli/commands/firebase.js";
 import { setOutputFormat } from "../src/cli/output.js";
+import { lockCost } from "../src/cost-lock/state.js";
 
 const firebaseFixtures = vi.hoisted(() => ({
   budgetRisk: "configured" as "configured" | "review" | "missing_budget" | "billing_disabled",
 }));
+
+const tempDirs: string[] = [];
 
 const firebaseExecuteMock = vi.hoisted(() => vi.fn(async () => ({
   success: true,
@@ -55,7 +61,8 @@ vi.mock("../src/connectors/billing-audit.js", () => ({
   auditBillingGuard: auditBillingGuardMock,
 }));
 
-afterEach(() => {
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map((dir) => fs.rm(dir, { recursive: true, force: true })));
   firebaseFixtures.budgetRisk = "configured";
   firebaseExecuteMock.mockClear();
   auditBillingGuardMock.mockClear();
@@ -89,6 +96,27 @@ describe("firebase command budget guard", () => {
     expect(firebaseExecuteMock).not.toHaveBeenCalled();
   });
 
+  it("blocks live Firebase deploys when local cost lock is active", async () => {
+    const cwd = await createTempWorkspace();
+    await lockCost(cwd, {
+      projectId: "demo-project",
+      reason: "budget alert threshold exceeded",
+    });
+
+    const result = await runFirebaseCli(["deploy", "--output", "json", "--cwd", cwd, "--execute", "--yes"]);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string; message?: string };
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("COST_LOCKED");
+    expect(payload.error?.message).toContain("budget alert threshold exceeded");
+    expect(auditBillingGuardMock).not.toHaveBeenCalled();
+    expect(firebaseExecuteMock).not.toHaveBeenCalled();
+  });
+
   it("runs live Firebase deploys when budget guard is configured", async () => {
     const result = await runFirebaseCli(["deploy", "--output", "json", "--execute", "--yes"]);
     const payload = JSON.parse(result.stdout) as { ok: boolean; command: string };
@@ -100,6 +128,12 @@ describe("firebase command budget guard", () => {
     expect(firebaseExecuteMock).toHaveBeenCalledTimes(1);
   });
 });
+
+async function createTempWorkspace(): Promise<string> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omg-firebase-cost-lock-"));
+  tempDirs.push(dir);
+  return dir;
+}
 
 async function runFirebaseCli(
   args: string[],

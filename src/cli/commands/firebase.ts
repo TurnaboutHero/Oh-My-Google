@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { AuthManager } from "../../auth/auth-manager.js";
 import { auditBillingGuard } from "../../connectors/billing-audit.js";
 import { firebaseConnector } from "../../connectors/firebase.js";
+import { getCostLock } from "../../cost-lock/state.js";
 import { spawnCliSync } from "../../system/cli-runner.js";
 import type {
   ConnectorResult,
@@ -132,6 +133,7 @@ firebaseCommand
       }
 
       if (!dryRun) {
+        await assertCostUnlocked(cwd, projectId, "Firebase deployment");
         await assertBudgetGuard(projectId, "Firebase deployment");
       }
 
@@ -298,6 +300,19 @@ async function assertBudgetGuard(projectId: string, label: string): Promise<void
   throw new OmgError(
     `Budget guard blocked ${label}: ${audit.recommendedAction}`,
     "BUDGET_GUARD_BLOCKED",
+    true,
+  );
+}
+
+async function assertCostUnlocked(cwd: string, projectId: string, label: string): Promise<void> {
+  const lock = await getCostLock(cwd, projectId);
+  if (!lock) {
+    return;
+  }
+
+  throw new OmgError(
+    `Cost lock blocked ${label}: ${lock.reason}`,
+    "COST_LOCKED",
     true,
   );
 }

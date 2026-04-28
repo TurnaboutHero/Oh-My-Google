@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
 import { auditBillingGuard } from "../../connectors/billing-audit.js";
+import { getCostLock } from "../../cost-lock/state.js";
 import { applyPlan, type ApplyResult } from "../../executor/apply.js";
 import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { tryWriteHandoff } from "../../harness/handoff.js";
@@ -127,6 +128,7 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
         jsonMode: !!input.jsonMode,
         cwd: input.cwd,
         budgetAuditProvider: auditBillingGuard,
+        costLockProvider: (targetProjectId) => getCostLock(input.cwd, targetProjectId),
       },
     );
 
@@ -219,6 +221,49 @@ export async function runDeploy(input: RunDeployInput): Promise<RunDeployOutcome
               billingEnabled: budgetGuard.billingEnabled,
               billingAccountId: budgetGuard.billingAccountId,
               signals: budgetGuard.signals,
+            },
+            next,
+          },
+        };
+      }
+
+      if (safety.code === "COST_LOCKED" && safety.costLock) {
+        const next = safety.next ?? [`omg cost status --project ${profile.projectId}`];
+        await tryAppendDecision(input.cwd, {
+          runId,
+          command: "deploy",
+          phase: "cost-lock",
+          status: "blocked",
+          action,
+          projectId,
+          environment,
+          result: {
+            code: "COST_LOCKED",
+            reason: safety.costLock.reason,
+            lockedAt: safety.costLock.lockedAt,
+          },
+          next,
+        });
+        await tryWriteHandoff(input.cwd, {
+          runId,
+          command: "deploy",
+          status: "blocked",
+          projectId,
+          environment,
+          risks: [`Cost lock blocked live deployment: ${safety.costLock.reason}`],
+          next,
+        });
+
+        return {
+          ok: false,
+          error: {
+            code: "COST_LOCKED",
+            message: `Cost lock blocked live deployment: ${safety.costLock.reason}`,
+            recoverable: true,
+            data: {
+              projectId: safety.costLock.projectId,
+              reason: safety.costLock.reason,
+              lockedAt: safety.costLock.lockedAt,
             },
             next,
           },

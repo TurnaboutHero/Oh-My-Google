@@ -1,4 +1,5 @@
 import type { BillingGuardAudit } from "../connectors/billing-audit.js";
+import type { CostLockRecord } from "../cost-lock/state.js";
 import { checkPermission, type CheckOptions } from "../trust/check.js";
 import type { PermissionCheck, TrustProfile } from "../types/trust.js";
 import {
@@ -10,6 +11,8 @@ export interface SafetyDecisionOptions extends CheckOptions {
   dryRun?: boolean;
   budgetAudit?: BillingGuardAudit;
   budgetAuditProvider?: (projectId: string) => Promise<BillingGuardAudit>;
+  costLock?: CostLockRecord;
+  costLockProvider?: (projectId: string) => Promise<CostLockRecord | undefined>;
 }
 
 export interface SafetyDecision {
@@ -22,6 +25,7 @@ export interface SafetyDecision {
   budgetRequired: boolean;
   budgetAudit?: BillingGuardAudit;
   budgetRisk?: BillingGuardAudit["risk"];
+  costLock?: CostLockRecord;
   next?: string[];
 }
 
@@ -43,6 +47,22 @@ export async function evaluateSafety(
   }
 
   const budgetRequired = intent.requiresBudget && !options.dryRun;
+  if (budgetRequired) {
+    const costLock = options.costLock ?? await readCostLock(intent, options);
+    if (costLock) {
+      return {
+        allowed: false,
+        decision: "blocked",
+        code: "COST_LOCKED",
+        intent,
+        reason: `Cost lock is active for ${costLock.projectId}: ${costLock.reason}`,
+        budgetRequired: true,
+        costLock,
+        next: [`omg cost status --project ${costLock.projectId}`],
+      };
+    }
+  }
+
   const permission = await checkPermission(intent.id, profile, {
     ...options,
     consumeApproval: shouldDeferApprovalConsumption(intent, options),
@@ -121,6 +141,16 @@ export async function evaluateSafety(
     budgetRequired,
     budgetAudit: resolvedBudgetAudit,
   };
+}
+
+async function readCostLock(
+  intent: OperationIntent,
+  options: SafetyDecisionOptions,
+): Promise<CostLockRecord | undefined> {
+  if (!options.costLockProvider || !intent.projectId) {
+    return undefined;
+  }
+  return options.costLockProvider(intent.projectId);
 }
 
 async function readBudgetAudit(

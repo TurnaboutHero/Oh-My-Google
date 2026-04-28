@@ -9,6 +9,7 @@ import {
   auditBillingGuard,
   type BillingGuardAudit,
 } from "../../connectors/billing-audit.js";
+import { getCostLock } from "../../cost-lock/state.js";
 import { createRunId, tryAppendDecision } from "../../harness/decision-log.js";
 import { DEFAULT_APIS, enableApis } from "../../setup/apis.js";
 import { getBillingStatus, linkBilling, listBillingAccounts } from "../../setup/billing.js";
@@ -163,6 +164,36 @@ export async function runInit(input: RunInitInput): Promise<RunInitOutcome> {
       structuredMode,
     );
     const billingStatus = await getBillingStatus(projectSelection.projectId);
+
+    const costLock = await getCostLock(input.cwd, projectSelection.projectId);
+    if (costLock) {
+      const next = [`omg cost status --project ${projectSelection.projectId}`];
+      const outcome: RunInitOutcome = {
+        ok: false,
+        error: {
+          code: "COST_LOCKED",
+          message: `Cost lock blocked initialization: ${costLock.reason}`,
+          recoverable: true,
+          data: {
+            projectId: costLock.projectId,
+            reason: costLock.reason,
+            lockedAt: costLock.lockedAt,
+          },
+          next,
+        },
+      };
+      await tryAppendDecision(input.cwd, {
+        runId,
+        command: "init",
+        phase: "cost-lock",
+        status: "blocked",
+        projectId: projectSelection.projectId,
+        environment,
+        result: outcome.error,
+        next,
+      });
+      return outcome;
+    }
 
     const budgetGuard = await auditInitBudgetGuard(
       projectSelection.projectId,

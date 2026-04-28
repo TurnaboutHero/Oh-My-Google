@@ -7,6 +7,7 @@ export type OperationService =
   | "cloud-run"
   | "cloud-sql"
   | "cloud-storage"
+  | "cost-control"
   | "diagnostics"
   | "downstream-mcp"
   | "firebase-hosting"
@@ -33,6 +34,7 @@ export type AdapterId =
   | "gcloud-cli"
   | "firebase-cli"
   | "google-client"
+  | "local-state"
   | "downstream-mcp"
   | "downstream-mcp-readonly"
   | "unknown";
@@ -104,6 +106,29 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
     requiresBudget: false,
     supportsDryRun: true,
     postVerify: true,
+  },
+  "cost.status": readOnly("cost-control", "local-state", "cost-lock"),
+  "cost.lock": {
+    service: "cost-control",
+    action: "write",
+    adapter: "local-state",
+    costBearing: false,
+    destructive: false,
+    secretTouching: false,
+    requiresBudget: false,
+    supportsDryRun: false,
+    postVerify: false,
+  },
+  "cost.unlock": {
+    service: "cost-control",
+    action: "write",
+    adapter: "local-state",
+    costBearing: false,
+    destructive: false,
+    secretTouching: false,
+    requiresBudget: false,
+    supportsDryRun: false,
+    postVerify: false,
   },
   "firestore.audit": readOnly("firestore", "gcloud-cli", "firestore-databases"),
   "iam.audit": readOnly("iam", "gcloud-cli", "iam-policy"),
@@ -276,6 +301,12 @@ const ADAPTER_CAPABILITIES: Record<AdapterId, AdapterCapability> = {
     execution: "enabled",
     safetyBoundary: "operation-intent",
   },
+  "local-state": {
+    id: "local-state",
+    kind: "unknown",
+    execution: "enabled",
+    safetyBoundary: "operation-intent",
+  },
   "downstream-mcp": {
     id: "downstream-mcp",
     kind: "mcp",
@@ -327,6 +358,7 @@ export function listAdapterCapabilities(): AdapterCapability[] {
     ADAPTER_CAPABILITIES["gcloud-cli"],
     ADAPTER_CAPABILITIES["firebase-cli"],
     ADAPTER_CAPABILITIES["google-client"],
+    ADAPTER_CAPABILITIES["local-state"],
     ADAPTER_CAPABILITIES["downstream-mcp-readonly"],
     ADAPTER_CAPABILITIES["downstream-mcp"],
     ADAPTER_CAPABILITIES.unknown,

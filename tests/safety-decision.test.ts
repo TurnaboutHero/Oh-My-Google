@@ -90,6 +90,40 @@ describe("shared safety decision wrapper", () => {
     });
   });
 
+  it("blocks live budget-gated operations before budget audit when cost lock is active", async () => {
+    const profile = generateDefaultProfile("demo-project", "dev");
+    const intent = classifyOperation("deploy.cloud-run", { projectId: "demo-project" });
+    let auditCalls = 0;
+
+    const decision = await evaluateSafety(intent, profile, {
+      cwd: process.cwd(),
+      jsonMode: true,
+      yes: true,
+      costLockProvider: async () => ({
+        projectId: "demo-project",
+        reason: "budget alert threshold exceeded",
+        lockedAt: "2026-04-28T00:00:00.000Z",
+      }),
+      budgetAuditProvider: async () => {
+        auditCalls += 1;
+        return configuredBudget();
+      },
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      decision: "blocked",
+      code: "COST_LOCKED",
+      budgetRequired: true,
+      costLock: {
+        projectId: "demo-project",
+        reason: "budget alert threshold exceeded",
+      },
+      next: ["omg cost status --project demo-project"],
+    });
+    expect(auditCalls).toBe(0);
+  });
+
   it("requires explicit confirmation when trust policy requires confirm in JSON mode", async () => {
     const profile = generateDefaultProfile("demo-project", "dev");
     const intent = classifyOperation("secret.set", { projectId: "demo-project" });

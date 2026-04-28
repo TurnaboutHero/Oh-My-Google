@@ -4,6 +4,7 @@ import { hashArgs } from "../../approval/hash.js";
 import { createApproval } from "../../approval/queue.js";
 import { auditBillingGuard } from "../../connectors/billing-audit.js";
 import { deleteSecret, listSecrets, setSecret } from "../../connectors/secret-manager.js";
+import { getCostLock } from "../../cost-lock/state.js";
 import { evaluateSafety, type SafetyDecision } from "../../safety/decision.js";
 import { classifyOperation } from "../../safety/intent.js";
 import { loadProfile } from "../../trust/profile.js";
@@ -235,6 +236,7 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
         jsonMode: !!input.jsonMode,
         cwd: input.cwd,
         budgetAuditProvider: auditBillingGuard,
+        costLockProvider: (targetProjectId) => getCostLock(input.cwd, targetProjectId),
       },
     );
 
@@ -276,6 +278,23 @@ export async function runSecretSet(input: RunSecretSetInput): Promise<RunSecretO
               signals: audit.signals,
             },
             next: safety.next ?? [`omg budget audit --project ${projectId}`],
+          },
+        };
+      }
+
+      if (safety.code === "COST_LOCKED" && safety.costLock) {
+        return {
+          ok: false,
+          error: {
+            code: "COST_LOCKED",
+            message: `Cost lock blocked live secret write: ${safety.costLock.reason}`,
+            recoverable: true,
+            data: {
+              projectId,
+              reason: safety.costLock.reason,
+              lockedAt: safety.costLock.lockedAt,
+            },
+            next: safety.next ?? [`omg cost status --project ${projectId}`],
           },
         };
       }

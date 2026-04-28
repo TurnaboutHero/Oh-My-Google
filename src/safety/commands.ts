@@ -8,6 +8,9 @@ export type CommandName =
   | "budget:notifications:audit"
   | "budget:notifications:ensure"
   | "budget:enable-api"
+  | "cost:status"
+  | "cost:lock"
+  | "cost:unlock"
   | "deploy"
   | "doctor"
   | "firebase:deploy"
@@ -114,6 +117,12 @@ function getCommandOperationIds(
       return ["billing.audit", "pubsub.topic.audit", "budget.notifications.ensure"];
     case "budget:enable-api":
       return ["budget.enable-api"];
+    case "cost:status":
+      return ["cost.status"];
+    case "cost:lock":
+      return ["cost.lock"];
+    case "cost:unlock":
+      return ["cost.unlock"];
     case "deploy":
       return [context.deployTarget === "firebase-hosting" ? "deploy.firebase-hosting" : "deploy.cloud-run"];
     case "doctor":
@@ -163,6 +172,10 @@ function getCommandNotes(command: CommandName): string[] {
       return ["Budget ensure starts as dry-run policy planning; live mutation needs explicit executor support and post-verification."];
     case "budget:notifications:ensure":
       return ["Budget notification ensure starts as dry-run routing planning; live mutation needs explicit executor support and post-verification."];
+    case "cost:lock":
+      return ["Cost lock only writes local .omg state and blocks future omg cost-bearing live operations."];
+    case "cost:unlock":
+      return ["Cost unlock restores future omg cost-bearing live operations and requires explicit confirmation."];
     case "init":
       return ["Init is a multi-action setup flow; budget audit must run before billing link/API/IAM writes."];
     case "project:delete":

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApproval, loadApproval, saveApproval } from "../src/approval/queue.js";
 import { secretCommand } from "../src/cli/commands/secret.js";
 import { setOutputFormat } from "../src/cli/output.js";
+import { lockCost } from "../src/cost-lock/state.js";
 import { saveProfile, generateDefaultProfile } from "../src/trust/profile.js";
 
 const secretFixtures = vi.hoisted(() => ({
@@ -141,6 +142,31 @@ describe("secret command", () => {
     expect(payload.error?.code).toBe("BUDGET_GUARD_BLOCKED");
     expect(payload.data?.budgetRisk).toBe("review");
     expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+  });
+
+  it("blocks live secret writes when local cost lock is active", async () => {
+    const cwd = await createTempWorkspace();
+    await saveProfile(cwd, generateDefaultProfile("demo-project", "dev"));
+    await lockCost(cwd, {
+      projectId: "demo-project",
+      reason: "budget alert threshold exceeded",
+    });
+
+    const result = await runSecretCli(["set", "API_KEY", "--value", "super-secret-value", "--yes"], cwd);
+    const payload = JSON.parse(result.stdout) as {
+      ok: boolean;
+      error?: { code: string };
+      data?: { reason?: string };
+    };
+
+    expect(result.exitCode).toBe(1);
+    expect(payload.ok).toBe(false);
+    expect(payload.error?.code).toBe("COST_LOCKED");
+    expect(payload.data?.reason).toBe("budget alert threshold exceeded");
+    expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+
+    const billingAudit = await import("../src/connectors/billing-audit.js");
+    expect(billingAudit.auditBillingGuard).not.toHaveBeenCalled();
   });
 
   it("does not consume approved secret write approvals when budget guard blocks execution", async () => {

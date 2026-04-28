@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApproval, loadApproval, saveApproval } from "../src/approval/queue.js";
+import { lockCost } from "../src/cost-lock/state.js";
 import { savePlan } from "../src/planner/schema.js";
 import { generateDefaultProfile, saveProfile } from "../src/trust/profile.js";
 import type { Plan } from "../src/types/plan.js";
@@ -88,6 +89,24 @@ describe("deploy budget guard", () => {
     expect(result.ok ? undefined : result.error.code).toBe("BUDGET_GUARD_BLOCKED");
     expect(result.ok ? undefined : result.error.data?.budgetRisk).toBe("review");
     expect(auditBillingGuardMock).toHaveBeenCalledWith("demo-project");
+    expect(applyPlanMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks live deploys when local cost lock is active", async () => {
+    const { runDeploy } = await import("../src/cli/commands/deploy.js");
+    const cwd = await createTempWorkspace();
+    await writeDeployFixtures(cwd, "dev");
+    await lockCost(cwd, {
+      projectId: "demo-project",
+      reason: "budget alert threshold exceeded",
+    });
+
+    const result = await runDeploy({ cwd, yes: true, jsonMode: true });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe("COST_LOCKED");
+    expect(result.ok ? undefined : result.error.data?.reason).toBe("budget alert threshold exceeded");
+    expect(auditBillingGuardMock).not.toHaveBeenCalled();
     expect(applyPlanMock).not.toHaveBeenCalled();
   });
 

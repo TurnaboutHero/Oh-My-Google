@@ -272,6 +272,38 @@ describe("operation intent classification", () => {
         postVerify: true,
       });
   });
+
+  it("classifies local cost lock controls without budget guard requirements", () => {
+    expect(classifyOperation("cost.status", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "cost.status",
+        service: "cost-control",
+        action: "read",
+        trustLevel: "L0",
+        costBearing: false,
+        requiresBudget: false,
+      });
+
+    expect(classifyOperation("cost.lock", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "cost.lock",
+        service: "cost-control",
+        action: "write",
+        trustLevel: "L1",
+        costBearing: false,
+        requiresBudget: false,
+      });
+
+    expect(classifyOperation("cost.unlock", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "cost.unlock",
+        service: "cost-control",
+        action: "write",
+        trustLevel: "L2",
+        costBearing: false,
+        requiresBudget: false,
+      });
+  });
 });
 
 describe("adapter capability manifest", () => {
@@ -300,11 +332,18 @@ describe("adapter capability manifest", () => {
       execution: "enabled",
       safetyBoundary: "operation-intent",
     });
+    expect(getAdapterCapability("local-state")).toMatchObject({
+      id: "local-state",
+      kind: "unknown",
+      execution: "enabled",
+      safetyBoundary: "operation-intent",
+    });
 
     expect(listAdapterCapabilities().map((capability) => capability.id)).toEqual([
       "gcloud-cli",
       "firebase-cli",
       "google-client",
+      "local-state",
       "downstream-mcp-readonly",
       "downstream-mcp",
       "unknown",

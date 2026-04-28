@@ -112,6 +112,47 @@ describe("command-level operation intent mapping", () => {
     });
   });
 
+  it("maps local cost lock commands as non-cloud cost controls", () => {
+    const statusPlan = classifyCommand("cost:status", { projectId: "demo-project" });
+    expect(statusPlan.intents[0]).toMatchObject({
+      id: "cost.status",
+      service: "cost-control",
+      action: "read",
+      adapter: "local-state",
+      trustLevel: "L0",
+      costBearing: false,
+      requiresBudget: false,
+    });
+
+    const lockPlan = classifyCommand("cost:lock", { projectId: "demo-project" });
+    expect(lockPlan.intents[0]).toMatchObject({
+      id: "cost.lock",
+      service: "cost-control",
+      action: "write",
+      adapter: "local-state",
+      trustLevel: "L1",
+      costBearing: false,
+      requiresBudget: false,
+    });
+    expect(lockPlan.notes).toContain(
+      "Cost lock only writes local .omg state and blocks future omg cost-bearing live operations.",
+    );
+
+    const unlockPlan = classifyCommand("cost:unlock", { projectId: "demo-project" });
+    expect(unlockPlan.intents[0]).toMatchObject({
+      id: "cost.unlock",
+      service: "cost-control",
+      action: "write",
+      adapter: "local-state",
+      trustLevel: "L2",
+      costBearing: false,
+      requiresBudget: false,
+    });
+    expect(unlockPlan.notes).toContain(
+      "Cost unlock restores future omg cost-bearing live operations and requires explicit confirmation.",
+    );
+  });
+
 
   it("maps IAM audit as a read-only command intent", () => {
     const plan = classifyCommand("iam:audit", { projectId: "demo-project" });
@@ -306,6 +347,9 @@ describe("command-level operation intent mapping", () => {
       { command: "budget:notifications:audit", context: { projectId: "demo-project" } },
       { command: "budget:notifications:ensure", context: { projectId: "demo-project" } },
       { command: "budget:enable-api", context: { projectId: "demo-project" } },
+      { command: "cost:status", context: { projectId: "demo-project" } },
+      { command: "cost:lock", context: { projectId: "demo-project" } },
+      { command: "cost:unlock", context: { projectId: "demo-project" } },
       { command: "deploy", context: { projectId: "demo-project", deployTarget: "cloud-run" } },
       { command: "deploy", context: { projectId: "demo-project", deployTarget: "firebase-hosting" } },
       { command: "doctor" },

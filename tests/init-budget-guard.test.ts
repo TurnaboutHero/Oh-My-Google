@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { lockCost } from "../src/cost-lock/state.js";
 
 const initFixtures = vi.hoisted(() => ({
   billingGuard: {
@@ -200,6 +201,48 @@ describe("init budget guard", () => {
     expect(initFixtures.applyBindings).toHaveBeenCalled();
     expect(initFixtures.saveConfig).toHaveBeenCalled();
     expect(initFixtures.saveProfile).toHaveBeenCalled();
+  });
+
+  it("blocks init cost-expanding setup when local cost lock is active", async () => {
+    initFixtures.billingGuard = {
+      ...initFixtures.billingGuard,
+      budgets: [
+        {
+          name: "billingAccounts/ABC-123/budgets/1",
+          displayName: "Monthly cap",
+          thresholdPercents: [0.5, 0.9],
+        },
+      ],
+      signals: ["Budget configured: Monthly cap."],
+      risk: "configured",
+      recommendedAction: "Budget guard is configured for this billing account.",
+    };
+    const { runInit } = await import("../src/cli/commands/init.js");
+    const cwd = await createTempWorkspace();
+    await lockCost(cwd, {
+      projectId: "demo-project",
+      reason: "budget alert threshold exceeded",
+    });
+
+    const result = await runInit({
+      cwd,
+      projectId: "demo-project",
+      billingAccount: "ABC-123",
+      environment: "dev",
+      region: "asia-northeast3",
+      jsonMode: true,
+      interactive: false,
+      yes: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe("COST_LOCKED");
+    expect(result.ok ? undefined : result.error.data?.reason).toBe("budget alert threshold exceeded");
+    expect(initFixtures.auditBillingGuard).not.toHaveBeenCalled();
+    expect(initFixtures.auditBillingAccountGuard).not.toHaveBeenCalled();
+    expect(initFixtures.linkBilling).not.toHaveBeenCalled();
+    expect(initFixtures.enableApis).not.toHaveBeenCalled();
+    expect(initFixtures.applyBindings).not.toHaveBeenCalled();
   });
 
   it("blocks before billing link when budget visibility requires review", async () => {

@@ -14,6 +14,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "budget.ensure": "L2",
   "budget.notifications.audit": "L0",
   "pubsub.topic.audit": "L0",
+  "cost.status": "L0",
   "firestore.audit": "L0",
   "iam.audit": "L0",
   "security.audit": "L0",
@@ -27,6 +28,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "apis.enable": "L1",
   "budget.enable-api": "L1",
   "firebase.rewrites.update": "L1",
+  "cost.lock": "L1",
 
   // L2 IAM, billing, production, and secret writes
   "iam.role.grant": "L2",
@@ -34,6 +36,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "deploy.prod": "L2",
   "secret.set": "L2",
   "budget.notifications.ensure": "L2",
+  "cost.unlock": "L2",
 
   // L3 destructive or high-risk lifecycle actions
   "secret.delete": "L3",
