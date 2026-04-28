@@ -26,8 +26,17 @@ node bin/omg mcp start
 - `omg.reject`
 - `omg.deploy`
 - `omg.budget.audit`
+- `omg.budget.ensure`
+- `omg.budget.notifications.audit`
+- `omg.budget.notifications.ensure`
+- `omg.budget.notifications.lock_ingestion`
+- `omg.cost.status`
+- `omg.cost.lock`
+- `omg.cost.unlock`
 - `omg.firestore.audit`
 - `omg.iam.audit`
+- `omg.iam.plan`
+- `omg.iam.bootstrap`
 - `omg.security.audit`
 - `omg.sql.audit`
 - `omg.storage.audit`
@@ -60,7 +69,7 @@ node bin/omg mcp start
 
 ## Automated Coverage
 
-- `tests/mcp-server-tools.test.ts` locks the exact 23-tool registry exposed by the MCP server implementation.
+- `tests/mcp-server-tools.test.ts` locks the exact 32-tool registry exposed by the MCP server implementation.
 - `tests/mcp-server-tools.test.ts` also launches the `mcp start` command through a real MCP SDK stdio client and verifies tool discovery.
 - This does not replace a manual external MCP client smoke, but it prevents accidental tool additions, removals, or startup discovery failures from going unnoticed.
 

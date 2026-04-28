@@ -148,6 +148,16 @@ omg --output json budget notifications ensure --project <project-id> --topic bud
 omg --output json budget notifications lock-ingestion --project <project-id> --topic budget-alerts --dry-run
 ```
 
+MCP:
+
+```text
+omg.budget.audit { "project": "<project-id>" }
+omg.budget.ensure { "project": "<project-id>", "amount": 50000, "currency": "KRW", "dryRun": true }
+omg.budget.notifications.audit { "project": "<project-id>", "topic": "budget-alerts" }
+omg.budget.notifications.ensure { "project": "<project-id>", "topic": "budget-alerts", "dryRun": true }
+omg.budget.notifications.lock_ingestion { "project": "<project-id>", "topic": "budget-alerts", "dryRun": true }
+```
+
 Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked even though an injected Budget API executor core, live gate contract, transport failure mapping, and opt-in transport factory exist for future wiring. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked. `budget notifications lock-ingestion --dry-run` plans a subscriber path into local cost lock; live subscription creation, subscriber IAM grants, and handler setup are still blocked.
 
 Manual-first decision: Pub/Sub topic creation, Pub/Sub Publisher grants, budget alert subscription setup, Subscriber grants, handler runtime setup, and live agent IAM bootstrap remain operator-run. Agents should stop at audit/dry-run evidence and follow [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md).
@@ -170,6 +180,14 @@ Rules:
 - `cost unlock` requires explicit `--yes`.
 - Cost lock is not a Google Cloud hard cap; Budget Pub/Sub ingestion is planning-only until a reviewed live handler exists.
 
+MCP:
+
+```text
+omg.cost.status { "project": "<project-id>" }
+omg.cost.lock { "project": "<project-id>", "reason": "budget alert threshold exceeded" }
+omg.cost.unlock { "project": "<project-id>", "yes": true }
+```
+
 ### IAM Audit And Agent IAM Planning
 
 IAM audit is read-only:
@@ -189,6 +207,8 @@ MCP:
 
 ```text
 omg.iam.audit { "project": "<project-id>" }
+omg.iam.plan { "project": "<project-id>" }
+omg.iam.bootstrap { "project": "<project-id>", "dryRun": true }
 ```
 
 Rules:
@@ -363,7 +383,7 @@ Rules:
 
 ## MCP Tools
 
-The MCP server exposes 23 tools:
+The MCP server exposes 32 tools:
 
 | Tool | Input | Meaning |
 |---|---|---|
@@ -376,8 +396,17 @@ The MCP server exposes 23 tools:
 | `omg.reject` | `approvalId`, `reason?`, `rejecter?` | Reject an approval request |
 | `omg.approvals.list` | `status?`, `action?` | List approvals |
 | `omg.budget.audit` | `project` | Read billing/budget guard state |
+| `omg.budget.ensure` | `project`, `amount`, `currency`, `thresholds?`, `displayName?`, `dryRun?`, `yes?` | Plan expected budget policy; live mutation remains blocked |
+| `omg.budget.notifications.audit` | `project`, `topic?` | Read visible budget Pub/Sub notification routing and optional topic/IAM state |
+| `omg.budget.notifications.ensure` | `project`, `topic`, `displayName?`, `dryRun?`, `yes?` | Plan budget Pub/Sub notification routing; live mutation remains blocked |
+| `omg.budget.notifications.lock_ingestion` | `project`, `topic`, `displayName?`, `dryRun?`, `yes?` | Plan budget alert to local cost lock ingestion; live setup remains blocked |
+| `omg.cost.status` | `project?` | Read local cost lock status |
+| `omg.cost.lock` | `project`, `reason`, `lockedBy?` | Set local cost lock state |
+| `omg.cost.unlock` | `project`, `yes?` | Clear local cost lock state with explicit confirmation |
 | `omg.firestore.audit` | `project` | Read Firestore database and composite index metadata |
 | `omg.iam.audit` | `project` | Read IAM policy bindings and service account metadata |
+| `omg.iam.plan` | `project`, `prefix?` | Plan separated agent IAM identities without grants |
+| `omg.iam.bootstrap` | `project`, `prefix?`, `dryRun?`, `yes?` | Plan separated agent IAM bootstrap; live grants remain blocked |
 | `omg.security.audit` | `project` | Read-only project/IAM/budget security posture rollup |
 | `omg.sql.audit` | `project` | Read Cloud SQL instance and backup metadata |
 | `omg.storage.audit` | `project` | Read Cloud Storage bucket metadata and bucket IAM |

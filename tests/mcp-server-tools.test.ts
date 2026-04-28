@@ -9,6 +9,13 @@ const expectedToolNames = [
   "omg.doctor",
   "omg.approvals.list",
   "omg.budget.audit",
+  "omg.budget.ensure",
+  "omg.budget.notifications.audit",
+  "omg.budget.notifications.ensure",
+  "omg.budget.notifications.lock_ingestion",
+  "omg.cost.status",
+  "omg.cost.lock",
+  "omg.cost.unlock",
   "omg.approve",
   "omg.reject",
   "omg.deploy",
@@ -23,6 +30,8 @@ const expectedToolNames = [
   "omg.project.delete",
   "omg.project.undelete",
   "omg.iam.audit",
+  "omg.iam.plan",
+  "omg.iam.bootstrap",
   "omg.security.audit",
   "omg.sql.audit",
   "omg.storage.audit",
@@ -31,7 +40,7 @@ const expectedToolNames = [
 ];
 
 describe("MCP server tool registry", () => {
-  it("exposes the expected 23 tools", () => {
+  it("exposes the expected 32 tools", () => {
     expect(listMcpToolNames()).toEqual(expectedToolNames);
   });
 

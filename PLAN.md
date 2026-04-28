@@ -52,7 +52,7 @@ Completed:
 
 - stdio MCP server.
 - Shared response envelope.
-- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit, secret admin, project lifecycle, IAM audit, security audit, Firestore audit, Cloud Storage audit, Cloud SQL audit, and downstream MCP gateway audit/call.
+- MCP tools for auth context, init, link, deploy, doctor, approvals, budget audit/ensure/notifications, local cost lock, secret admin, project lifecycle, IAM audit/plan/bootstrap, security audit, Firestore audit, Cloud Storage audit, Cloud SQL audit, and downstream MCP gateway audit/call.
 
 ### Phase 2.5: Real-World Validation
 
@@ -111,6 +111,13 @@ Completed:
 - `omg budget enable-api --dry-run`
 - `omg budget enable-api --yes`
 - MCP `omg.budget.audit`
+- MCP `omg.budget.ensure`
+- MCP `omg.budget.notifications.audit`
+- MCP `omg.budget.notifications.ensure`
+- MCP `omg.budget.notifications.lock_ingestion`
+- MCP `omg.cost.status`
+- MCP `omg.cost.lock`
+- MCP `omg.cost.unlock`
 - Budget audit risk states: `configured`, `missing_budget`, `billing_disabled`, `review`
 - Live `secret set` blocked unless budget audit returns `configured`
 - Live `omg deploy` blocked unless budget audit returns `configured`
@@ -205,6 +212,8 @@ Progress:
 - Added `omg iam plan --project <id>` for separated auditor/deployer/secret-admin identity planning.
 - Added `omg iam bootstrap --project <id> --dry-run` while keeping live service account creation and IAM grants blocked.
 - Added MCP `omg.iam.audit`.
+- Added MCP `omg.iam.plan`.
+- Added MCP `omg.iam.bootstrap`.
 - Added IAM operation intent mapping as L0 read-only.
 - Added connector, command, MCP audit coverage, safety mapping, IAM plan tests, and CLI/MCP equivalence tests.
 - Added [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md).
@@ -347,7 +356,7 @@ Completed:
 - Adapter split: raw `downstream-mcp` stays deny-by-default; `downstream-mcp-readonly` is the only executable downstream adapter.
 - Non-read downstream tools are blocked until a concrete verifier is designed.
 - Automated coverage now includes a real MCP SDK stdio fixture for discovery/call/denial behavior.
-- Automated coverage now locks the exact 23-tool registry and verifies `mcp start` stdio discovery through a real MCP SDK client.
+- Automated coverage now locks the exact 32-tool registry and verifies `mcp start` stdio discovery through a real MCP SDK client.
 - Added [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md).
 - Added [docs/runbooks/phase-4-4b-release-notes.md](./docs/runbooks/phase-4-4b-release-notes.md).
 

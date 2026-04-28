@@ -50,10 +50,19 @@ const MCP_COMMANDS: Record<string, CommandName> = {
   "omg.auth.context": "auth:context",
   "omg.approvals.list": "auth:list",
   "omg.budget.audit": "budget:audit",
+  "omg.budget.ensure": "budget:ensure",
+  "omg.budget.notifications.audit": "budget:notifications:audit",
+  "omg.budget.notifications.ensure": "budget:notifications:ensure",
+  "omg.budget.notifications.lock_ingestion": "budget:notifications:lock-ingestion",
+  "omg.cost.status": "cost:status",
+  "omg.cost.lock": "cost:lock",
+  "omg.cost.unlock": "cost:unlock",
   "omg.deploy": "deploy",
   "omg.doctor": "doctor",
   "omg.firestore.audit": "firestore:audit",
   "omg.iam.audit": "iam:audit",
+  "omg.iam.plan": "iam:plan",
+  "omg.iam.bootstrap": "iam:bootstrap",
   "omg.init": "init",
   "omg.link": "link",
   "omg.mcp.gateway.audit": "mcp:gateway:audit",
@@ -119,7 +128,12 @@ function getCommandOperationIds(
     case "budget:notifications:ensure":
       return ["billing.audit", "pubsub.topic.audit", "budget.notifications.ensure"];
     case "budget:notifications:lock-ingestion":
-      return ["billing.audit", "budget.notifications.audit", "pubsub.topic.audit", "budget.notifications.lock-ingestion"];
+      return [
+        "billing.audit",
+        "budget.notifications.audit",
+        "pubsub.topic.audit",
+        "budget.notifications.lock-ingestion",
+      ];
     case "budget:enable-api":
       return ["budget.enable-api"];
     case "cost:status":

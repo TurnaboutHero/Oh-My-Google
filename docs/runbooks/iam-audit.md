@@ -8,6 +8,8 @@ Commands:
 - `omg iam plan --project <id>`
 - `omg iam bootstrap --project <id> --dry-run`
 - MCP tool `omg.iam.audit`
+- MCP tool `omg.iam.plan`
+- MCP tool `omg.iam.bootstrap`
 
 `iam audit` never grants roles, revokes roles, creates service accounts, deletes service accounts, or changes IAM policy. It only reads visible IAM policy bindings and service account metadata.
 `iam plan` and `iam bootstrap --dry-run` use the same read-only audit state to propose separated agent identities. They do not create service accounts or apply IAM bindings.
@@ -20,8 +22,10 @@ omg --output json iam audit --project my-project
 
 MCP equivalent:
 
-```json
+```text
 { "tool": "omg.iam.audit", "arguments": { "project": "my-project" } }
+{ "tool": "omg.iam.plan", "arguments": { "project": "my-project" } }
+{ "tool": "omg.iam.bootstrap", "arguments": { "project": "my-project", "dryRun": true } }
 ```
 
 The audit gathers:

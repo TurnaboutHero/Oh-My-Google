@@ -213,4 +213,7 @@ BUDGET_ENSURE_POST_VERIFY_FAILED
 - Budget delete.
 - Live Pub/Sub notification connection.
 - Billing disable or billing unlink automation.
-- MCP exposure for `budget ensure`.
+
+## MCP Tool
+
+`omg.budget.ensure` exposes the same dry-run planning and blocked-live contract. MCP does not open Budget API mutation; `yes: true` still returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED` until CLI live wiring, approval consumption, decision logging, and post-verification are reviewed together.

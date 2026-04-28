@@ -20,7 +20,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add Budget API live transport token/HTTP failure mapping and retryability contract without cloud calls.
 - [x] Add opt-in Budget API live transport factory with mock fetch/token tests and no CLI wiring.
 - [ ] Wire the Budget API executor into `budget ensure --yes` only after owner approval and final live wiring review.
-- [ ] Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
+- [x] Add MCP coverage for `budget ensure` as dry-run planning while live mutation remains blocked.
 - [x] Add Pub/Sub budget notification audit/ensure dry-run planning after budget policy ensure is live-safe.
 - [x] Parse visible budget `notificationsRule` metadata from budget audit output.
 - [x] Report notification posture as `configured`, `partial`, `none`, or `blocked`.
@@ -43,6 +43,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add `omg iam bootstrap --project <id> --dry-run` and keep live service account creation/IAM grants blocked.
 - [x] Add tests for agent IAM plan generation, dry-run-only bootstrap, and safety intent mapping.
 - [x] Decide live agent IAM bootstrap remains manual-first until owner-approved verifier and least-privilege grant design exist.
+- [x] Add MCP coverage for budget notifications, local cost lock, and agent IAM planning/bootstrap safe surfaces.
 
 ### Phase 4: Resource Add Workflows
 
@@ -80,7 +81,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add MCP coverage through `omg.mcp.gateway.audit` and `omg.mcp.gateway.call`.
 - [x] Add downstream MCP gateway tests and runbook.
 - [x] Add real stdio downstream MCP fixture coverage for discovery, allowlisted read calls, and denied destructive tools.
-- [x] Add exact 23-tool MCP server registry and `mcp start` stdio discovery smoke coverage.
+- [x] Add exact 32-tool MCP server registry and `mcp start` stdio discovery smoke coverage.
 - [x] Add Phase 4/4B release notes.
 
 ### Phase 3D: Budget Guard Expansion
@@ -89,6 +90,11 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Implement read-only billing/budget audit.
 - [x] Implement explicit Budget API enablement with `--dry-run` and `--yes`.
 - [x] Add MCP coverage for `omg.budget.audit`.
+- [x] Add MCP coverage for `omg.budget.ensure`.
+- [x] Add MCP coverage for `omg.budget.notifications.audit`.
+- [x] Add MCP coverage for `omg.budget.notifications.ensure`.
+- [x] Add MCP coverage for `omg.budget.notifications.lock_ingestion`.
+- [x] Add MCP coverage for `omg.cost.status`, `omg.cost.lock`, and `omg.cost.unlock`.
 - [x] Add budget guard before live `omg secret set`.
 - [x] Add budget guard before live `omg deploy`.
 - [x] Add budget guard before live `omg firebase deploy --execute`.
@@ -117,6 +123,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Decide that `iam` starts as a read-only `omg iam audit` surface before Phase 4.
 - [x] Implement `omg iam audit --project <id>`.
 - [x] Add MCP coverage for `omg.iam.audit`.
+- [x] Add MCP coverage for `omg.iam.plan` and `omg.iam.bootstrap`.
 - [x] Add IAM audit command, connector, safety-intent, and CLI/MCP equivalence tests.
 - [x] Add IAM audit runbook.
 - [ ] Keep IAM write/grant workflows deferred until a concrete owner-approved workflow exists.
@@ -142,7 +149,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 1. Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and agent IAM bootstrap manual-first unless a new owner-approved live executor/verifier is designed.
 2. Wire live `budget ensure --yes` only after owner approval, approval consumption, decision logging, and final live wiring review.
-3. Add MCP coverage for `budget ensure` only after the CLI contract and live executor are stable.
+3. Keep MCP parity tests around these safe planning surfaces before adding any live executor.
 4. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
 6. Preserve the cost-bearing invariant before any new live Google Cloud operation.
@@ -218,6 +225,13 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] `omg.init`.
 - [x] `omg.link`.
 - [x] `omg.budget.audit`.
+- [x] `omg.budget.ensure`.
+- [x] `omg.budget.notifications.audit`.
+- [x] `omg.budget.notifications.ensure`.
+- [x] `omg.budget.notifications.lock_ingestion`.
+- [x] `omg.cost.status`.
+- [x] `omg.cost.lock`.
+- [x] `omg.cost.unlock`.
 - [x] `omg.secret.list`.
 - [x] `omg.secret.set`.
 - [x] `omg.secret.delete`.
@@ -226,6 +240,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] `omg.project.delete`.
 - [x] `omg.project.undelete`.
 - [x] `omg.iam.audit`.
+- [x] `omg.iam.plan`.
+- [x] `omg.iam.bootstrap`.
 - [x] `omg.security.audit`.
 - [x] `omg.firestore.audit`.
 - [x] `omg.storage.audit`.

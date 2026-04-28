@@ -156,4 +156,11 @@ Live subscription creation, subscriber IAM grants, and handler setup are intenti
 - Live automatic notification ingestion to `cost lock`.
 - Live agent IAM bootstrap for notification or ingestion identities.
 - Slack, Discord, webhook, email, or other external notification senders.
-- MCP exposure for budget notification commands.
+
+## MCP Tools
+
+The safe audit and dry-run planning surfaces are also exposed through MCP:
+
+- `omg.budget.notifications.audit`
+- `omg.budget.notifications.ensure`
+- `omg.budget.notifications.lock_ingestion`

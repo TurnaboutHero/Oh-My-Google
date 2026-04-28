@@ -86,7 +86,7 @@ Agent IAM planning is not:
 - runtime service account impersonation grant
 - MCP exposure for IAM bootstrap
 
-MCP currently exposes `omg.iam.audit` only. Agent IAM planning is CLI-first until the dry-run contract and a possible live executor are reviewed.
+MCP exposes `omg.iam.audit`, `omg.iam.plan`, and `omg.iam.bootstrap`. Agent IAM planning and bootstrap are still read-only/dry-run through MCP; live service account creation and IAM grants remain blocked until a dedicated executor and post-verification path are reviewed.
 
 ## Verification
 

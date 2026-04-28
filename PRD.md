@@ -154,8 +154,17 @@ Implemented MCP tools:
 - `omg.reject`
 - `omg.approvals.list`
 - `omg.budget.audit`
+- `omg.budget.ensure`
+- `omg.budget.notifications.audit`
+- `omg.budget.notifications.ensure`
+- `omg.budget.notifications.lock_ingestion`
+- `omg.cost.status`
+- `omg.cost.lock`
+- `omg.cost.unlock`
 - `omg.firestore.audit`
 - `omg.iam.audit`
+- `omg.iam.plan`
+- `omg.iam.bootstrap`
 - `omg.security.audit`
 - `omg.storage.audit`
 - `omg.sql.audit`
@@ -292,7 +301,7 @@ Completed validation:
 - Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.
 - Downstream MCP registry, discovery, read-only proxy, denial, and decision log tests.
 - Real MCP SDK stdio fixture tests for downstream MCP discovery, allowlisted read calls, and denied destructive tools.
-- Exact 23-tool MCP server registry and `mcp start` stdio discovery smoke coverage.
+- Exact 32-tool MCP server registry and `mcp start` stdio discovery smoke coverage.
 
 Current open validation need:
 

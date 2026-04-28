@@ -119,7 +119,7 @@ Implementation areas:
 - `src/safety/intent.ts`
 - `src/safety/commands.ts`
 - `src/trust/levels.ts`
-- MCP tool registration if the CLI contract is stable enough for agents
+- MCP tool registration now exposes the dry-run planning contract while live mutation remains blocked
 - `docs/runbooks/budget-billing-guard.md`
 
 Acceptance criteria:
@@ -166,7 +166,7 @@ Implementation areas:
 - budget policy connector from Phase 5A
 - `src/safety/intent.ts`
 - `src/safety/commands.ts`
-- MCP tool only after CLI semantics are stable
+- MCP tools now expose audit and dry-run planning after CLI semantics stabilized
 - new runbook: `docs/runbooks/budget-notifications.md`
 
 Acceptance criteria:
@@ -187,7 +187,7 @@ Commands:
 ```bash
 omg cost status
 omg cost lock --project <id> --reason "budget alert threshold exceeded"
-omg cost unlock --project <id> --approval <approval-id>
+omg cost unlock --project <id> --yes
 ```
 
 Expected behavior:
@@ -210,7 +210,7 @@ Implementation areas:
 - new `src/cost-lock/` module
 - `src/safety/decision.ts`
 - `src/cli/commands/cost.ts`
-- MCP tool only after CLI behavior stabilizes
+- MCP tools now expose local status/lock/unlock after CLI behavior stabilized
 - decision log entries for lock/unlock
 - new runbook: `docs/runbooks/cost-lock.md`
 
@@ -228,17 +228,17 @@ Goal: separate the human operator account from the identity used by agent-run cl
 Commands:
 
 ```bash
-omg iam plan-agent --project <id>
-omg iam bootstrap-agent --project <id> --service-account omg-agent --dry-run
-omg iam bootstrap-agent --project <id> --service-account omg-agent --yes
+omg iam plan --project <id>
+omg iam bootstrap --project <id> --dry-run
+omg iam bootstrap --project <id> --yes
 omg auth context
 ```
 
 Expected behavior:
 
-- `plan-agent` is read-only and reports the proposed agent service account, roles, impersonation grants, and gaps.
-- `bootstrap-agent --dry-run` shows service account creation and IAM binding plan.
-- `bootstrap-agent --yes` creates or reuses the agent service account and applies only owner-approved minimal roles.
+- `iam plan` is read-only and reports proposed agent service accounts, roles, impersonation grants, and gaps. Implemented.
+- `iam bootstrap --dry-run` shows service account creation and IAM binding plan. Implemented.
+- `iam bootstrap --yes` remains blocked until a reviewed live executor and post-verifier exist.
 - Prefer service account impersonation over service account keys.
 - Update `omg` execution config so gcloud calls can use `--impersonate-service-account` without changing the global active account.
 - Preserve the distinction between `roles/iam.serviceAccountUser` for attaching service accounts to resources and `roles/iam.serviceAccountTokenCreator` for impersonation.
@@ -252,8 +252,8 @@ Initial role target:
 
 Safety classification:
 
-- `iam.plan-agent` is L0 read-only.
-- `iam.bootstrap-agent` is L2 IAM write.
+- `iam.plan` is L0 read-only.
+- `iam.bootstrap` is L2 IAM write in its future live form; the current implementation is dry-run only.
 - In prod, require approval.
 - Any role grant must be post-verified through `iam audit`.
 
@@ -266,12 +266,12 @@ Implementation areas:
 - `src/safety/intent.ts`
 - `src/safety/commands.ts`
 - `src/trust/levels.ts`
-- new runbook: `docs/runbooks/agent-iam-bootstrap.md`
+- runbook: `docs/runbooks/agent-iam-planning.md`
 
 Acceptance criteria:
 
-- `plan-agent` reports current human account, proposed service account, missing roles, risky existing roles, and exact commands/changes.
-- `bootstrap-agent --dry-run` has zero cloud mutation.
+- `iam plan` reports current human account, proposed service accounts, missing roles, risky existing roles, and exact commands/changes.
+- `iam bootstrap --dry-run` has zero cloud mutation.
 - Live bootstrap refuses Owner/Editor and broad IAM admin grants by default.
 - Live bootstrap verifies service account existence, role bindings, and Token Creator grant after applying.
 - Commands executed with impersonation still report the human active account and impersonated service account separately.

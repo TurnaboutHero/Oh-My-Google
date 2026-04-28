@@ -330,6 +330,46 @@ describe("command-level operation intent mapping", () => {
     );
 
     expect(
+      classifySurfaceCommand("cli", "iam:bootstrap", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.iam.bootstrap", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "budget:ensure", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.budget.ensure", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "budget:notifications:ensure", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.budget.notifications.ensure", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
+      classifySurfaceCommand("cli", "cost:lock", {
+        projectId: "demo-project",
+      }),
+    ).toEqual(
+      classifySurfaceCommand("mcp", "omg.cost.lock", {
+        projectId: "demo-project",
+      }),
+    );
+
+    expect(
       classifySurfaceCommand("cli", "security:audit", {
         projectId: "demo-project",
       }),

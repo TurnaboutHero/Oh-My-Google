@@ -15,6 +15,9 @@ Commands:
 - `omg cost lock --project <id> --reason <text>`
 - `omg cost unlock --project <id> --yes`
 - MCP tool `omg.budget.audit`
+- MCP tool `omg.budget.ensure`
+- MCP tools `omg.budget.notifications.audit`, `omg.budget.notifications.ensure`, and `omg.budget.notifications.lock_ingestion`
+- MCP tools `omg.cost.status`, `omg.cost.lock`, and `omg.cost.unlock`
 
 `budget audit` never creates budgets, enables APIs, links billing, disables billing, or changes project state.
 `budget enable-api` is the only command in this surface that changes project state; it enables `billingbudgets.googleapis.com`, requires explicit `--yes`, and should be run after `--dry-run`.
@@ -100,7 +103,7 @@ Current safety boundary:
 - `--dry-run` is implemented and read-only.
 - `--yes` is intentionally blocked.
 - The command does not call Budget API create/update yet.
-- MCP coverage is deferred until live executor semantics are stable.
+- MCP coverage exposes the same dry-run planning contract; live executor semantics remain blocked.
 
 Live executor design:
 
@@ -135,15 +138,15 @@ omg --output json cost unlock --project <project-id> --yes
 
 Detailed behavior is tracked in [cost-lock.md](./cost-lock.md).
 
-## MCP Example
+## MCP Examples
 
-```json
-{
-  "tool": "omg.budget.audit",
-  "arguments": {
-    "project": "<live-validation-project>"
-  }
-}
+```text
+{ "tool": "omg.budget.audit", "arguments": { "project": "<live-validation-project>" } }
+{ "tool": "omg.budget.ensure", "arguments": { "project": "<live-validation-project>", "amount": 50000, "currency": "KRW", "dryRun": true } }
+{ "tool": "omg.budget.notifications.audit", "arguments": { "project": "<live-validation-project>", "topic": "budget-alerts" } }
+{ "tool": "omg.budget.notifications.ensure", "arguments": { "project": "<live-validation-project>", "topic": "budget-alerts", "dryRun": true } }
+{ "tool": "omg.budget.notifications.lock_ingestion", "arguments": { "project": "<live-validation-project>", "topic": "budget-alerts", "dryRun": true } }
+{ "tool": "omg.cost.status", "arguments": { "project": "<live-validation-project>" } }
 ```
 
 ## Live Audit Record: 2026-04-20

@@ -44,7 +44,7 @@ Safety/admin workflow:
 MCP surface:
 
 - `omg mcp start`
-- 23 MCP tools over the same core implementation
+- 32 MCP tools over the same core implementation, including dry-run/blocked budget planning, local cost lock, and agent IAM planning surfaces
 
 Backend surface:
 

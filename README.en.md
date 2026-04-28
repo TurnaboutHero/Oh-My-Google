@@ -34,7 +34,7 @@ Implemented:
 - Trust Profile gates across L0/L1/L2/L3 actions
 - approval file queue with TTL, args hash validation, and consumed markers
 - decision log and handoff artifact generation
-- stdio MCP server with 23 tools
+- stdio MCP server with 32 tools
 - gcloud named configuration creation, listing, switching, and project selection
 - gcloud account vs ADC account mismatch detection and explicit ADC alignment
 - Secret Manager list/set/delete
@@ -314,7 +314,7 @@ omg mcp start
 
 ## MCP Tools
 
-The MCP server exposes 23 tools:
+The MCP server exposes 32 tools:
 
 | Tool | Description |
 |---|---|
@@ -327,8 +327,17 @@ The MCP server exposes 23 tools:
 | `omg.reject` | Reject an approval request |
 | `omg.approvals.list` | List approval requests |
 | `omg.budget.audit` | Audit billing and budget guard state |
+| `omg.budget.ensure` | Dry-run expected budget policy; live mutation blocked |
+| `omg.budget.notifications.audit` | Audit budget Pub/Sub notification routing |
+| `omg.budget.notifications.ensure` | Dry-run budget Pub/Sub notification routing; live mutation blocked |
+| `omg.budget.notifications.lock_ingestion` | Dry-run budget alert to local cost lock ingestion setup |
+| `omg.cost.status` | Read local cost lock status |
+| `omg.cost.lock` | Set a local cost lock |
+| `omg.cost.unlock` | Clear a local cost lock with explicit confirmation |
 | `omg.firestore.audit` | Audit Firestore databases and composite indexes |
 | `omg.iam.audit` | Audit IAM policy bindings and service accounts |
+| `omg.iam.plan` | Plan separated agent IAM identities |
+| `omg.iam.bootstrap` | Dry-run separated agent IAM bootstrap; live mutation blocked |
 | `omg.security.audit` | Audit project security posture using read-only project, IAM, and budget checks |
 | `omg.sql.audit` | Audit Cloud SQL instances and backups |
 | `omg.storage.audit` | Audit Cloud Storage buckets and bucket IAM |

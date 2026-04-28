@@ -2,11 +2,37 @@ import readline from "node:readline";
 import { authContextTool, handleAuthContext } from "./tools/auth.js";
 import { approveTool, handleApprove } from "./tools/approve.js";
 import { approvalsListTool, handleApprovalsList } from "./tools/approvals-list.js";
-import { budgetAuditTool, handleBudgetAudit } from "./tools/budget.js";
+import {
+  budgetAuditTool,
+  budgetEnsureTool,
+  budgetNotificationsAuditTool,
+  budgetNotificationsEnsureTool,
+  budgetNotificationsLockIngestionTool,
+  handleBudgetAudit,
+  handleBudgetEnsure,
+  handleBudgetNotificationsAudit,
+  handleBudgetNotificationsEnsure,
+  handleBudgetNotificationsLockIngestion,
+} from "./tools/budget.js";
+import {
+  costLockTool,
+  costStatusTool,
+  costUnlockTool,
+  handleCostLock,
+  handleCostStatus,
+  handleCostUnlock,
+} from "./tools/cost.js";
 import { deployTool, handleDeploy } from "./tools/deploy.js";
 import { doctorTool, handleDoctor } from "./tools/doctor.js";
 import { firestoreAuditTool, handleFirestoreAudit } from "./tools/firestore.js";
-import { iamAuditTool, handleIamAudit } from "./tools/iam.js";
+import {
+  handleIamAudit,
+  handleIamBootstrap,
+  handleIamPlan,
+  iamAuditTool,
+  iamBootstrapTool,
+  iamPlanTool,
+} from "./tools/iam.js";
 import { initTool, handleInit } from "./tools/init.js";
 import { linkTool, handleLink } from "./tools/link.js";
 import {
@@ -44,6 +70,13 @@ const tools = [
   doctorTool,
   approvalsListTool,
   budgetAuditTool,
+  budgetEnsureTool,
+  budgetNotificationsAuditTool,
+  budgetNotificationsEnsureTool,
+  budgetNotificationsLockIngestionTool,
+  costStatusTool,
+  costLockTool,
+  costUnlockTool,
   approveTool,
   rejectTool,
   deployTool,
@@ -58,6 +91,8 @@ const tools = [
   projectDeleteTool,
   projectUndeleteTool,
   iamAuditTool,
+  iamPlanTool,
+  iamBootstrapTool,
   securityAuditTool,
   sqlAuditTool,
   storageAuditTool,
@@ -106,6 +141,27 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   if (name === budgetAuditTool.name) {
     return handleBudgetAudit(args ?? {});
   }
+  if (name === budgetEnsureTool.name) {
+    return handleBudgetEnsure(args ?? {});
+  }
+  if (name === budgetNotificationsAuditTool.name) {
+    return handleBudgetNotificationsAudit(args ?? {});
+  }
+  if (name === budgetNotificationsEnsureTool.name) {
+    return handleBudgetNotificationsEnsure(args ?? {});
+  }
+  if (name === budgetNotificationsLockIngestionTool.name) {
+    return handleBudgetNotificationsLockIngestion(args ?? {});
+  }
+  if (name === costStatusTool.name) {
+    return handleCostStatus(args ?? {});
+  }
+  if (name === costLockTool.name) {
+    return handleCostLock(args ?? {});
+  }
+  if (name === costUnlockTool.name) {
+    return handleCostUnlock(args ?? {});
+  }
   if (name === approveTool.name) {
     return handleApprove(args ?? {});
   }
@@ -147,6 +203,12 @@ async function callTool(name: string, args: unknown): Promise<OmgResponse> {
   }
   if (name === iamAuditTool.name) {
     return handleIamAudit(args ?? {});
+  }
+  if (name === iamPlanTool.name) {
+    return handleIamPlan(args ?? {});
+  }
+  if (name === iamBootstrapTool.name) {
+    return handleIamBootstrap(args ?? {});
   }
   if (name === securityAuditTool.name) {
     return handleSecurityAudit(args ?? {});

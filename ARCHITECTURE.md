@@ -245,7 +245,7 @@ CLI should not contain cloud-specific business rules that MCP cannot reuse.
 
 ## MCP Surface
 
-The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 23 tools:
+The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 32 tools:
 
 - `omg.auth.context`
 - `omg.init`
@@ -256,8 +256,17 @@ The MCP server is [src/mcp/server.ts](./src/mcp/server.ts). It exposes 23 tools:
 - `omg.reject`
 - `omg.approvals.list`
 - `omg.budget.audit`
+- `omg.budget.ensure`
+- `omg.budget.notifications.audit`
+- `omg.budget.notifications.ensure`
+- `omg.budget.notifications.lock_ingestion`
+- `omg.cost.status`
+- `omg.cost.lock`
+- `omg.cost.unlock`
 - `omg.firestore.audit`
 - `omg.iam.audit`
+- `omg.iam.plan`
+- `omg.iam.bootstrap`
 - `omg.security.audit`
 - `omg.sql.audit`
 - `omg.storage.audit`

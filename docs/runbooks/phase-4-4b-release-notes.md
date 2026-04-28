@@ -19,8 +19,8 @@ Phase 4 added read-only resource audit surfaces for Firestore, Cloud Storage, an
 - `omg mcp gateway call --server <id> --tool <name> --args-json "{}"`
 - MCP `omg.mcp.gateway.audit`
 - MCP `omg.mcp.gateway.call`
-- MCP server registry coverage for all 23 tools
-- Real `mcp start` stdio tool discovery coverage for all 23 tools
+- MCP server registry coverage for all then-current 23 tools
+- Real `mcp start` stdio tool discovery coverage for all then-current 23 tools
 - Real stdio downstream MCP fixture coverage for discovery, allowlisted read calls, and denied destructive tools
 
 ## Safety Decisions
@@ -46,7 +46,7 @@ git diff --check
 
 Targeted automated coverage added in this release:
 
-- `tests/mcp-server-tools.test.ts` locks the exact 23-tool MCP registry.
+- `tests/mcp-server-tools.test.ts` locked the exact then-current 23-tool MCP registry for this release.
 - `tests/mcp-server-tools.test.ts` launches the MCP server command through a real MCP SDK stdio client and verifies tool discovery.
 - `tests/downstream-mcp-stdio.test.ts` launches a real MCP SDK stdio fixture and verifies discovery, read-only call routing, and denial before destructive tool execution.
 
