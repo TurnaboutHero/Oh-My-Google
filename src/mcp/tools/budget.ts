@@ -34,6 +34,7 @@ export const budgetEnsureTool = {
       displayName: { type: "string" },
       dryRun: { type: "boolean" },
       yes: { type: "boolean" },
+      approval: { type: "string" },
     },
     required: ["project", "amount", "currency"],
     additionalProperties: false,
@@ -164,6 +165,7 @@ function parseEnsureArgs(args: unknown):
         displayName?: string;
         dryRun?: boolean;
         yes?: boolean;
+        approval?: string;
       };
     }
   | { ok: false; response: OmgResponse } {
@@ -171,7 +173,7 @@ function parseEnsureArgs(args: unknown):
     return validationError("budget:ensure", "Arguments must be an object.");
   }
 
-  const allowed = ["project", "amount", "currency", "thresholds", "displayName", "dryRun", "yes"];
+  const allowed = ["project", "amount", "currency", "thresholds", "displayName", "dryRun", "yes", "approval"];
   const unknown = findUnknownKey(args, allowed);
   if (unknown) {
     return validationError("budget:ensure", `Unknown argument: ${unknown}.`);
@@ -197,6 +199,9 @@ function parseEnsureArgs(args: unknown):
   if (args.yes !== undefined && typeof args.yes !== "boolean") {
     return validationError("budget:ensure", "yes must be a boolean.");
   }
+  if (args.approval !== undefined && typeof args.approval !== "string") {
+    return validationError("budget:ensure", "approval must be a string.");
+  }
 
   return {
     ok: true,
@@ -208,6 +213,7 @@ function parseEnsureArgs(args: unknown):
       displayName: args.displayName,
       dryRun: args.dryRun,
       yes: args.yes,
+      approval: args.approval,
     },
   };
 }

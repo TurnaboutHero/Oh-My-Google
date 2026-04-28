@@ -1,4 +1,8 @@
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { loadApproval, saveApproval } from "../src/approval/queue.js";
 import { auditBillingGuard } from "../src/connectors/billing-audit.js";
 import {
   BudgetApiTransportError,
@@ -13,6 +17,7 @@ import {
   runBudgetNotificationsEnsure,
   runBudgetNotificationsLockIngestion,
 } from "../src/cli/commands/budget.js";
+import { readDecisionLog } from "../src/harness/decision-log.js";
 
 const enableApisMock = vi.hoisted(() => vi.fn(async () => undefined));
 const auditBillingGuardMock = vi.hoisted(() => vi.fn(async (projectId: string) => ({
@@ -215,19 +220,40 @@ describe("budget command", () => {
   });
 
   it("executes budget ensure create through an injected executor and post-verifies with injected audit", async () => {
+    const cwd = await tempDir();
     const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async (request) => ({
       name: "billingAccounts/ABC-123/budgets/budget-2",
       ...request.body,
     }));
     const auditAfterMutation = vi.fn(async () => configuredBudgetAudit());
 
-    const result = await runBudgetEnsure({
+    const pending = await runBudgetEnsure({
+      cwd,
       project: "demo-project",
       amount: "50000",
       currency: "KRW",
       yes: true,
       liveExecutor,
       auditAfterMutation,
+      activeAccount: "owner@example.com",
+    });
+    expect(pending.ok).toBe(false);
+    expect(pending.ok ? undefined : pending.error.code).toBe("APPROVAL_REQUIRED");
+    expect(liveExecutor).not.toHaveBeenCalled();
+
+    const approvalId = String(pending.ok ? "" : pending.error.data?.approvalId);
+    await approveApproval(cwd, approvalId);
+
+    const result = await runBudgetEnsure({
+      cwd,
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      approval: approvalId,
+      liveExecutor,
+      auditAfterMutation,
+      activeAccount: "owner@example.com",
     });
 
     expect(result.ok).toBe(true);
@@ -241,9 +267,13 @@ describe("budget command", () => {
     });
     expect(liveExecutor).toHaveBeenCalledTimes(1);
     expect(auditAfterMutation).toHaveBeenCalledWith("demo-project");
+    await expect(loadApproval(cwd, approvalId)).resolves.toMatchObject({ status: "consumed" });
+    const decisions = await readDecisionLog(cwd);
+    expect(decisions.map((entry) => entry.status)).toEqual(["pending_approval", "success"]);
   });
 
   it("maps budget ensure post-verification failure without claiming live success", async () => {
+    const cwd = await tempDir();
     const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async (request) => ({
       name: "billingAccounts/ABC-123/budgets/budget-2",
       ...request.body,
@@ -258,22 +288,41 @@ describe("budget command", () => {
       recommendedAction: "Create a billing budget before running cost-bearing live operations.",
     }));
 
-    const result = await runBudgetEnsure({
+    const pending = await runBudgetEnsure({
+      cwd,
       project: "demo-project",
       amount: "50000",
       currency: "KRW",
       yes: true,
       liveExecutor,
       auditAfterMutation,
+      activeAccount: "owner@example.com",
+    });
+    const approvalId = String(pending.ok ? "" : pending.error.data?.approvalId);
+    await approveApproval(cwd, approvalId);
+
+    const result = await runBudgetEnsure({
+      cwd,
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      approval: approvalId,
+      liveExecutor,
+      auditAfterMutation,
+      activeAccount: "owner@example.com",
     });
 
     expect(result.ok).toBe(false);
     expect(result.ok ? undefined : result.error.code).toBe("BUDGET_ENSURE_POST_VERIFY_FAILED");
     expect(result.ok ? undefined : result.error.data?.liveMutationAttempted).toBe(true);
     expect(result.ok ? undefined : result.error.next).toContain("omg budget audit --project demo-project");
+    const decisions = await readDecisionLog(cwd);
+    expect(decisions.at(-1)).toMatchObject({ status: "failure", phase: "post-verify" });
   });
 
   it("maps injected Budget API transport failures without using the real transport", async () => {
+    const cwd = await tempDir();
     const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async () => {
       throw new BudgetApiTransportError({
         code: "BUDGET_API_PERMISSION_DENIED",
@@ -286,13 +335,29 @@ describe("budget command", () => {
       });
     });
 
-    const result = await runBudgetEnsure({
+    const pending = await runBudgetEnsure({
+      cwd,
       project: "demo-project",
       amount: "50000",
       currency: "KRW",
       yes: true,
       liveExecutor,
       auditAfterMutation: vi.fn(async () => configuredBudgetAudit()),
+      activeAccount: "owner@example.com",
+    });
+    const approvalId = String(pending.ok ? "" : pending.error.data?.approvalId);
+    await approveApproval(cwd, approvalId);
+
+    const result = await runBudgetEnsure({
+      cwd,
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      approval: approvalId,
+      liveExecutor,
+      auditAfterMutation: vi.fn(async () => configuredBudgetAudit()),
+      activeAccount: "owner@example.com",
     });
 
     expect(result.ok).toBe(false);
@@ -300,6 +365,46 @@ describe("budget command", () => {
     expect(result.ok ? undefined : result.error.data?.retryable).toBe(false);
     expect(result.ok ? undefined : result.error.data?.statusCode).toBe(403);
     expect(liveExecutor).toHaveBeenCalledTimes(1);
+    const decisions = await readDecisionLog(cwd);
+    expect(decisions.at(-1)).toMatchObject({ status: "failure", phase: "api-mutation" });
+  });
+
+  it("keeps budget ensure approvals hash-bound to reviewed policy arguments", async () => {
+    const cwd = await tempDir();
+    const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async (request) => ({
+      name: "billingAccounts/ABC-123/budgets/budget-2",
+      ...request.body,
+    }));
+
+    const pending = await runBudgetEnsure({
+      cwd,
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      liveExecutor,
+      auditAfterMutation: vi.fn(async () => configuredBudgetAudit()),
+      activeAccount: "owner@example.com",
+    });
+    const approvalId = String(pending.ok ? "" : pending.error.data?.approvalId);
+    await approveApproval(cwd, approvalId);
+
+    const result = await runBudgetEnsure({
+      cwd,
+      project: "demo-project",
+      amount: "60000",
+      currency: "KRW",
+      yes: true,
+      approval: approvalId,
+      liveExecutor,
+      auditAfterMutation: vi.fn(async () => configuredBudgetAudit()),
+      activeAccount: "owner@example.com",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe("APPROVAL_MISMATCH");
+    expect(liveExecutor).not.toHaveBeenCalled();
+    await expect(loadApproval(cwd, approvalId)).resolves.toMatchObject({ status: "approved" });
   });
 
   it("runs a read-only budget notification posture audit with optional topic audit", async () => {
@@ -512,4 +617,22 @@ function configuredBudgetAudit() {
     risk: "configured" as const,
     recommendedAction: "Budget guard is configured for this billing account.",
   };
+}
+
+async function tempDir(): Promise<string> {
+  return fs.mkdtemp(path.join(os.tmpdir(), "omg-budget-command-"));
+}
+
+async function approveApproval(cwd: string, approvalId: string): Promise<void> {
+  const approval = await loadApproval(cwd, approvalId);
+  if (!approval) {
+    throw new Error(`Approval ${approvalId} was not created.`);
+  }
+
+  await saveApproval(cwd, {
+    ...approval,
+    status: "approved",
+    approvedBy: "owner@example.com",
+    approvedAt: new Date().toISOString(),
+  });
 }

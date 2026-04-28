@@ -396,7 +396,7 @@ The MCP server exposes 32 tools:
 | `omg.reject` | `approvalId`, `reason?`, `rejecter?` | Reject an approval request |
 | `omg.approvals.list` | `status?`, `action?` | List approvals |
 | `omg.budget.audit` | `project` | Read billing/budget guard state |
-| `omg.budget.ensure` | `project`, `amount`, `currency`, `thresholds?`, `displayName?`, `dryRun?`, `yes?` | Plan expected budget policy; live mutation remains blocked |
+| `omg.budget.ensure` | `project`, `amount`, `currency`, `thresholds?`, `displayName?`, `dryRun?`, `yes?`, `approval?` | Plan expected budget policy; production live mutation remains blocked |
 | `omg.budget.notifications.audit` | `project`, `topic?` | Read visible budget Pub/Sub notification routing and optional topic/IAM state |
 | `omg.budget.notifications.ensure` | `project`, `topic`, `displayName?`, `dryRun?`, `yes?` | Plan budget Pub/Sub notification routing; live mutation remains blocked |
 | `omg.budget.notifications.lock_ingestion` | `project`, `topic`, `displayName?`, `dryRun?`, `yes?` | Plan budget alert to local cost lock ingestion; live setup remains blocked |

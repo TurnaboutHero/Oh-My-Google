@@ -19,8 +19,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add live gate contract for Budget API transport/auth, approval, decision log, and post-verification failure envelope without opening live mutation.
 - [x] Add Budget API live transport token/HTTP failure mapping and retryability contract without cloud calls.
 - [x] Add opt-in Budget API live transport factory with mock fetch/token tests and no CLI wiring.
-- [x] Add mock-only command-core wiring for `budget ensure --yes` with injected executor, injected post-audit, post-verification failure mapping, and transport failure mapping.
-- [ ] Wire the default Budget API executor into the production CLI runtime only after owner approval, approval consumption, decision logging, and final live wiring review.
+- [x] Add mock-only command-core wiring for `budget ensure --yes` with injected executor, injected post-audit, approval consumption, decision logging, post-verification failure mapping, and transport failure mapping.
+- [ ] Wire the default Budget API executor into the production CLI runtime only after owner approval and final live wiring review.
 - [x] Add MCP coverage for `budget ensure` as dry-run planning while live mutation remains blocked.
 - [x] Add Pub/Sub budget notification audit/ensure dry-run planning after budget policy ensure is live-safe.
 - [x] Parse visible budget `notificationsRule` metadata from budget audit output.
@@ -149,7 +149,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 ## Recommended Next Work
 
 1. Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and agent IAM bootstrap manual-first unless a new owner-approved live executor/verifier is designed.
-2. Wire live `budget ensure --yes` only after owner approval, approval consumption, decision logging, and final live wiring review.
+2. Wire live `budget ensure --yes` only after owner approval and final live wiring review.
 3. Keep MCP parity tests around these safe planning surfaces before adding any live executor.
 4. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.

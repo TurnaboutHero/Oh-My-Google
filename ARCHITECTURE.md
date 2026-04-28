@@ -497,7 +497,8 @@ Current behavior:
 - `budget enable-api` explicitly enables `billingbudgets.googleapis.com`.
 - `budget ensure --dry-run` normalizes an expected budget policy and compares it with visible budgets.
 - `src/connectors/budget-api.ts` contains injected Budget API request execution, post-verification core, token/HTTP failure mapping, and an opt-in fetch transport factory.
-- `runBudgetEnsure` can exercise the live path only when tests inject a `BudgetApiRequestExecutor`; the production CLI runtime does not inject one, so `budget ensure --yes` remains blocked.
+- `runBudgetEnsure` can exercise the live path only when tests inject a `BudgetApiRequestExecutor`; that injected path still requires hash-bound approval, consumes the approval before mutation, and records decision log events.
+- The production CLI runtime does not inject a Budget API executor, so `budget ensure --yes` remains blocked.
 - `src/connectors/budget-live-gate.ts` describes the blocked live gate contract for transport/auth, L2 approval, decision logging, and post-verification failure envelopes.
 - `budget notifications audit` reports whether visible budgets have Pub/Sub notification routing and can optionally inspect a target Pub/Sub topic/IAM policy.
 - `budget notifications ensure --dry-run` plans the expected `notificationsRule.pubsubTopic` and schema version for the target budget after read-only Pub/Sub topic/IAM audit.
