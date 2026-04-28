@@ -82,7 +82,7 @@ Goal: make `omg` able to verify and create the expected budget policy for a proj
 Safe foundation status:
 
 - `budget ensure --dry-run` is implemented as a read-only policy planner.
-- `budget ensure --yes` remains blocked with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`; the injected Budget API executor core, live gate contract, transport failure mapping, and opt-in transport factory can exist before live CLI wiring is opened.
+- `budget ensure --yes` remains blocked in the production CLI runtime with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`; the injected Budget API executor core, live gate contract, transport failure mapping, opt-in transport factory, and mock-only command-core wiring can exist before live CLI wiring is opened.
 - `budget notifications audit` and `budget notifications ensure --dry-run` are implemented as read-only/dry-run Pub/Sub routing planning.
 - Pub/Sub topic existence and topic IAM policy are now audited read-only for notification planning.
 - `budget notifications ensure --yes` remains blocked with `BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED` until live notification update, optional topic/IAM setup, and post-verification are implemented.

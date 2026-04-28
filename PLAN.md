@@ -244,12 +244,13 @@ Current safe-scope progress:
 - Added budget policy normalization for amount, currency, thresholds, and display name.
 - Added dry-run comparison against visible budgets with actions: `create`, `update`, `none`, and `blocked`.
 - Added `budget.ensure` operation intent as L2 billing governance with dry-run and post-verification semantics.
-- Kept live budget create/update blocked with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`, even if `--yes` is supplied.
+- Kept production live budget create/update blocked with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED` unless a reviewed executor is explicitly injected.
 - Added a live executor design/runbook and pure Budget API mutation contract tests without opening cloud writes.
-- Added injected Budget API create/update request execution and post-verification core without wiring live CLI mutation.
+- Added injected Budget API create/update request execution and post-verification core without wiring production live CLI mutation.
 - Added a live gate contract for Budget API transport/auth, L2 approval, decision logging, and `BUDGET_ENSURE_POST_VERIFY_FAILED` error envelope without opening live CLI mutation.
 - Added Budget API token command and HTTP status failure mapping, including retryability, without opening live transport.
 - Added opt-in Budget API live transport factory with gcloud token provider, fetch execution, bearer/quota headers, and mock-only tests while keeping CLI live mutation blocked.
+- Added mock-only command-core wiring for `budget ensure --yes` with injected executor, injected post-audit, post-verification failure mapping, and transport failure mapping.
 - Added `omg budget notifications audit --project <id>`.
 - Added `omg budget notifications ensure --project <id> --topic <topic> --dry-run`.
 - Added budget notification posture reporting with `configured`, `partial`, `none`, and `blocked`.
@@ -271,7 +272,7 @@ Current safe-scope progress:
 
 Remaining:
 
-- Wire Budget API create/update executor into `budget ensure --yes` only after the owner-approved live workflow, approval consumption, and decision logging integration are reviewed.
+- Wire the default Budget API create/update executor into the production CLI runtime only after the owner-approved live workflow, approval consumption, and decision logging integration are reviewed.
 - Add MCP coverage only after the CLI contract and live executor stabilize.
 - Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and live agent IAM bootstrap manual-first unless a new owner-approved verifier and rollback plan exists.
 

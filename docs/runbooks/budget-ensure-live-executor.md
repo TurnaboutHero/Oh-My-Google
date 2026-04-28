@@ -1,6 +1,6 @@
 # Budget Ensure Live Executor Design
 
-Status: injected executor core, live gate contract, and opt-in transport factory exist; live CLI mutation is still blocked
+Status: injected executor core, live gate contract, opt-in transport factory, and mock-only command-core wiring exist; production CLI mutation is still blocked
 
 This runbook defines the contract for the future live executor behind:
 
@@ -8,7 +8,7 @@ This runbook defines the contract for the future live executor behind:
 omg budget ensure --project <id> --amount <n> --currency <code> --yes
 ```
 
-The CLI implementation only supports `--dry-run`. Supplying `--yes` still returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`.
+The production CLI runtime does not inject a live Budget API executor. Supplying `--yes` through the normal CLI path still returns `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`; tests can exercise the live command-core path only by injecting a mock `BudgetApiRequestExecutor` and mock post-audit provider.
 
 ## Official API Grounding
 
@@ -109,11 +109,11 @@ The injected request executor core lives in `src/connectors/budget-api.ts` and i
 - `createBudgetApiFetchExecutor`
 - `BudgetApiTransportError`
 
-The executor core requires an explicit `BudgetApiRequestExecutor`. An opt-in fetch transport factory exists, but there is no live transport wired into the CLI. This keeps `budget ensure --yes` blocked while preserving the request, transport, and post-verification contract for review.
+The executor core requires an explicit `BudgetApiRequestExecutor`. An opt-in fetch transport factory exists, and `runBudgetEnsure(..., { yes: true })` can execute only when a caller injects both the executor and any test post-audit provider it needs. The production CLI runtime does not inject that executor, so `budget ensure --yes` remains blocked while preserving the request, transport, and post-verification contract for review.
 
 The live gate contract lives in `src/connectors/budget-live-gate.ts` and fixes the non-negotiable behavior before live CLI wiring:
 
-- live CLI status remains `blocked` with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`
+- production CLI status remains `blocked` with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED` until a reviewed executor is injected by the runtime
 - transport uses the Cloud Billing Budget API base URL, an access token from `gcloud auth print-access-token`, and `x-goog-user-project`
 - Trust Profile handling uses `budget.ensure` as L2
 - approval args are hash-bound to project ID, amount, currency, thresholds, and display name
@@ -201,6 +201,8 @@ BUDGET_ENSURE_POST_VERIFY_FAILED
 - Successful create/update runs post-verification through an injected audit provider. Implemented in contract tests.
 - Post-verification failure returns `BUDGET_ENSURE_POST_VERIFY_FAILED` from the executor core. Implemented in contract tests.
 - CLI/MCP-shaped error envelope for `BUDGET_ENSURE_POST_VERIFY_FAILED` includes `liveMutationAttempted`, mutation action, post-verification details, and audit/dry-run next steps. Implemented in live gate contract tests.
+- `runBudgetEnsure` can execute create through an injected mock executor and injected post-audit provider without live Google Cloud. Implemented in command tests.
+- `runBudgetEnsure` maps `BUDGET_ENSURE_POST_VERIFY_FAILED` and injected `BudgetApiTransportError` failures without using the real transport. Implemented in command tests.
 - `--yes` without Trust Profile permission fails before executor invocation.
 - Live transport/auth failure mapping is implemented as a pure contract without cloud calls.
 - Live transport uses bearer auth and quota project headers. Implemented with injected token/fetch tests only.
@@ -211,6 +213,8 @@ BUDGET_ENSURE_POST_VERIFY_FAILED
 ## Still Deferred
 
 - Budget delete.
+- Production CLI default Budget API executor injection.
+- Approval consumption and decision log integration for live budget mutation.
 - Live Pub/Sub notification connection.
 - Billing disable or billing unlink automation.
 

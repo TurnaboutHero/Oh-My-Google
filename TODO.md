@@ -11,7 +11,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add `omg budget ensure --project <id> --amount <n> --currency <code> --dry-run` as a safe policy-planning command.
 - [x] Add budget policy normalization for amount, currency, thresholds, and expected display name.
 - [x] Compare the expected budget policy against visible billing budgets and return `create`, `update`, `none`, or `blocked`.
-- [x] Keep live budget creation/update blocked in this safe foundation pass, even when `--yes` is supplied.
+- [x] Keep production live budget creation/update blocked unless a reviewed Budget API executor is explicitly injected.
 - [x] Classify `budget.ensure` as L2 billing governance with dry-run and post-verification semantics.
 - [x] Add tests for budget policy planning, CLI behavior, and safety intent mapping.
 - [x] Add live executor design/runbook and pure Budget API mutation contract tests without cloud calls.
@@ -19,7 +19,8 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Add live gate contract for Budget API transport/auth, approval, decision log, and post-verification failure envelope without opening live mutation.
 - [x] Add Budget API live transport token/HTTP failure mapping and retryability contract without cloud calls.
 - [x] Add opt-in Budget API live transport factory with mock fetch/token tests and no CLI wiring.
-- [ ] Wire the Budget API executor into `budget ensure --yes` only after owner approval and final live wiring review.
+- [x] Add mock-only command-core wiring for `budget ensure --yes` with injected executor, injected post-audit, post-verification failure mapping, and transport failure mapping.
+- [ ] Wire the default Budget API executor into the production CLI runtime only after owner approval, approval consumption, decision logging, and final live wiring review.
 - [x] Add MCP coverage for `budget ensure` as dry-run planning while live mutation remains blocked.
 - [x] Add Pub/Sub budget notification audit/ensure dry-run planning after budget policy ensure is live-safe.
 - [x] Parse visible budget `notificationsRule` metadata from budget audit output.

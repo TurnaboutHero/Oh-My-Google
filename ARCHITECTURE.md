@@ -496,13 +496,14 @@ Current behavior:
 - `budget audit` checks billing state and visible budgets.
 - `budget enable-api` explicitly enables `billingbudgets.googleapis.com`.
 - `budget ensure --dry-run` normalizes an expected budget policy and compares it with visible budgets.
-- `src/connectors/budget-api.ts` contains injected Budget API request execution, post-verification core, token/HTTP failure mapping, and an opt-in fetch transport factory, but it is not wired to `budget ensure --yes`.
+- `src/connectors/budget-api.ts` contains injected Budget API request execution, post-verification core, token/HTTP failure mapping, and an opt-in fetch transport factory.
+- `runBudgetEnsure` can exercise the live path only when tests inject a `BudgetApiRequestExecutor`; the production CLI runtime does not inject one, so `budget ensure --yes` remains blocked.
 - `src/connectors/budget-live-gate.ts` describes the blocked live gate contract for transport/auth, L2 approval, decision logging, and post-verification failure envelopes.
 - `budget notifications audit` reports whether visible budgets have Pub/Sub notification routing and can optionally inspect a target Pub/Sub topic/IAM policy.
 - `budget notifications ensure --dry-run` plans the expected `notificationsRule.pubsubTopic` and schema version for the target budget after read-only Pub/Sub topic/IAM audit.
 - `budget notifications lock-ingestion --dry-run` plans a reviewed subscriber path from Budget Pub/Sub alerts into local cost lock.
 - Budget audit is read-only.
-- Live budget creation/update is not implemented and `budget ensure --yes` is blocked.
+- Production live budget creation/update is not implemented and `budget ensure --yes` is blocked without an injected executor.
 - Live budget notification mutation is not implemented and `budget notifications ensure --yes` is blocked.
 - Pub/Sub topic creation and Publisher IAM grants for budget alerts are manual-first and not implemented as live `omg` setup.
 - Live subscription creation, subscriber IAM grants, and handler setup are not implemented and `budget notifications lock-ingestion --yes` is blocked.

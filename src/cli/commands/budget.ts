@@ -6,6 +6,15 @@ import {
   planBudgetNotificationEnsure,
 } from "../../connectors/budget-notifications.js";
 import {
+  BudgetApiTransportError,
+  executeBudgetEnsureWithPostVerification,
+  type BudgetApiRequestExecutor,
+  type BudgetEnsureAuditProvider,
+} from "../../connectors/budget-api.js";
+import {
+  toBudgetEnsureLiveGateError,
+} from "../../connectors/budget-live-gate.js";
+import {
   parseBudgetPolicyInput,
   planBudgetEnsure,
 } from "../../connectors/budget-policy.js";
@@ -318,47 +327,96 @@ export async function runBudgetEnsure(input: {
   displayName?: string;
   dryRun?: boolean;
   yes?: boolean;
+  liveExecutor?: BudgetApiRequestExecutor;
+  auditAfterMutation?: BudgetEnsureAuditProvider;
 }): Promise<RunBudgetOutcome> {
   try {
     const policy = parseBudgetPolicyInput(input);
 
-    if (!input.dryRun) {
+    if (!input.dryRun && !input.yes) {
       return {
         ok: false,
-        error: input.yes
-          ? {
-              code: "BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED",
-              message: "Live budget creation or update is not implemented in this safe foundation pass.",
-              recoverable: true,
-              hint: "Run the dry-run first and implement the Budget API executor before enabling live mutation.",
-              data: {
-                projectId: policy.projectId,
-                liveMutation: false,
-              },
-              next: [`omg budget ensure --project ${policy.projectId} --amount ${policy.amount} --currency ${policy.currencyCode} --dry-run`],
-            }
-          : {
-              code: "TRUST_REQUIRES_CONFIRM",
-              message: "Budget ensure requires --dry-run in the current safe implementation.",
-              recoverable: true,
-              hint: "Run with --dry-run to inspect the expected budget policy without cloud mutation.",
-              data: {
-                projectId: policy.projectId,
-                liveMutation: false,
-              },
-              next: [`omg budget ensure --project ${policy.projectId} --amount ${policy.amount} --currency ${policy.currencyCode} --dry-run`],
-            },
+        error: {
+          code: "TRUST_REQUIRES_CONFIRM",
+          message: "Budget ensure requires --dry-run or explicit --yes.",
+          recoverable: true,
+          hint: "Run with --dry-run to inspect the expected budget policy without cloud mutation.",
+          data: {
+            projectId: policy.projectId,
+            liveMutation: false,
+          },
+          next: [
+            `omg budget ensure --project ${policy.projectId} --amount ${policy.amount} --currency ${policy.currencyCode} --dry-run`,
+          ],
+        },
       };
     }
 
+    if (!input.dryRun && !input.liveExecutor) {
+      return {
+        ok: false,
+        error: budgetEnsureLiveNotImplementedError(policy),
+      };
+    }
     const audit = await auditBillingGuard(policy.projectId);
     const plan = planBudgetEnsure(audit, policy);
+
+    if (input.dryRun) {
+      return {
+        ok: true,
+        data: { ...plan },
+        next: getBudgetEnsureNext(plan),
+      };
+    }
+
+    const liveExecutor = input.liveExecutor;
+    if (!liveExecutor) {
+      return {
+        ok: false,
+        error: budgetEnsureLiveNotImplementedError(policy),
+      };
+    }
+
+    const execution = await executeBudgetEnsureWithPostVerification({
+      plan,
+      apiUserProjectId: policy.projectId,
+      executor: liveExecutor,
+      auditAfterMutation: input.auditAfterMutation,
+    });
+
+    if (!execution.ok) {
+      const liveError = toBudgetEnsureLiveGateError({
+        failure: execution,
+        command: {
+          projectId: policy.projectId,
+          amount: policy.amount,
+          currencyCode: policy.currencyCode,
+          thresholds: policy.thresholdPercents,
+          displayName: policy.displayName,
+        },
+      });
+      return {
+        ok: false,
+        error: liveError,
+      };
+    }
+
     return {
       ok: true,
-      data: { ...plan },
-      next: getBudgetEnsureNext(plan),
+      data: {
+        projectId: policy.projectId,
+        dryRun: false,
+        liveMutation: execution.mutationResult.executed,
+        mutation: execution.mutation,
+        mutationResult: execution.mutationResult,
+        postVerification: execution.postVerification,
+      },
+      next: getBudgetEnsureLiveNext(policy.projectId, execution.mutation.action),
     };
   } catch (error) {
+    if (error instanceof BudgetApiTransportError) {
+      return { ok: false, error: toBudgetApiTransportOutcomeError(error) };
+    }
     return { ok: false, error: toOutcomeError(error) };
   }
 }
@@ -539,6 +597,35 @@ function getBudgetEnsureNext(plan: {
   return ["Review this dry-run plan before enabling live budget mutation."];
 }
 
+function getBudgetEnsureLiveNext(projectId: string, action: unknown): string[] {
+  const next = [`omg budget audit --project ${projectId}`];
+  if (action !== "none") {
+    next.push(`omg budget ensure --project ${projectId} --amount <amount> --currency <code> --dry-run`);
+  }
+  return next;
+}
+
+function budgetEnsureLiveNotImplementedError(policy: {
+  projectId: string;
+  amount: number;
+  currencyCode: string;
+}): Extract<RunBudgetOutcome, { ok: false }>["error"] {
+  return {
+    code: "BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED",
+    message: "Live budget creation or update is not wired into the CLI runtime.",
+    recoverable: true,
+    hint: "The live Budget API executor must be injected and reviewed before enabling real cloud mutation.",
+    data: {
+      projectId: policy.projectId,
+      liveMutation: false,
+      mockable: true,
+    },
+    next: [
+      `omg budget ensure --project ${policy.projectId} --amount ${policy.amount} --currency ${policy.currencyCode} --dry-run`,
+    ],
+  };
+}
+
 function getBudgetNotificationsAuditNext(audit: {
   posture?: unknown;
   projectId?: string;
@@ -581,6 +668,25 @@ function toOutcomeError(error: unknown): Extract<RunBudgetOutcome, { ok: false }
     code: omgError.code,
     message: omgError.message,
     recoverable: omgError.recoverable,
+  };
+}
+
+function toBudgetApiTransportOutcomeError(
+  error: BudgetApiTransportError,
+): Extract<RunBudgetOutcome, { ok: false }>["error"] {
+  const failure = error.failure;
+  return {
+    code: failure.code,
+    message: failure.message,
+    recoverable: failure.recoverable,
+    hint: failure.reason,
+    data: {
+      liveMutation: false,
+      retryable: failure.retryable,
+      statusCode: failure.statusCode,
+      retryAfterMs: failure.retryAfterMs,
+    },
+    next: failure.next,
   };
 }
 

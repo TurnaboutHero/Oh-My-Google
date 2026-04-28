@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { auditBillingGuard } from "../src/connectors/billing-audit.js";
+import {
+  BudgetApiTransportError,
+  type BudgetApiRequestExecutor,
+} from "../src/connectors/budget-api.js";
 import { auditPubsubTopic } from "../src/connectors/pubsub-topic-audit.js";
 import {
   runBudgetAudit,
@@ -184,6 +188,7 @@ describe("budget command", () => {
   });
 
   it("requires dry-run for budget ensure in the safe implementation", async () => {
+    const auditCallCount = mockedAuditBillingGuard.mock.calls.length;
     const result = await runBudgetEnsure({
       project: "demo-project",
       amount: "50000",
@@ -192,9 +197,11 @@ describe("budget command", () => {
 
     expect(result.ok).toBe(false);
     expect(result.ok ? undefined : result.error.code).toBe("TRUST_REQUIRES_CONFIRM");
+    expect(mockedAuditBillingGuard.mock.calls.length).toBe(auditCallCount);
   });
 
-  it("does not perform live budget mutation even with yes in this safe pass", async () => {
+  it("keeps production budget ensure live mutation blocked without an injected executor", async () => {
+    const auditCallCount = mockedAuditBillingGuard.mock.calls.length;
     const result = await runBudgetEnsure({
       project: "demo-project",
       amount: "50000",
@@ -204,6 +211,95 @@ describe("budget command", () => {
 
     expect(result.ok).toBe(false);
     expect(result.ok ? undefined : result.error.code).toBe("BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED");
+    expect(mockedAuditBillingGuard.mock.calls.length).toBe(auditCallCount);
+  });
+
+  it("executes budget ensure create through an injected executor and post-verifies with injected audit", async () => {
+    const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async (request) => ({
+      name: "billingAccounts/ABC-123/budgets/budget-2",
+      ...request.body,
+    }));
+    const auditAfterMutation = vi.fn(async () => configuredBudgetAudit());
+
+    const result = await runBudgetEnsure({
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      liveExecutor,
+      auditAfterMutation,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data.dryRun : undefined).toBe(false);
+    expect(result.ok ? result.data.liveMutation : undefined).toBe(true);
+    expect(result.ok ? result.data.mutation : undefined).toMatchObject({ action: "create" });
+    expect(result.ok ? result.data.mutationResult : undefined).toMatchObject({
+      action: "create",
+      executed: true,
+      request: { method: "POST" },
+    });
+    expect(liveExecutor).toHaveBeenCalledTimes(1);
+    expect(auditAfterMutation).toHaveBeenCalledWith("demo-project");
+  });
+
+  it("maps budget ensure post-verification failure without claiming live success", async () => {
+    const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async (request) => ({
+      name: "billingAccounts/ABC-123/budgets/budget-2",
+      ...request.body,
+    }));
+    const auditAfterMutation = vi.fn(async () => ({
+      projectId: "demo-project",
+      billingEnabled: true,
+      billingAccountId: "ABC-123",
+      budgets: [],
+      signals: ["Billing is enabled but no budgets were found."],
+      risk: "missing_budget" as const,
+      recommendedAction: "Create a billing budget before running cost-bearing live operations.",
+    }));
+
+    const result = await runBudgetEnsure({
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      liveExecutor,
+      auditAfterMutation,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe("BUDGET_ENSURE_POST_VERIFY_FAILED");
+    expect(result.ok ? undefined : result.error.data?.liveMutationAttempted).toBe(true);
+    expect(result.ok ? undefined : result.error.next).toContain("omg budget audit --project demo-project");
+  });
+
+  it("maps injected Budget API transport failures without using the real transport", async () => {
+    const liveExecutor = vi.fn<BudgetApiRequestExecutor>(async () => {
+      throw new BudgetApiTransportError({
+        code: "BUDGET_API_PERMISSION_DENIED",
+        message: "Budget API permission denied.",
+        recoverable: true,
+        retryable: false,
+        statusCode: 403,
+        reason: "missing billing.budgets.update",
+        next: ["Review Cloud Billing Budget IAM permissions."],
+      });
+    });
+
+    const result = await runBudgetEnsure({
+      project: "demo-project",
+      amount: "50000",
+      currency: "KRW",
+      yes: true,
+      liveExecutor,
+      auditAfterMutation: vi.fn(async () => configuredBudgetAudit()),
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? undefined : result.error.code).toBe("BUDGET_API_PERMISSION_DENIED");
+    expect(result.ok ? undefined : result.error.data?.retryable).toBe(false);
+    expect(result.ok ? undefined : result.error.data?.statusCode).toBe(403);
+    expect(liveExecutor).toHaveBeenCalledTimes(1);
   });
 
   it("runs a read-only budget notification posture audit with optional topic audit", async () => {
@@ -398,3 +494,22 @@ describe("budget command", () => {
     expect(live.ok ? undefined : live.error.code).toBe("BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED");
   });
 });
+
+function configuredBudgetAudit() {
+  return {
+    projectId: "demo-project",
+    billingEnabled: true,
+    billingAccountId: "ABC-123",
+    budgets: [
+      {
+        name: "billingAccounts/ABC-123/budgets/budget-2",
+        displayName: "omg budget guard: demo-project",
+        amount: { currencyCode: "KRW", units: "50000" },
+        thresholdPercents: [0.5, 0.9, 1],
+      },
+    ],
+    signals: ["Budget configured: omg budget guard: demo-project."],
+    risk: "configured" as const,
+    recommendedAction: "Budget guard is configured for this billing account.",
+  };
+}
