@@ -107,6 +107,17 @@ const OPERATION_DEFAULTS: Record<string, OperationDefaults> = {
     supportsDryRun: true,
     postVerify: true,
   },
+  "budget.notifications.lock-ingestion": {
+    service: "cost-control",
+    action: "plan",
+    adapter: "gcloud-cli",
+    costBearing: false,
+    destructive: false,
+    secretTouching: false,
+    requiresBudget: false,
+    supportsDryRun: true,
+    postVerify: false,
+  },
   "cost.status": readOnly("cost-control", "local-state", "cost-lock"),
   "cost.lock": {
     service: "cost-control",

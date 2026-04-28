@@ -10,6 +10,7 @@ import {
   planBudgetEnsure,
 } from "../../connectors/budget-policy.js";
 import { auditPubsubTopic } from "../../connectors/pubsub-topic-audit.js";
+import { planCostLockIngestion } from "../../cost-lock/ingestion-plan.js";
 import { enableApis } from "../../setup/apis.js";
 import { OmgError, ValidationError, type OmgError as OmgErrorType } from "../../types/errors.js";
 import { fail, success } from "../output.js";
@@ -191,6 +192,39 @@ notificationsCommand
     process.exit(1);
   });
 
+notificationsCommand
+  .command("lock-ingestion")
+  .description("Dry-run Budget Pub/Sub alert ingestion into local cost lock")
+  .requiredOption("--project <id>", "Google Cloud project ID")
+  .requiredOption("--topic <topic>", "Pub/Sub topic ID or projects/{projectId}/topics/{topicId}")
+  .option("--display-name <name>", "Target budget display name")
+  .option("--dry-run", "Plan automatic cost lock ingestion without creating subscriptions or handlers")
+  .option("-y, --yes", "Reserved for future live ingestion setup")
+  .action(async (opts) => {
+    const outcome = await runBudgetNotificationsLockIngestion({
+      project: opts.project as string | undefined,
+      topic: opts.topic as string | undefined,
+      displayName: opts.displayName as string | undefined,
+      dryRun: !!opts.dryRun,
+      yes: !!opts.yes,
+    });
+    if (outcome.ok) {
+      success("budget:notifications:lock-ingestion", "Budget cost-lock ingestion plan ready.", outcome.data, outcome.next);
+      return;
+    }
+
+    fail(
+      "budget:notifications:lock-ingestion",
+      outcome.error.code,
+      outcome.error.message,
+      outcome.error.recoverable,
+      outcome.error.hint,
+      outcome.error.data,
+      outcome.error.next,
+    );
+    process.exit(1);
+  });
+
 budgetCommand.addHelpText(
   "afterAll",
   `
@@ -201,6 +235,7 @@ Examples:
   omg --output json budget ensure --project my-project --amount 50000 --currency KRW --dry-run
   omg --output json budget notifications audit --project my-project --topic budget-alerts
   omg --output json budget notifications ensure --project my-project --topic budget-alerts --dry-run
+  omg --output json budget notifications lock-ingestion --project my-project --topic budget-alerts --dry-run
 `,
 );
 
@@ -406,6 +441,62 @@ export async function runBudgetNotificationsEnsure(input: {
       ok: true,
       data: { ...plan },
       next: getBudgetNotificationsEnsureNext(plan),
+    };
+  } catch (error) {
+    return { ok: false, error: toOutcomeError(error) };
+  }
+}
+
+export async function runBudgetNotificationsLockIngestion(input: {
+  project?: string;
+  topic?: string;
+  displayName?: string;
+  dryRun?: boolean;
+  yes?: boolean;
+}): Promise<RunBudgetOutcome> {
+  try {
+    const policy = parseBudgetNotificationPolicyInput(input);
+
+    if (!input.dryRun) {
+      return {
+        ok: false,
+        error: input.yes
+          ? {
+              code: "BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED",
+              message: "Live budget alert to cost lock ingestion setup is not implemented in this safe foundation pass.",
+              recoverable: true,
+              hint: "Run the dry-run first and implement a reviewed subscriber handler before enabling live ingestion.",
+              data: {
+                projectId: policy.projectId,
+                pubsubTopic: policy.pubsubTopic,
+                liveMutation: false,
+              },
+              next: [`omg budget notifications lock-ingestion --project ${policy.projectId} --topic ${policy.pubsubTopic} --dry-run`],
+            }
+          : {
+              code: "TRUST_REQUIRES_CONFIRM",
+              message: "Budget cost-lock ingestion requires --dry-run in the current safe implementation.",
+              recoverable: true,
+              hint: "Run with --dry-run to inspect the subscription and handler plan without cloud mutation.",
+              data: {
+                projectId: policy.projectId,
+                pubsubTopic: policy.pubsubTopic,
+                liveMutation: false,
+              },
+              next: [`omg budget notifications lock-ingestion --project ${policy.projectId} --topic ${policy.pubsubTopic} --dry-run`],
+            },
+      };
+    }
+
+    const [audit, topicAudit] = await Promise.all([
+      auditBillingGuard(policy.projectId),
+      auditPubsubTopic(policy.pubsubTopic),
+    ]);
+    const plan = planCostLockIngestion(audit, policy, topicAudit);
+    return {
+      ok: true,
+      data: { ...plan },
+      next: plan.next,
     };
   } catch (error) {
     return { ok: false, error: toOutcomeError(error) };

@@ -7,6 +7,7 @@ import {
   runBudgetEnsure,
   runBudgetNotificationsAudit,
   runBudgetNotificationsEnsure,
+  runBudgetNotificationsLockIngestion,
 } from "../src/cli/commands/budget.js";
 
 const enableApisMock = vi.hoisted(() => vi.fn(async () => undefined));
@@ -44,9 +45,13 @@ vi.mock("../src/connectors/billing-audit.js", () => ({
   auditBillingGuard: auditBillingGuardMock,
 }));
 
-vi.mock("../src/connectors/pubsub-topic-audit.js", () => ({
-  auditPubsubTopic: auditPubsubTopicMock,
-}));
+vi.mock("../src/connectors/pubsub-topic-audit.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/connectors/pubsub-topic-audit.js")>();
+  return {
+    ...actual,
+    auditPubsubTopic: auditPubsubTopicMock,
+  };
+});
 
 vi.mock("../src/setup/apis.js", () => ({
   enableApis: enableApisMock,
@@ -336,5 +341,60 @@ describe("budget command", () => {
 
     expect(result.ok).toBe(false);
     expect(result.ok ? undefined : result.error.code).toBe("BUDGET_NOTIFICATIONS_LIVE_NOT_IMPLEMENTED");
+  });
+
+  it("returns a dry-run plan for budget alert cost-lock ingestion", async () => {
+    mockedAuditBillingGuard.mockResolvedValueOnce({
+      projectId: "demo-project",
+      billingEnabled: true,
+      billingAccountId: "ABC-123",
+      budgets: [
+        {
+          name: "billingAccounts/ABC-123/budgets/budget-1",
+          displayName: "omg budget guard: demo-project",
+          thresholdPercents: [0.5, 0.9, 1],
+          notificationsRule: {
+            pubsubTopic: "projects/demo-project/topics/budget-alerts",
+            schemaVersion: "1.0",
+          },
+        },
+      ],
+      signals: ["Budget configured: omg budget guard: demo-project."],
+      risk: "configured",
+      recommendedAction: "Budget guard is configured for this billing account.",
+    });
+
+    const result = await runBudgetNotificationsLockIngestion({
+      project: "demo-project",
+      topic: "budget-alerts",
+      dryRun: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.data.status : undefined).toBe("ready");
+    expect(result.ok ? result.data.liveMutation : undefined).toBe(false);
+    expect(result.ok ? result.data.subscriptionCommand : undefined).toBe(
+      "gcloud pubsub subscriptions create omg-cost-lock-alerts --project demo-project --topic budget-alerts",
+    );
+    expect(mockedAuditPubsubTopic).toHaveBeenCalledWith("projects/demo-project/topics/budget-alerts");
+  });
+
+  it("keeps budget alert cost-lock ingestion setup dry-run only", async () => {
+    const withoutDryRun = await runBudgetNotificationsLockIngestion({
+      project: "demo-project",
+      topic: "budget-alerts",
+    });
+
+    expect(withoutDryRun.ok).toBe(false);
+    expect(withoutDryRun.ok ? undefined : withoutDryRun.error.code).toBe("TRUST_REQUIRES_CONFIRM");
+
+    const live = await runBudgetNotificationsLockIngestion({
+      project: "demo-project",
+      topic: "budget-alerts",
+      yes: true,
+    });
+
+    expect(live.ok).toBe(false);
+    expect(live.ok ? undefined : live.error.code).toBe("BUDGET_LOCK_INGESTION_LIVE_NOT_IMPLEMENTED");
   });
 });

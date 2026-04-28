@@ -271,6 +271,17 @@ describe("operation intent classification", () => {
         supportsDryRun: true,
         postVerify: true,
       });
+
+    expect(classifyOperation("budget.notifications.lock-ingestion", { projectId: "demo-project" }))
+      .toMatchObject({
+        id: "budget.notifications.lock-ingestion",
+        service: "cost-control",
+        action: "plan",
+        trustLevel: "L0",
+        costBearing: false,
+        requiresBudget: false,
+        supportsDryRun: true,
+      });
   });
 
   it("classifies agent IAM planning and bootstrap dry-run without budget requirements", () => {

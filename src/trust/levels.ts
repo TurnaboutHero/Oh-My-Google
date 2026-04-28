@@ -14,6 +14,7 @@ export const ACTION_LEVELS: Record<string, TrustLevel> = {
   "budget.ensure": "L2",
   "budget.notifications.audit": "L0",
   "pubsub.topic.audit": "L0",
+  "budget.notifications.lock-ingestion": "L0",
   "cost.status": "L0",
   "firestore.audit": "L0",
   "iam.audit": "L0",

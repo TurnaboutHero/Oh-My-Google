@@ -110,6 +110,27 @@ describe("command-level operation intent mapping", () => {
       supportsDryRun: true,
       postVerify: true,
     });
+
+    const ingestionPlan = classifyCommand("budget:notifications:lock-ingestion", { projectId: "demo-project" });
+
+    expect(ingestionPlan.intents.map((intent) => intent.id)).toEqual([
+      "billing.audit",
+      "budget.notifications.audit",
+      "pubsub.topic.audit",
+      "budget.notifications.lock-ingestion",
+    ]);
+    expect(ingestionPlan.intents[3]).toMatchObject({
+      id: "budget.notifications.lock-ingestion",
+      service: "cost-control",
+      action: "plan",
+      trustLevel: "L0",
+      costBearing: false,
+      requiresBudget: false,
+      supportsDryRun: true,
+    });
+    expect(ingestionPlan.notes).toContain(
+      "Budget cost-lock ingestion is dry-run planning only; live subscription and handler setup are not implemented.",
+    );
   });
 
   it("maps local cost lock commands as non-cloud cost controls", () => {
@@ -380,6 +401,7 @@ describe("command-level operation intent mapping", () => {
       { command: "budget:ensure", context: { projectId: "demo-project" } },
       { command: "budget:notifications:audit", context: { projectId: "demo-project" } },
       { command: "budget:notifications:ensure", context: { projectId: "demo-project" } },
+      { command: "budget:notifications:lock-ingestion", context: { projectId: "demo-project" } },
       { command: "budget:enable-api", context: { projectId: "demo-project" } },
       { command: "cost:status", context: { projectId: "demo-project" } },
       { command: "cost:lock", context: { projectId: "demo-project" } },

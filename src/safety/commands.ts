@@ -7,6 +7,7 @@ export type CommandName =
   | "budget:ensure"
   | "budget:notifications:audit"
   | "budget:notifications:ensure"
+  | "budget:notifications:lock-ingestion"
   | "budget:enable-api"
   | "cost:status"
   | "cost:lock"
@@ -117,6 +118,8 @@ function getCommandOperationIds(
       return ["billing.audit", "budget.notifications.audit", "pubsub.topic.audit"];
     case "budget:notifications:ensure":
       return ["billing.audit", "pubsub.topic.audit", "budget.notifications.ensure"];
+    case "budget:notifications:lock-ingestion":
+      return ["billing.audit", "budget.notifications.audit", "pubsub.topic.audit", "budget.notifications.lock-ingestion"];
     case "budget:enable-api":
       return ["budget.enable-api"];
     case "cost:status":
@@ -178,6 +181,8 @@ function getCommandNotes(command: CommandName): string[] {
       return ["Budget ensure starts as dry-run policy planning; live mutation needs explicit executor support and post-verification."];
     case "budget:notifications:ensure":
       return ["Budget notification ensure starts as dry-run routing planning; live mutation needs explicit executor support and post-verification."];
+    case "budget:notifications:lock-ingestion":
+      return ["Budget cost-lock ingestion is dry-run planning only; live subscription and handler setup are not implemented."];
     case "cost:lock":
       return ["Cost lock only writes local .omg state and blocks future omg cost-bearing live operations."];
     case "cost:unlock":
