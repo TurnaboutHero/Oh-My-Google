@@ -1,6 +1,6 @@
 # Budget Ensure Live Executor Design
 
-Status: injected executor core and contract tests exist; live CLI mutation is still blocked
+Status: injected executor core and live gate contract tests exist; live CLI mutation is still blocked
 
 This runbook defines the contract for the future live executor behind:
 
@@ -106,6 +106,15 @@ The injected request executor core lives in `src/connectors/budget-api.ts` and i
 
 The executor core requires an injected `BudgetApiRequestExecutor`; there is no default live transport wired into the CLI. This keeps `budget ensure --yes` blocked while preserving the request and post-verification contract for review.
 
+The live gate contract lives in `src/connectors/budget-live-gate.ts` and fixes the non-negotiable behavior before live CLI wiring:
+
+- live CLI status remains `blocked` with `BUDGET_ENSURE_LIVE_NOT_IMPLEMENTED`
+- transport uses the Cloud Billing Budget API base URL, an access token from `gcloud auth print-access-token`, and `x-goog-user-project`
+- Trust Profile handling uses `budget.ensure` as L2
+- approval args are hash-bound to project ID, amount, currency, thresholds, and display name
+- decision logging must cover `live-gate`, `api-mutation`, and `post-verify` phases
+- post-verification failure maps to `BUDGET_ENSURE_POST_VERIFY_FAILED` with audit and dry-run next steps
+
 ## Future Live Transport Shape
 
 Future implementation should add the live HTTP/auth transport behind the existing connector instead of placing HTTP logic in the CLI command:
@@ -162,6 +171,7 @@ BUDGET_ENSURE_POST_VERIFY_FAILED
 - `action: blocked` does not call the executor. Implemented in contract tests.
 - Successful create/update runs post-verification through an injected audit provider. Implemented in contract tests.
 - Post-verification failure returns `BUDGET_ENSURE_POST_VERIFY_FAILED` from the executor core. Implemented in contract tests.
+- CLI/MCP-shaped error envelope for `BUDGET_ENSURE_POST_VERIFY_FAILED` includes `liveMutationAttempted`, mutation action, post-verification details, and audit/dry-run next steps. Implemented in live gate contract tests.
 - `--yes` without Trust Profile permission fails before executor invocation.
 - Live transport/auth failure mapping is reviewed.
 - CLI `--yes` wiring keeps approval and decision log behavior intact.
