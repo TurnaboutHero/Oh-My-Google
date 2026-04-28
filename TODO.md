@@ -31,7 +31,11 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Block live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` cost-expanding setup when a project cost lock is active.
 - [x] Add tests proving active cost lock blocks before budget audit or cloud execution.
 - [ ] Decide whether budget Pub/Sub notification ingestion should automatically set cost lock or remain an operator-driven follow-up.
-- [ ] Add agent IAM planning/bootstrap after budget controls are stable.
+- [x] Add agent IAM planning/bootstrap dry-run after budget controls are stable.
+- [x] Add `omg iam plan --project <id>` to propose separated auditor/deployer/secret-admin identities from IAM audit state.
+- [x] Add `omg iam bootstrap --project <id> --dry-run` and keep live service account creation/IAM grants blocked.
+- [x] Add tests for agent IAM plan generation, dry-run-only bootstrap, and safety intent mapping.
+- [ ] Decide whether live agent IAM bootstrap should create service accounts and apply grants after owner-approved verifier design.
 
 ### Phase 4: Resource Add Workflows
 
@@ -131,9 +135,9 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 
 1. Decide whether Pub/Sub topic creation and IAM grants stay manual or become a gated live workflow.
 2. Decide whether budget Pub/Sub notification ingestion should trigger local cost lock or stay operator-driven.
-3. Add agent IAM planning/bootstrap after budget and local cost controls are stable.
+3. Decide whether live agent IAM bootstrap should remain manual or become a gated workflow.
 4. Finish the live `budget ensure` executor only after Budget API create/update semantics, approval policy, and post-verification are implemented and tested.
-5. Keep `budget ensure --yes` and `budget notifications ensure --yes` blocked until their live executors exist.
+5. Keep `budget ensure --yes`, `budget notifications ensure --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 6. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
 7. Preserve the cost-bearing invariant before any new live Google Cloud operation.
 8. Run optional live read-only audits only with explicit project/account approval.
@@ -305,7 +309,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Local stdio fixture coverage exists for the downstream MCP gateway, but external downstream MCP smoke still requires a known benign target.
 - Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools remain denied unless routed through the gateway allowlist.
 - Downstream MCP write/lifecycle proxying is intentionally not implemented until concrete verifiers exist.
-- IAM audit is read-only; IAM write/grant workflows are intentionally not implemented.
+- IAM audit and agent IAM planning are read-only; `iam bootstrap --dry-run` plans separated identities, but live service account creation and IAM grants are intentionally not implemented.
 - Security audit is a read-only rollup, not Security Command Center integration.
 - External notify senders are intentionally deferred until budget Pub/Sub notification posture and recipients/channels are specified.
 - Firestore audit is read-only; Firestore write/provisioning/data workflows are intentionally not implemented.

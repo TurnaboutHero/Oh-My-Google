@@ -32,6 +32,8 @@ Safety/admin workflow:
 - `omg cost status/lock/unlock`
 - `omg firestore audit`
 - `omg iam audit`
+- `omg iam plan`
+- `omg iam bootstrap --dry-run`
 - `omg security audit`
 - `omg storage audit`
 - `omg sql audit`
@@ -90,6 +92,7 @@ Important implemented guards:
 - Read-only `storage audit` reports visible buckets, bucket posture, bucket IAM, and public principals.
 - Read-only `sql audit` reports visible instances, backup metadata, deletion protection, public IPv4, and public authorized networks.
 - Read-only `iam audit` reports visible IAM bindings, service accounts, public principals, primitive roles, and inaccessible policy areas.
+- `iam plan` and `iam bootstrap --dry-run` propose separated auditor/deployer/secret-admin agent identities without applying grants.
 - Read-only `security audit` rolls up project, IAM, and budget posture without enabling new Google APIs.
 - Downstream MCP gateway audit/discovery reads `.omg/mcp.yaml` and `tools/list`.
 - Downstream MCP gateway call allows only explicitly allowlisted read-only tools and logs every call attempt.
@@ -103,7 +106,7 @@ Important remaining gaps:
 - Firestore write/provisioning/data workflows are not implemented.
 - Cloud Storage bucket/object/IAM/lifecycle write workflows are not implemented.
 - Cloud SQL instance/backup/export/import/lifecycle write workflows are not implemented.
-- IAM write/grant workflows are not implemented.
+- Live IAM service account creation and IAM grants are not implemented.
 - External `notify` senders are deferred until budget Pub/Sub notification posture exists and concrete recipients/channels are specified.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
@@ -133,6 +136,7 @@ src/
   cost-lock/    local cost lock state
   executor/     sequential plan execution
   harness/      decision log and handoff artifacts
+  iam/          agent IAM planning
   mcp/          stdio MCP server and tools
   planner/      repo detection, GCP state, plan builder/schema
   setup/        project, billing, API, IAM setup helpers

@@ -202,10 +202,13 @@ Progress:
 
 - Decided that IAM starts as read-only inspection, not role mutation.
 - Added `omg iam audit --project <id>`.
+- Added `omg iam plan --project <id>` for separated auditor/deployer/secret-admin identity planning.
+- Added `omg iam bootstrap --project <id> --dry-run` while keeping live service account creation and IAM grants blocked.
 - Added MCP `omg.iam.audit`.
 - Added IAM operation intent mapping as L0 read-only.
-- Added connector, command, MCP, safety mapping, and CLI/MCP equivalence tests.
+- Added connector, command, MCP audit coverage, safety mapping, IAM plan tests, and CLI/MCP equivalence tests.
 - Added [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md).
+- Added [docs/runbooks/agent-iam-planning.md](./docs/runbooks/agent-iam-planning.md).
 - Decided that `notify` is deferred until a concrete external notification workflow exists.
 - Decided that `security` starts as a read-only posture rollup.
 - Added `omg security audit --project <id>`.
@@ -216,7 +219,7 @@ Progress:
 
 Remaining:
 
-- Keep IAM write/grant workflows deferred unless a concrete owner-approved workflow requires them.
+- Keep live IAM write/grant workflows deferred unless a concrete owner-approved workflow and verifier require them.
 - Keep `notify` deferred unless a concrete external notification workflow requires it.
 - Preserve the cost-bearing invariant before adding any new live Google Cloud operation.
 
@@ -255,7 +258,7 @@ Remaining:
 - Add MCP coverage only after the CLI contract and live executor stabilize.
 - Decide whether to support automatic Pub/Sub topic creation and IAM grant, or keep those as manual console steps.
 - Decide whether Budget Pub/Sub notification ingestion should automatically trigger local cost lock or remain operator-driven.
-- Add agent IAM planning/bootstrap after budget controls are stable.
+- Decide whether live agent IAM bootstrap should remain manual or become a gated workflow.
 
 ### Phase 4: Resource Add Workflows
 

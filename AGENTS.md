@@ -167,12 +167,19 @@ Rules:
 - `cost unlock` requires explicit `--yes`.
 - Cost lock is not a Google Cloud hard cap and is not yet automatically triggered by Budget Pub/Sub notifications.
 
-### IAM Audit
+### IAM Audit And Agent IAM Planning
 
 IAM audit is read-only:
 
 ```bash
 omg --output json iam audit --project <project-id>
+```
+
+Agent IAM planning is also read-only/dry-run only:
+
+```bash
+omg --output json iam plan --project <project-id>
+omg --output json iam bootstrap --project <project-id> --dry-run
 ```
 
 MCP:
@@ -185,7 +192,9 @@ Rules:
 
 - Use IAM audit before designing any IAM write/grant workflow.
 - Treat `risk: high` or `inaccessible` IAM policy results as blockers for autonomous IAM writes.
-- IAM writes are not implemented.
+- `iam plan` proposes separated auditor/deployer/secret-admin identities from visible IAM state.
+- `iam bootstrap --dry-run` reports service account creation and grant steps but does not apply them.
+- Live IAM service account creation and IAM grants are not implemented.
 
 ### Security Audit
 
@@ -425,6 +434,7 @@ Approval rules:
 | `ACCOUNT_MISMATCH` | Active account differs from expected/approved account | Switch explicitly or ask user |
 | `BUDGET_GUARD_BLOCKED` | Budget guard not configured | Stop; inspect budget state |
 | `COST_LOCKED` | Local cost lock blocks cost-bearing live execution | Stop; inspect `omg cost status --project <id>` |
+| `IAM_BOOTSTRAP_LIVE_NOT_IMPLEMENTED` | Live agent IAM bootstrap is blocked | Use `omg iam bootstrap --project <id> --dry-run` |
 
 ## CLI Reference
 
@@ -456,6 +466,8 @@ omg cost lock --project <id> --reason <text> [--locked-by <actor>]
 omg cost unlock --project <id> --yes
 
 omg iam audit --project <id>
+omg iam plan --project <id> [--prefix <name>]
+omg iam bootstrap --project <id> [--prefix <name>] --dry-run
 
 omg security audit --project <id>
 
@@ -508,6 +520,7 @@ omg --output json <command>
 - [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md): downstream MCP gateway safety
 - [docs/runbooks/phase-4-4b-release-notes.md](./docs/runbooks/phase-4-4b-release-notes.md): Phase 4 and Phase 4B release notes
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
+- [docs/runbooks/agent-iam-planning.md](./docs/runbooks/agent-iam-planning.md): separated agent IAM planning
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock

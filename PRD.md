@@ -1,6 +1,6 @@
 # Product Requirements Document: oh-my-google
 
-Version: 0.4 local cost-lock safety refresh
+Version: 0.5 agent IAM planning refresh
 Last updated: 2026-04-28
 
 ## Summary
@@ -131,6 +131,8 @@ Implemented admin and safety workflow:
 - `omg cost status/lock/unlock`
 - `omg firestore audit`
 - `omg iam audit`
+- `omg iam plan`
+- `omg iam bootstrap --dry-run`
 - `omg security audit`
 - `omg storage audit`
 - `omg sql audit`
@@ -219,7 +221,9 @@ Current execution boundary:
 
 - `iam audit` must be read-only.
 - IAM audit must not grant, revoke, create, delete, or mutate IAM resources.
-- IAM write/grant workflows must stay deferred until there is a concrete owner-approved workflow.
+- `iam plan` must use read-only audit state to propose separated agent identities without applying grants.
+- `iam bootstrap --dry-run` must return proposed service account creation and IAM binding steps without applying them.
+- Live IAM service account creation and IAM grants must stay deferred until there is a concrete owner-approved workflow and verifier.
 - Public principals, primitive roles, high-impact IAM administration roles, and missing IAM policy visibility must be surfaced as structured audit signals.
 
 ### Security Audit Safety
@@ -278,6 +282,7 @@ Completed validation:
 - CLI/MCP implementation equivalence tests for adopted command paths.
 - Cost-bearing operation invariant tests for operation intents and command mappings.
 - Local cost lock state, command, safety-decision, deploy, Firebase deploy, secret set, and init blocker tests.
+- Agent IAM plan generation, dry-run-only bootstrap, and safety intent mapping tests.
 - Read-only Firestore audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud Storage audit tests and CLI/MCP equivalence tests.
 - Read-only Cloud SQL audit tests and CLI/MCP equivalence tests.
@@ -298,6 +303,7 @@ Short-term:
 - Agents can switch and inspect account context without silently mutating ADC.
 - Project cleanup/recovery operations are auditable and approval-gated.
 - Live deploys, Secret Manager writes, Firebase helper deploys, and `init` billing/API/IAM setup are guarded by budget visibility and local cost lock state.
+- Agents can inspect a separated IAM plan before any IAM grants are implemented.
 
 Medium-term:
 

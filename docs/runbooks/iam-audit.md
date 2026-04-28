@@ -5,9 +5,12 @@ This Phase 3F surface adds read-only IAM inspection before any IAM write workflo
 Commands:
 
 - `omg iam audit --project <id>`
+- `omg iam plan --project <id>`
+- `omg iam bootstrap --project <id> --dry-run`
 - MCP tool `omg.iam.audit`
 
 `iam audit` never grants roles, revokes roles, creates service accounts, deletes service accounts, or changes IAM policy. It only reads visible IAM policy bindings and service account metadata.
+`iam plan` and `iam bootstrap --dry-run` use the same read-only audit state to propose separated agent identities. They do not create service accounts or apply IAM bindings.
 
 ## Audit
 
@@ -75,7 +78,10 @@ Risk states:
 ## Safety Notes
 
 - IAM writes remain deferred.
+- Live `iam bootstrap --yes` is blocked with `IAM_BOOTSTRAP_LIVE_NOT_IMPLEMENTED`.
 - Do not use raw downstream Google/Firebase MCP IAM tools for privileged changes unless they are routed through `omg` safety checks.
 - Treat `risk: high` as a blocker for autonomous IAM write design.
 - If `inaccessible` includes `iam policy`, review the project manually before trusting any partial audit result.
 - Run `omg auth context` before interpreting audit results if multiple gcloud accounts or configurations are in use.
+
+Separated agent IAM planning is detailed in [agent-iam-planning.md](./agent-iam-planning.md).

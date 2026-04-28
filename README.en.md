@@ -45,6 +45,7 @@ Implemented:
 - budget guard before live `omg deploy`, `omg firebase deploy --execute`, Secret Manager writes, and `omg init` billing/API/IAM setup
 - Project audit, cleanup dry-run, approval-gated delete, and approval-gated undelete
 - Read-only IAM audit
+- Agent IAM separated-identity planning and bootstrap dry-run
 - Read-only security posture audit
 - Read-only Firestore database/index audit
 - Read-only Cloud Storage bucket/IAM audit
@@ -69,7 +70,7 @@ Current safety status and pending scope:
 - The current execution backends are mostly `gcloud` and Firebase CLI connectors.
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
 - Live budget creation and budget mutation are not implemented yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, budget notification audit/dry-run planning, and read-only Pub/Sub topic/IAM audit.
-- Firestore, Cloud Storage, Cloud SQL, IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
+- Firestore, Cloud Storage, Cloud SQL, live IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
@@ -247,6 +248,8 @@ IAM:
 
 ```bash
 omg iam audit --project <id>
+omg iam plan --project <id>
+omg iam bootstrap --project <id> --dry-run
 ```
 
 Security:
@@ -406,6 +409,7 @@ Representative error codes:
 - [docs/runbooks/downstream-mcp-gateway.md](./docs/runbooks/downstream-mcp-gateway.md): downstream MCP gateway safety
 - [docs/runbooks/phase-4-4b-release-notes.md](./docs/runbooks/phase-4-4b-release-notes.md): Phase 4 resource audits and Phase 4B gateway release notes
 - [docs/runbooks/iam-audit.md](./docs/runbooks/iam-audit.md): IAM audit safety
+- [docs/runbooks/agent-iam-planning.md](./docs/runbooks/agent-iam-planning.md): separated agent IAM planning
 - [docs/runbooks/security-audit.md](./docs/runbooks/security-audit.md): security posture audit
 - [docs/runbooks/secret-admin.md](./docs/runbooks/secret-admin.md): Secret Manager admin surface
 - [docs/runbooks/mcp-client-smoke.md](./docs/runbooks/mcp-client-smoke.md): MCP client smoke

@@ -124,6 +124,8 @@ src/
   harness/
     decision-log.ts
     handoff.ts
+  iam/
+    agent-plan.ts
   mcp/
     server.ts
     tools/
@@ -220,7 +222,7 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Budget: `budget audit`, `budget enable-api`, `budget ensure --dry-run`, `budget notifications audit`, `budget notifications ensure --dry-run`
 - Cost lock: `cost status`, `cost lock`, `cost unlock --yes`
 - Firestore: `firestore audit`
-- IAM: `iam audit`
+- IAM: `iam audit`, `iam plan`, `iam bootstrap --dry-run`
 - Security: `security audit`
 - Cloud SQL: `sql audit`
 - Cloud Storage: `storage audit`
@@ -412,9 +414,9 @@ Trust levels:
 
 | Level | Meaning | Examples |
 |---|---|---|
-| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `firestore.audit`, `storage.audit`, `sql.audit`, `iam.audit`, `security.audit`, `secret.list` |
+| L0 | read-only | `doctor.run`, `project.audit`, `billing.audit`, `firestore.audit`, `storage.audit`, `sql.audit`, `iam.audit`, `iam.plan`, `security.audit`, `secret.list` |
 | L1 | normal setup/deploy changes | `deploy.cloud-run`, `deploy.firebase-hosting`, `apis.enable` |
-| L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `secret.set` |
+| L2 | cost/permission/secret write impact | `billing.link`, `iam.role.grant`, `iam.bootstrap`, `secret.set` |
 | L3 | destructive/lifecycle actions | `gcp.project.delete`, `gcp.project.undelete`, data delete |
 
 Trust decisions:
@@ -579,13 +581,20 @@ IAM command:
 
 - [src/cli/commands/iam.ts](./src/cli/commands/iam.ts)
 
+Agent IAM planning:
+
+- [src/iam/agent-plan.ts](./src/iam/agent-plan.ts)
+
 Current behavior:
 
 - `iam audit` is read-only.
+- `iam plan` runs the same read-only audit and proposes separated agent service accounts: auditor, deployer, and secret-admin.
+- `iam bootstrap --dry-run` returns the proposed service account creation and project IAM binding commands without applying them.
+- `iam bootstrap --yes` is blocked with `IAM_BOOTSTRAP_LIVE_NOT_IMPLEMENTED`.
 - MCP `omg.iam.audit` calls the same command core.
 - The audit reads visible IAM policy bindings and service account metadata.
 - It classifies public principals, primitive project roles, high-impact IAM administration roles, and missing IAM policy visibility.
-- IAM write/grant workflows are intentionally not implemented.
+- Live IAM service account creation and IAM grants are intentionally not implemented.
 
 Risk states:
 
@@ -753,7 +762,7 @@ Implemented and verified:
 - read-only Cloud Storage audit surface
 - read-only Cloud SQL audit surface
 - Secret Manager admin surface
-- read-only IAM audit surface
+- read-only IAM audit surface and agent IAM planning/bootstrap dry-run
 - read-only security posture audit surface
 - budget audit, budget guard, and local cost-lock check for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
 - cost-bearing operation invariant tests for operation intents and command mappings
@@ -767,7 +776,7 @@ Not implemented:
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows
 - Cloud SQL instance/backup/export/import/lifecycle write workflows
-- IAM write/grant workflows
+- live IAM service account creation and IAM grant workflows
 - external `notify` sender surface
 - advanced rollback orchestration
 - Next.js SSR deployment
