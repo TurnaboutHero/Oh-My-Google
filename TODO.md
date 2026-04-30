@@ -1,10 +1,22 @@
 # TODO
 
-Status snapshot: 2026-04-28
+Status snapshot: 2026-04-30
 
 This file tracks current implementation state. Product rationale lives in [PRD.md](./PRD.md). Sequencing and phase intent live in [PLAN.md](./PLAN.md).
 
 ## Now
+
+### Phase 5F Candidate: Free-Tier Guidance And Service Coverage
+
+- [x] Capture the free-tier-aware GCP+Firebase service coverage direction in PRD and PLAN.
+- [x] Add a runbook for official-doc-dependent free-tier guidance and service-surface classification.
+- [ ] Define a service-surface matrix for Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and egress.
+- [ ] Extend deploy/link plan output with advisory `freeTierRisk: low | caution | unknown | high`.
+- [ ] Break `freeTierRisk` down by service surface rather than returning one generic project-level label.
+- [ ] Add tests proving `unknown` is preserved when official policy, current project state, or operation classification is incomplete.
+- [ ] Improve disposable E2E cleanup tracking so `DELETE_REQUESTED`, inaccessible, and fully removed states are not conflated.
+- [ ] Keep free-tier guidance advisory until backed by inspected project state and explicit operation classification.
+- [ ] Define the later broader-Google-services surface model for Workspace, Drive, Sheets, Gmail, Calendar, Maps, Analytics, YouTube, Ads, and AI/data services.
 
 ### Phase 5A: Operational Safety Closure - Budget Policy Ensure
 
@@ -145,6 +157,7 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - [x] Refresh project-local `AGENTS.md` for current agent usage rules and MCP tool surface.
 - [x] Refresh stale validation/runbook wording after Phase 2.5.
 - [x] Add history rewrite and conflict safety runbook after sanitized-history reintroduction incident.
+- [x] Add free-tier service coverage runbook and sync product docs with the free-tier-aware direction.
 
 ## Recommended Next Work
 
@@ -154,9 +167,10 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 4. Keep `budget ensure --yes`, `budget notifications ensure --yes`, `budget notifications lock-ingestion --yes`, and `iam bootstrap --yes` blocked until their live executors exist.
 5. Keep Firestore, Cloud Storage, Cloud SQL, and broad IAM write/provisioning workflows deferred unless a concrete owner-approved workflow requires them.
 6. Preserve the cost-bearing invariant before any new live Google Cloud operation.
-7. Run optional live read-only audits only with explicit project/account approval.
-8. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
-9. Re-run the local verification suite before each push.
+7. Design free-tier guidance as official-doc-dependent, service-surface-specific advisory output before adding any live behavior.
+8. Run optional live read-only audits only with explicit project/account approval.
+9. Run optional external downstream MCP gateway smoke only against a known benign MCP server.
+10. Re-run the local verification suite before each push.
 
 ## Completed
 
@@ -334,6 +348,10 @@ This file tracks current implementation state. Product rationale lives in [PRD.m
 - Local cost lock is an operator-controlled local blocker, not a cloud billing hard cap; Budget Pub/Sub ingestion is dry-run planning only until a reviewed live handler exists.
 - Budget Pub/Sub to cost lock ingestion is dry-run planning only; live subscription creation, subscriber permission grants, and handler setup are intentionally not implemented.
 - An active local cost lock blocks currently known cost-bearing live `omg` operations before budget audit or cloud execution, but raw `gcloud`/Firebase CLI commands outside `omg` are out of scope.
+- Free-tier guidance is not implemented as a command yet; current docs define the product direction and conservative classification rules only.
+- Google/Firebase free-tier policies can change; do not hardcode quota/pricing claims without a reviewed official-doc refresh.
+- Firebase Hosting, Firestore, and Cloud Storage for Firebase must be treated as separate service surfaces for future free-tier and safety classification.
+- Broader Google services are a long-term target; each future service must define OAuth scope posture, user-data sensitivity, quota/cost model, and approval boundaries before implementation.
 - `omg` now has a narrow downstream MCP gateway for registry audit, tool discovery, and allowlisted read-only tool calls.
 - Local stdio fixture coverage exists for the downstream MCP gateway, but external downstream MCP smoke still requires a known benign target.
 - Existing service execution is mostly through `gcloud` and Firebase CLI connectors; raw downstream Google/Firebase MCP tools remain denied unless routed through the gateway allowlist.

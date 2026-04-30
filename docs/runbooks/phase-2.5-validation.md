@@ -56,7 +56,9 @@ Smoke checks:
 
 ## Cleanup
 
-- Disposable GCP project `omg-e2e-260418-193712` was deleted after validation.
+- Disposable GCP project `omg-e2e-260418-193712` was deleted after validation through a project delete request.
+- Follow-up check on 2026-04-30 showed the project still visible to `gcloud projects describe` with lifecycle state `DELETE_REQUESTED`, billing disabled, and no matching active Firebase project in `firebase projects:list --json`.
+- Treat `DELETE_REQUESTED` as cleanup evidence, not as proof that the project has fully disappeared from all Google/Firebase consoles.
 - Local fixture directory was removed after evidence was recorded here.
 
 ## Follow-Up Verification: 2026-04-20

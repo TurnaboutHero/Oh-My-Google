@@ -1,14 +1,16 @@
 # AGENTS.md — How AI Agents Should Use omg
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 This file is the project-local operating guide for AI coding agents using `oh-my-google` (`omg`) in this repository.
 
 ## What omg Is
 
-`omg` is an agent-first harness for operating Google Cloud and Firebase as one explicit project workflow.
+`omg` is an agent-first harness for operating Google Cloud, Firebase, and eventually broader Google services as one explicit project workflow.
 
 Firebase and GCP can refer to the same underlying project, but the real operational surface is split across separate CLIs, auth contexts, APIs, consoles, and billing boundaries. `omg` gives agents a structured surface so they do not guess across those boundaries.
+
+Long-term scope includes broader Google services such as Workspace, Drive, Sheets, Gmail, Calendar, Maps, Analytics, YouTube, Ads, and AI/data services. These must be treated as separate service surfaces with explicit OAuth scope, data-access, quota/cost, approval, and audit boundaries.
 
 Agents can use two equivalent surfaces:
 
@@ -36,6 +38,9 @@ Current downstream MCP note: `omg` now supports a narrow gateway for registered 
 11. Do not call raw downstream Google/Firebase MCP tools for privileged operations unless they are routed through `omg` safety checks.
 12. Treat unclassified downstream MCP tools as denied by default.
 13. Treat active local cost locks as blockers for autonomous cost-bearing live operations.
+14. Treat free-tier guidance as advisory, provider-policy-dependent, and never as a zero-cost guarantee.
+15. Treat Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and network egress as separate service surfaces when reasoning about cost/free-tier risk.
+16. Treat future broader Google service integrations as unimplemented until their service surface, OAuth scopes, data sensitivity, quota/cost posture, and approval rules are classified.
 
 ## Response Contract
 
@@ -159,6 +164,8 @@ omg.budget.notifications.lock_ingestion { "project": "<project-id>", "topic": "b
 ```
 
 Current behavior: budget guard is enforced before all currently known cost-bearing live operations: live `omg deploy`, `omg firebase deploy --execute`, `omg secret set`, and `omg init` billing/API/IAM setup. `budget enable-api` remains an explicit dry-run/`--yes` bootstrap exception for budget visibility. `budget ensure --dry-run` plans expected policy only; live budget create/update is still blocked even though an injected Budget API executor core, live gate contract, transport failure mapping, and opt-in transport factory exist for future wiring. `budget notifications audit` and `budget notifications ensure --dry-run` inspect visible budget routing plus optional Pub/Sub topic/IAM state; live notification mutation is still blocked. `budget notifications lock-ingestion --dry-run` plans a subscriber path into local cost lock; live subscription creation, subscriber IAM grants, and handler setup are still blocked.
+
+Free-tier direction: future `omg` guidance should prefer free-tier-friendly defaults and classify `freeTierRisk` per service surface, but it must not hardcode stale pricing/quota claims or promise zero cost. Use the official Google Cloud free program documentation as a starting point and keep ambiguous or unverified policy claims as `unknown`.
 
 Manual-first decision: Pub/Sub topic creation, Pub/Sub Publisher grants, budget alert subscription setup, Subscriber grants, handler runtime setup, and live agent IAM bootstrap remain operator-run. Agents should stop at audit/dry-run evidence and follow [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md).
 
@@ -559,5 +566,6 @@ omg --output json <command>
 - [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
 - [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md): Budget Pub/Sub alert to cost lock ingestion planning
+- [docs/runbooks/free-tier-service-coverage.md](./docs/runbooks/free-tier-service-coverage.md): free-tier-aware GCP/Firebase service coverage direction
 - [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md): manual-first boundaries for Pub/Sub and IAM setup
 - [docs/runbooks/history-rewrite-and-conflict-safety.md](./docs/runbooks/history-rewrite-and-conflict-safety.md): conflict, clone, and push rules after history rewrite

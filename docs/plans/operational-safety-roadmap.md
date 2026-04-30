@@ -1,7 +1,7 @@
 # Operational Safety Roadmap
 
-Date: 2026-04-27
-Status: accepted direction plan; Phase 5A safe foundation started
+Date: 2026-04-30
+Status: accepted direction plan; Phase 5A-5C safe foundation implemented; free-tier service coverage added as a follow-up direction
 
 ## Review Scope
 
@@ -15,6 +15,7 @@ External references checked:
 - Google Cloud Budgets and alerts: budgets track planned spend and trigger notifications, but do not automatically cap usage or billing.
 - Cloud Billing Budget API: budgets can be created and managed programmatically, and can use Pub/Sub for programmatic notifications.
 - Google IAM service account roles: `roles/iam.serviceAccountUser` attaches service accounts to resources, while `roles/iam.serviceAccountTokenCreator` is needed for short-lived credential impersonation through gcloud.
+- Google Cloud free program documentation: free trial and free tier behavior is provider-policy-dependent, product-specific, and should be linked rather than hardcoded into long-lived docs.
 
 ## Current Judgment
 
@@ -46,10 +47,11 @@ The reason is simple: the docs already define the product as a structured safety
 3. **Agent identity before broader writes.** New write workflows should run through an agent service account or explicit impersonation plan, not an unconstrained human account.
 4. **Read-only first, dry-run second, live third.** Every new operational surface starts with audit/plan, then dry-run, then explicit `--yes` or approval.
 5. **No raw privileged backend escape.** REST/SDK/downstream MCP backends must stay behind OperationIntent, Trust Profile, decision logging, and post-verification.
+6. **Free-tier guidance stays conservative.** Treat Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and egress as separate service surfaces; use official docs and `unknown` when provider policy is ambiguous or stale.
 
 ## Decision Drivers
 
-1. The product promise is safety for AI agents across Google Cloud and Firebase, not broad service coverage.
+1. The product promise is safety for AI agents across Google Cloud, Firebase, and eventually broader Google services, not unclassified broad automation.
 2. Budget and IAM gaps are foundational: they affect every future live operation.
 3. Current docs repeatedly defer resource writes and AI/analytics until the safety model is stable.
 
@@ -302,10 +304,37 @@ git diff --check
 
 Live verification should use a disposable or explicitly approved validation project only. Any live resource created for smoke testing must be verified and cleaned up unless it is intentionally retained as the validation baseline.
 
+### Phase 5F: Free-Tier Guidance And Service Coverage
+
+Goal: make future `omg` planning useful for users who want GCP+Firebase projects to stay as close as possible to free-tier-friendly operation without pretending that zero cost can be guaranteed.
+
+Expected behavior:
+
+- Start with advisory output, not live mutation.
+- Classify `freeTierRisk` as `low`, `caution`, `unknown`, or `high`.
+- Break risk down by service surface, starting with Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and network egress.
+- Treat Google/Firebase policy and quota facts as provider-controlled. Long-lived docs should link official documentation and avoid hardcoded numbers unless the implementation records a reviewed policy snapshot.
+- Preserve `unknown` when current docs, project state, or operation classification are incomplete.
+
+Implementation areas:
+
+- `src/planner/` for advisory plan output
+- `src/safety/intent.ts` for service-surface classification
+- future tests for unknown-preserving classification
+- [docs/runbooks/free-tier-service-coverage.md](../runbooks/free-tier-service-coverage.md)
+
+Acceptance criteria:
+
+- A static Firebase Hosting-only plan can be described as free-tier-friendly only with explicit caveats.
+- Firestore and Storage are not hidden behind a generic Firebase label; each returns its own risk notes.
+- A plan involving Cloud Build, Artifact Registry, logging, or egress can raise caution/unknown even when the user-facing app looks small.
+- No command claims a deployment is guaranteed free.
+
 ## Non-Goals For This Roadmap
 
 - No billing disable automation in the first pass.
 - No automatic budget deletion.
+- No zero-cost guarantee or hardcoded free-tier quota catalog.
 - No Slack/Discord/webhook integration before Pub/Sub notification posture exists.
 - No Firestore document writes, Storage object writes, SQL mutations, or downstream MCP write proxying.
 - No Next.js SSR support.
@@ -319,6 +348,8 @@ Live verification should use a disposable or explicitly approved validation proj
 | Budget API permissions differ between billing-account and project-level users | Support audit-first behavior and return explicit `next` steps when the active account lacks `billing.budgets.*` visibility. |
 | Budget notifications are mistaken for hard caps | Keep docs and output explicit: notifications trigger `omg` cost lock; they do not stop Google billing by themselves. |
 | Cost lock can be bypassed through raw `gcloud` | Scope the guarantee honestly: `omg` blocks its own cost-bearing operations. Raw Google tools remain outside the product boundary. |
+| Google/Firebase free-tier policy changes | Link official docs, avoid hardcoded long-lived quota claims, and use `unknown` until a reviewed refresh is performed. |
+| Firebase is treated as one service | Split Hosting, Firestore, Storage, and later Firebase services into explicit service surfaces with separate risk and safety notes. |
 | Agent service account gets over-privileged | Start with a read-only plan, deny Owner/Editor by default, post-verify with IAM audit, and keep role sets explicit. |
 | Impersonation changes confuse account diagnostics | Extend `auth context` output to show active gcloud account, ADC account, configured impersonation target, and mismatch state separately. |
 | New commands drift away from CLI/MCP equivalence | Add command intent mapping and CLI/MCP equivalence tests before exposing MCP tools. |
@@ -331,6 +362,7 @@ Live verification should use a disposable or explicitly approved validation proj
 | Notifications | topic/rule parsing, permission failures | dry-run/ensure command output | connect budget to Pub/Sub topic |
 | Cost lock | safety decision block/unblock | deploy/secret/init blocked while locked | optional local-only smoke, no cloud mutation required |
 | Agent IAM | role plan diff, deny broad roles | bootstrap dry-run and post-verify flow | create service account and impersonated `auth context` on disposable project |
+| Free-tier guidance | service-surface risk classification | plan output preserves `unknown` without official/current evidence | n/a unless explicitly approved |
 | Docs | link/status consistency | `git diff --check` | n/a |
 
 ## ADR
@@ -358,9 +390,12 @@ Consequences:
 - The old "Phase 5 AI And Analytics Integrations" should be demoted to a later candidate phase.
 - `budget create` should no longer remain a purely manual policy if this roadmap is accepted; it becomes `budget ensure` with strict dry-run, trust, and post-verification.
 - IAM writes remain broadly deferred, but the agent identity bootstrap becomes a justified narrow exception.
+- Free-tier-aware service coverage becomes the next planning layer after budget/cost-lock controls, not a replacement for them.
+- Broader Google services remain a later expansion path after the service-surface model handles OAuth scopes, user-data sensitivity, quota/cost posture, approvals, and audit logs.
 
 Follow-ups:
 
 - Implement Phase 5A first.
 - Update `PLAN.md` and `TODO.md` after Phase 5A command contracts are finalized.
+- Use `docs/runbooks/free-tier-service-coverage.md` before implementing free-tier advisory output.
 - Do not add MCP tools for new commands until CLI behavior and tests are stable.

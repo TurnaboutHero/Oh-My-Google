@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 This plan explains the implementation direction for `oh-my-google`. Current task state is tracked in [TODO.md](./TODO.md). Product rationale is tracked in [PRD.md](./PRD.md).
 
@@ -11,8 +11,10 @@ This plan explains the implementation direction for `oh-my-google`. Current task
 - Keep CLI and MCP on the same shared core.
 - Add live operations only with trust checks, structured errors, tests, and docs.
 - For cost-bearing operations, add dry-run first and budget guard before broad live usage.
+- For cost-sensitive workflows, prefer free-tier-friendly defaults and classify unknown pricing/free-tier risk explicitly instead of guessing.
 - For destructive operations, require explicit approval and record enough context to detect mismatch.
 - Do not expose raw downstream MCP tools directly to agents; route them through classified intents and the same safety kernel.
+- Treat Google Cloud and Firebase as the first foundation, not the final boundary; broader Google services should enter later through the same service-surface model.
 
 ## Completed Phases
 
@@ -64,7 +66,7 @@ Completed:
 - Disposable GCP E2E run.
 - Cloud Run + Firebase Hosting deployment.
 - Health checks on backend and frontend.
-- Disposable test project deletion after validation.
+- Disposable test project delete-request lifecycle readback after validation.
 - Runbooks for E2E, MCP smoke, and validation findings.
 
 ### Phase 3A: Secret Manager Admin Surface
@@ -275,6 +277,37 @@ Remaining:
 - Wire the default Budget API create/update executor into the production CLI runtime only after the owner-approved live workflow and final live wiring review.
 - Keep Pub/Sub topic/IAM setup, budget alert ingestion setup, and live agent IAM bootstrap manual-first unless a new owner-approved verifier and rollback plan exists.
 
+### Phase 5F Candidate: Free-Tier Guidance And Cost-Safe Defaults
+
+Goal: make `omg` useful for users who want agents to stay as close as possible to Google Cloud and Firebase free-tier-friendly operation without pretending that zero cost can be guaranteed.
+
+Planned scope:
+
+- Add a free-tier posture layer on top of existing budget guard and local cost lock checks.
+- Classify deploy plans with a stable field such as `freeTierRisk: low | caution | unknown | high`.
+- Break `freeTierRisk` down by service surface, including Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and network egress where those surfaces are relevant to the plan.
+- Prefer free-tier-friendly plan shapes when compatible with the repo, for example static SPA/Firebase Hosting-only before Cloud Run, or minimal Cloud Run only when an API backend is required.
+- Add profile language for `firebase-hosting-only`, `firestore-read-only`, `storage-no-public-write`, `spa-plus-api-minimal`, and `no-storage-write` style plans without adding new cloud dependencies.
+- Treat Firebase Hosting, Firestore, and Cloud Storage for Firebase as first-class coverage targets, not as side effects of generic Firebase setup.
+- Include the official [Google Cloud free program documentation](https://docs.cloud.google.com/free/docs/free-cloud-features?hl=ko) in the relevant runbook or command output, while avoiding hardcoded pricing numbers that can drift.
+- Treat `unknown` free-tier risk as a blocker for newly introduced autonomous cost-bearing live workflows unless the user explicitly approves an exception.
+- Record disposable E2E project IDs, labels or TTL intent, billing state, Firebase linkage, lifecycle state, and cleanup follow-up so `DELETE_REQUESTED` is not confused with fully removed.
+
+Out of scope:
+
+- Claiming a deployment is guaranteed free.
+- Scraping or reimplementing the full Google Cloud pricing catalog.
+- Opening new live resource creation paths solely to inspect free-tier behavior.
+
+Suggested implementation order:
+
+1. Add a design note or runbook for free-tier-aware operation, referencing the official Google Cloud free program page.
+2. Define a service-surface matrix for Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, and other free-tier-relevant GCP/Firebase resources.
+3. Extend plan output with advisory free-tier fields using conservative static heuristics first.
+4. Add tests that prove `unknown` is preserved and not upgraded to `low` without evidence.
+5. Add E2E cleanup audit improvements for disposable project lifecycle tracking.
+6. Only then consider command UX such as `omg cost/free-tier audit` if the existing `budget audit` envelope becomes too crowded.
+
 ### Phase 4: Resource Add Workflows
 
 Goal: add resource surfaces only when they remain understandable, reversible, and safe for agents.
@@ -367,16 +400,20 @@ Remaining:
 - Run optional external live gateway smoke only against a known benign MCP server.
 - Do not add downstream write/lifecycle proxying until the workflow includes dry-run or post-verification semantics.
 
-### Later Candidate Phase: AI And Analytics Integrations
+### Later Candidate Phase: Broader Google Services
 
 Candidate integrations:
 
+- Google Workspace APIs such as Drive, Sheets, Gmail, and Calendar
+- Maps Platform
+- Analytics
+- YouTube
+- Ads
 - Gemini / Vertex AI
 - embeddings / RAG
-- Analytics
-- BigQuery
+- BigQuery and other data/AI services
 
-Principle: do not add AI/analytics surfaces until the core deployment and cost guard model is stable.
+Principle: do not add broader Google services until the core deployment, cost guard, OAuth/data-access, quota, and approval model is stable. These services should be modeled as explicit service surfaces, not generic raw API calls.
 
 ## Verification Policy
 

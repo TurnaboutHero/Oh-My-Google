@@ -1,12 +1,16 @@
 # oh-my-google (omg) — Project Instructions
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 ## Identity
 
-`omg` is an agent-first harness for safely operating Google Cloud and Firebase as one project workflow.
+`omg` is an agent-first harness for safely operating Google Cloud, Firebase, and eventually broader Google services as one project workflow.
 
 The reason this project exists: Firebase and GCP can refer to the same underlying project, but the real operational surface is split across separate CLIs, auth contexts, APIs, consoles, and billing boundaries. AI agents often fail at those boundaries. `omg` provides one structured entry point.
+
+The current product direction also includes free-tier-aware guidance across GCP and Firebase service surfaces. That guidance must remain conservative: official-doc-dependent, service-specific, and never framed as a zero-cost guarantee.
+
+Long-term scope includes Google Workspace, Drive, Sheets, Gmail, Calendar, Maps, Analytics, YouTube, Ads, Gemini/Vertex, BigQuery, and similar Google services, but only after each service has explicit OAuth/data-access, quota/cost, approval, and audit boundaries.
 
 Primary users are AI coding agents such as Claude Code, Codex, Gemini CLI, Cursor-style agents, and similar tools. Human CLI usage is supported, but agent consumption is the main design target.
 
@@ -65,7 +69,10 @@ Backend surface:
 8. **Budget guard before cost expansion.** Preserve the cost-bearing invariant before adding broad live cloud operations.
 9. **Secrets stay secret.** Never print or store secret payloads in outputs, logs, approval args, or tests.
 10. **Classify before adapting.** New backends, including downstream MCPs, need operation intent and capability metadata before privileged execution.
-11. **Prefer narrow surfaces.** Add admin commands only when the user workflow needs them.
+11. **Free-tier guidance is advisory.** Google/Firebase policy can change; do not hardcode stale quota/pricing claims or promise zero cost.
+12. **Firebase services are separate surfaces.** Hosting, Firestore, Cloud Storage for Firebase, and later Functions/Auth/Database-style workflows need separate audit, free-tier risk, rules/IAM, and cleanup treatment.
+13. **Broader Google services are classified surfaces.** Workspace, Maps, Analytics, YouTube, Ads, AI/data, and similar APIs need OAuth scope posture, user-data sensitivity, quota/cost posture, approvals, and audit logs before implementation.
+14. **Prefer narrow surfaces.** Add admin commands only when the user workflow needs them.
 
 ## Current Safety Model
 
@@ -101,6 +108,8 @@ Important implemented guards:
 - Read-only `security audit` rolls up project, IAM, and budget posture without enabling new Google APIs.
 - Downstream MCP gateway audit/discovery reads `.omg/mcp.yaml` and `tools/list`.
 - Downstream MCP gateway call allows only explicitly allowlisted read-only tools and logs every call attempt.
+- Free-tier-aware GCP+Firebase service coverage is documented as a next direction, not implemented as a command yet.
+- Broader Google service integrations are a later direction, not implemented.
 
 Important remaining gaps:
 
@@ -109,6 +118,8 @@ Important remaining gaps:
 - Manual-first cloud write boundaries are documented in `docs/runbooks/manual-first-cloud-writes.md`.
 - Downstream MCP write/lifecycle proxying is not implemented.
 - Live budget creation/mutation is not implemented.
+- Free-tier guidance command/output and service-surface risk calculation are not implemented.
+- Broader Google service connectors and OAuth/data-access safety surfaces are not implemented.
 - Firestore write/provisioning/data workflows are not implemented.
 - Cloud Storage bucket/object/IAM/lifecycle write workflows are not implemented.
 - Cloud SQL instance/backup/export/import/lifecycle write workflows are not implemented.
@@ -164,6 +175,7 @@ src/
 | `ARCHITECTURE.md` | Current module boundaries and execution flow |
 | `AGENTS.md` | Agent operating contract and omg usage contract |
 | `docs/runbooks/*` | Live validation and operational runbooks |
+| `docs/runbooks/free-tier-service-coverage.md` | Free-tier-aware GCP/Firebase service coverage direction |
 | `docs/runbooks/phase-4-4b-release-notes.md` | Phase 4 resource audits and Phase 4B gateway release notes |
 | `docs/runbooks/history-rewrite-and-conflict-safety.md` | Conflict, clone, and push safety after history rewrite |
 

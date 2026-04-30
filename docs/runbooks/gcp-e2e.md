@@ -106,6 +106,8 @@ node bin/omg --output json doctor
 After the run, remove disposable resources from the Google Cloud console or with `gcloud`.
 Do not rely on rollback as project cleanup.
 
+Verify cleanup with `gcloud projects describe <test-project-id> --format=json` or an equivalent `omg project audit` readback. Record whether the project is `DELETE_REQUESTED`, inaccessible, or fully absent; do not write "fully deleted" when only a delete request has been verified.
+
 ## Failure Triage
 
 - If `init` fails, inspect `gcloud auth`, billing permissions, and API enable permissions.

@@ -1,13 +1,13 @@
 # Product Requirements Document: oh-my-google
 
-Version: 0.6 budget alert ingestion planning refresh
-Last updated: 2026-04-28
+Version: 0.7 free-tier-aware service coverage direction
+Last updated: 2026-04-30
 
 ## Summary
 
-`oh-my-google` (`omg`) is an agent-first safety harness for Google Cloud and Firebase.
+`oh-my-google` (`omg`) is an agent-first safety harness for Google Cloud, Firebase, and eventually broader Google services.
 
-The product exists because AI coding agents can write and deploy code, but Google Cloud operations still require project context, account context, billing awareness, API enablement, IAM boundaries, and service-to-service wiring. Those details are split across `gcloud`, Firebase CLI, ADC, Firebase login, and Google Cloud Console.
+The product exists because AI coding agents can write and deploy code, but Google operations still require project context, account context, billing awareness, OAuth scopes, API enablement, IAM boundaries, user-data boundaries, quotas, and service-to-service wiring. Those details are split across `gcloud`, Firebase CLI, ADC, Firebase login, Google Cloud Console, Google Workspace/consumer OAuth flows, and product-specific Google consoles.
 
 `omg` gives agents one structured surface:
 
@@ -16,13 +16,15 @@ The product exists because AI coding agents can write and deploy code, but Googl
 - Shared core: the same implementation path underneath both surfaces
 - Safety layer: Trust Profile, approvals, account checks, budget guard, and local cost lock
 
+The product should also help agents make cost-conscious choices before they create or deploy resources. Free trial credits and product-specific free tier limits are useful, but they are not a blanket zero-cost guarantee. `omg` should guide agents toward free-tier-friendly defaults, surface unknown cost risk, and stop or dry-run when it cannot classify the risk.
+
 Current execution mostly uses official `gcloud` and Firebase CLI backends. Existing operations are now classified through an operation-intent model and shared safety decision path, so future Google/Firebase service MCPs can be added without bypassing the same guardrails.
 
 The current downstream MCP gateway supports registered servers, tool discovery, and allowlisted read-only proxy calls. It intentionally does not proxy write or lifecycle tools until concrete verification semantics exist.
 
 ## Problem
 
-Google Cloud and Firebase are powerful but easy for an autonomous agent to misuse.
+Google Cloud, Firebase, and broader Google service APIs are powerful but easy for an autonomous agent to misuse.
 
 Primary failure modes:
 
@@ -30,6 +32,9 @@ Primary failure modes:
 - Wrong project: a user may have multiple GCP projects visible.
 - Wrong lifecycle target: stale, protected, production, and personal projects can look similar to an agent.
 - Cost uncertainty: billing-enabled projects can incur cost even when the operation looks small.
+- Free tier ambiguity: a resource may appear free to create, while deployment, build, storage, logging, or network usage can still consume credits or exceed free limits.
+- Firebase subservice drift: Hosting, Firestore, Cloud Storage for Firebase, Functions, Auth, and related GCP resources each have different setup, quota, IAM, rules, and billing behavior even though users may think of them as one Firebase project.
+- Broader Google service drift: Workspace, Drive, Sheets, Gmail, Calendar, Maps, Analytics, YouTube, Ads, and AI services have different OAuth scopes, user-data sensitivity, quotas, billing models, approval flows, and console surfaces.
 - Console-only context: budget, IAM, Firebase project linkage, and enabled APIs are not obvious from repo files.
 - Split tooling: Cloud Run and Firebase Hosting require different commands and wiring.
 - Unstructured CLI output: plain text output is brittle for agents to parse.
@@ -45,18 +50,22 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 5. Make cost-bearing operations increasingly dependent on explicit budget visibility and explicit local unlock state.
 6. Keep CLI and MCP behavior equivalent by sharing core implementation.
 7. Prepare a common operation classification layer for CLI, Firebase CLI, gcloud, REST/SDK, and downstream MCP adapters.
-8. Prefer narrow, composable workflows over a broad cloud automation layer.
+8. Prefer free-tier-friendly defaults and plans when they fit the user workflow.
+9. Cover Firebase and GCP service surfaces as explicit, inspectable, and separately classified resources over time.
+10. Extend the same safety model to broader Google services after cloud/Firebase guardrails are stable.
+11. Prefer narrow, composable workflows over a broad unclassified automation layer.
 
 ## Non-Goals
 
 - Replacing Google Cloud Console.
 - Replacing `gcloud` or Firebase CLI for expert users.
-- Supporting every GCP service.
+- Supporting every GCP or Google service in the current phase.
 - Silent account switching.
 - Silent ADC switching.
 - Creating or mutating budgets or budget notification rules without an explicit workflow.
 - Automatically creating Pub/Sub topics, applying Pub/Sub IAM grants, deploying budget alert handlers, or creating agent service accounts in the current phase.
 - Fully preventing spend through budgets; Google Cloud budgets are alerts, not hard caps.
+- Guaranteeing that a deployment is free. `omg` may classify and reduce cost risk, but pricing and free-tier limits remain provider-controlled and may change.
 - Supporting Next.js SSR deployment in the current phase.
 - Exposing arbitrary downstream MCP tools directly to agents without operation classification, capability metadata, and safety review.
 
@@ -65,11 +74,12 @@ The product requirement is not simply "wrap gcloud." The requirement is to make 
 Primary users:
 
 - AI coding agents such as Codex, Claude Code, Gemini CLI, Cursor-style agents, and similar tools.
-- Developers who want those agents to deploy into Google Cloud with safer defaults.
+- Developers who want those agents to deploy into Google Cloud, operate Firebase, and eventually use broader Google services with safer defaults.
 
 Secondary users:
 
 - Humans who want a JSON-first wrapper around common Google Cloud + Firebase workflows.
+- Humans who want a consistent safety contract before delegating Google Workspace, Maps, Analytics, YouTube, Ads, or AI-service operations to agents.
 - CI or local scripts that need predictable response contracts.
 
 ## Product Principles
@@ -77,6 +87,14 @@ Secondary users:
 ### One Google Project Flow
 
 Firebase and GCP should be treated as one project-level workflow where possible. The agent should not have to infer whether a deployment belongs to Firebase Hosting, Cloud Run, Secret Manager, or Billing APIs from scratch each time.
+
+### Firebase Services Are First-Class Surfaces
+
+Firebase is not a single operational surface. `omg` should model Firebase Hosting, Firestore, Cloud Storage for Firebase, and later Firebase Functions/Auth/Database-style workflows as separate service surfaces with their own audit state, rules/permission posture, free-tier risk, dry-run behavior, and cleanup requirements. The long-term target is broad GCP+Firebase free-tier-aware coverage, but each service must still enter through a narrow, tested, and reversible workflow.
+
+### Google Services Are Future First-Class Surfaces
+
+`omg` should eventually model broader Google services beyond Cloud/Firebase as explicit service surfaces too. Google Workspace APIs, Drive, Sheets, Gmail, Calendar, Maps Platform, Analytics, YouTube, Ads, Gemini/Vertex, and similar services should not be added as generic raw API calls. Each needs its own operation intent, OAuth scope posture, data-access sensitivity, quota/cost model, dry-run or read-only-first path, audit logging, and approval rules.
 
 ### Trust Profile Decides
 
@@ -105,6 +123,10 @@ Failures must use stable `error.code` values so agents can branch safely.
 ### Dry-Run First
 
 Where practical, live operations should have a dry-run path. Agents should be able to show the plan before touching Google Cloud.
+
+### Free-Tier-Aware By Default
+
+`omg` should treat cost awareness as a product feature, not only as a safety blocker. For supported workflows it should prefer smaller, simpler, and free-tier-friendly plans such as Firebase Hosting-only, static SPA, or minimal Cloud Run configurations when those plans satisfy the app shape. Free-tier guidance must cite or link official provider documentation, starting with the [Google Cloud free program documentation](https://docs.cloud.google.com/free/docs/free-cloud-features?hl=ko), avoid hardcoded stale pricing claims where possible, and use `unknown` rather than optimistic guesses when the evidence is incomplete.
 
 ### No Silent Context Mutation
 
@@ -211,6 +233,12 @@ Current execution boundary:
 
 - Budget audit must be read-only.
 - Budget API enablement must require explicit `--yes` after a dry-run option.
+- Free tier guidance must be advisory unless it is backed by inspected project state and an explicit operation classification.
+- Free tier guidance must not claim "free" as a guarantee. The strongest positive claim should be that a plan is free-tier-friendly or likely within known free limits, subject to actual usage and current provider terms.
+- Free tier guidance should classify plans with stable risk states such as `low`, `caution`, `unknown`, and `high`.
+- `unknown` free-tier risk must block autonomous live execution for newly introduced cost-bearing workflows unless an explicit owner-approved exception exists.
+- Free tier guidance must classify secondary service surfaces separately. Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and network egress can each change the risk of an otherwise simple deployment plan.
+- Disposable E2E projects must be labeled or recorded with enough TTL/cleanup metadata for follow-up audit, and deletion must be verified through lifecycle state rather than assumed from a cleanup command.
 - Budget policy ensure must remain CLI dry-run only until live create/update has approval, approval consumption, and decision logging integration review. Internal injected executor core, live gate contract, transport failure mapping, and opt-in transport factory may exist before the live gate opens.
 - Budget notification ensure must remain dry-run only; Pub/Sub topic creation, Publisher IAM grants, and notification rule live mutation are manual-first until a separate owner-approved executor and verifier exist.
 - Budget notification to cost lock ingestion must remain dry-run only; subscription creation, Subscriber IAM, handler runtime, local state write, and acknowledgement semantics are operator-driven until a reviewed live handler exists.
@@ -283,7 +311,7 @@ Completed validation:
 - Local typecheck/build/test baseline.
 - MCP client smoke.
 - Disposable GCP E2E for `init -> link -> deploy -> doctor`.
-- Disposable E2E project deletion after validation.
+- Disposable E2E project delete-request lifecycle readback after validation.
 - Real stale project delete/undelete/delete-again smoke.
 - Budget API enablement on the live validation project.
 - Budget audit returning configured budget state.
@@ -305,6 +333,8 @@ Completed validation:
 
 Current open validation need:
 
+- Free-tier guidance design and tests for plan classification, official-doc reference handling, and `unknown` risk blocking.
+- E2E cleanup follow-up that distinguishes `DELETE_REQUESTED` from fully inaccessible or fully removed projects.
 - Optional live Firestore, Cloud Storage, and Cloud SQL audit smoke on a known validation project.
 - Optional external downstream MCP gateway smoke against a known benign MCP server.
 
@@ -317,13 +347,17 @@ Short-term:
 - Project cleanup/recovery operations are auditable and approval-gated.
 - Live deploys, Secret Manager writes, Firebase helper deploys, and `init` billing/API/IAM setup are guarded by budget visibility and local cost lock state.
 - Agents can inspect a separated IAM plan before any IAM grants are implemented.
+- Agents can see whether a supported deployment plan is free-tier-friendly, cautionary, unknown, or high risk before live execution.
+- Agents can inspect Firebase Hosting, Firestore, and Storage posture as separate service surfaces rather than treating "Firebase" as one undifferentiated target.
 
 Medium-term:
 
 - All cost-bearing live Google Cloud operations have a budget guard, local cost-lock check, or explicit onboarding exception.
+- Cost-sensitive workflows prefer free-tier-friendly defaults when they satisfy the app shape.
+- Firebase and GCP service coverage expands by service surface, starting from read-only audit and dry-run plans before live writes.
 - Remaining admin surfaces and downstream MCP adapters are added only when justified by actual workflows.
 - MCP and CLI remain equivalent surfaces over the same core.
 
 Long-term:
 
-- `omg` becomes the default safety gateway between AI coding agents and Google Cloud/Firebase projects, including selected service MCPs where they are safer or more structured than raw CLI execution.
+- `omg` becomes the default safety gateway between AI coding agents and Google platform services, starting with Google Cloud/Firebase projects and expanding to selected broader Google services where the service surface is classified, auditable, and safer than raw API or MCP execution.

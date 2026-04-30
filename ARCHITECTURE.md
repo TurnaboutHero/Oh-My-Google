@@ -1,12 +1,12 @@
 # Architecture
 
-Last updated: 2026-04-28
+Last updated: 2026-04-30
 
 This document describes the current `main` implementation. Product intent lives in [PRD.md](./PRD.md), execution sequencing lives in [PLAN.md](./PLAN.md), and checklist status lives in [TODO.md](./TODO.md).
 
 ## Architectural Goal
 
-`oh-my-google` is an agent-first harness over Google Cloud and Firebase.
+`oh-my-google` is an agent-first harness over Google Cloud, Firebase, and eventually broader Google services.
 
 The architecture is intentionally not a general cloud abstraction layer. It is a narrow orchestration layer that gives AI agents:
 
@@ -16,6 +16,8 @@ The architecture is intentionally not a general cloud abstraction layer. It is a
 - one Trust Profile safety model
 - auditable approvals and artifacts
 - explicit account, project, budget, and local cost-lock checks before risky operations
+- a documented path toward service-specific free-tier risk classification for GCP and Firebase resources
+- a later service-surface model for Google Workspace, Maps, Analytics, YouTube, Ads, AI/data, and similar Google APIs
 
 ## High-Level Shape
 
@@ -232,6 +234,8 @@ The CLI entrypoint is [src/cli/index.ts](./src/cli/index.ts). It registers:
 - Firebase helpers: `firebase init/deploy/emulators`
 - MCP server: `mcp start`
 - Downstream MCP gateway: `mcp gateway audit`, `mcp gateway call`
+
+No free-tier command is implemented yet. Free-tier guidance is currently a documented product direction that should be added as advisory plan output before it becomes any live execution gate.
 
 CLI responsibilities:
 
@@ -563,6 +567,20 @@ Coverage invariant:
 - Tests assert that any known cost-bearing operation intent or command mapping must require budget guard.
 - `budget enable-api` remains an explicit non-cost-bearing bootstrap exception for budget visibility.
 
+Free-tier service coverage direction:
+
+- Future free-tier guidance should classify risk per service surface rather than per project only.
+- Initial service surfaces are Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and network egress.
+- Policy and quota facts must be treated as provider-controlled. The architecture should prefer official-doc references, inspected project state, and `unknown` when evidence is incomplete.
+- This direction does not add a new live operation by itself; future code should start with plan output and tests.
+
+Broader Google services direction:
+
+- Google Cloud and Firebase are the foundation, not the final boundary.
+- Future services such as Google Workspace, Drive, Sheets, Gmail, Calendar, Maps Platform, Analytics, YouTube, Ads, Gemini/Vertex, and BigQuery-style data services should use the same service-surface model.
+- Each surface needs OAuth scope classification, data-sensitivity notes, quota/cost posture, read-only-first behavior, approval rules, and audit logging before live operations.
+- Raw Google API or downstream MCP tools should not bypass OperationIntent, Trust Profile, budget/cost guard where relevant, or decision logging.
+
 ## Downstream MCP Gateway
 
 Downstream MCP files:
@@ -790,6 +808,8 @@ Implemented and verified:
 - budget audit, budget guard, and local cost-lock check for live deploy, Firebase helper deploy, Secret Manager writes, and `omg init` billing/API/IAM setup
 - cost-bearing operation invariant tests for operation intents and command mappings
 - project cleanup/delete/undelete safety surface
+- documented free-tier service coverage direction for future plan output
+- documented broader Google services direction for future classified service surfaces
 
 Not implemented:
 
@@ -797,6 +817,8 @@ Not implemented:
 - live budget creation/mutation
 - live Pub/Sub topic creation and Publisher IAM grants for budget alerts
 - live Budget Pub/Sub notification ingestion into local cost lock
+- free-tier guidance command/output and service-surface risk calculation
+- broader Google services connectors and OAuth/data-access safety surfaces
 - Firestore write/provisioning/data workflows
 - Cloud Storage bucket/object/IAM/lifecycle write workflows
 - Cloud SQL instance/backup/export/import/lifecycle write workflows

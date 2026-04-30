@@ -2,9 +2,11 @@
 
 [한국어](./README.md) | English
 
-`oh-my-google` is a CLI + MCP harness that lets AI coding agents operate on Google Cloud and Firebase as one explicit, safer project workflow.
+`oh-my-google` is a CLI + MCP harness that lets AI coding agents operate on Google Cloud, Firebase, and later broader Google services as one explicit, safer project workflow.
 
 The goal is not to hide `gcloud` or the Firebase CLI. The goal is to stop agents from guessing across two CLIs, separate authentication contexts, separate consoles, project boundaries, cost boundaries, and destructive lifecycle actions. `omg` gives agents one structured entry point and one safety model.
+
+The long-term direction is to help agents use Google Cloud and Firebase free programs and free tiers as effectively as possible, then bring broader Google services such as Google Workspace, Maps, Analytics, YouTube, Ads, and Gemini/Vertex under the same safety harness. Free trials and free tiers are provider-controlled and usage-dependent, so `omg` does not promise zero cost. It should prefer official-doc-backed guidance, dry-runs, budget guard, local cost lock, and conservative service-level `unknown` classifications.
 
 ## Why This Exists
 
@@ -12,7 +14,8 @@ Google Cloud and Firebase can share the same project ID, but the operational sur
 
 - `gcloud auth` and Application Default Credentials (ADC) are different contexts.
 - Firebase login and gcloud login are managed separately.
-- Cloud Run, Firebase Hosting, Secret Manager, and Billing Budgets use different APIs and permissions.
+- Cloud Run, Firebase Hosting, Firestore, Cloud Storage for Firebase, Secret Manager, and Billing Budgets use different APIs and permissions.
+- Firebase secondary services such as Hosting, Firestore, and Storage each have different quotas, rules, IAM, and billing surfaces.
 - AI agents do not see the operator's console context, so they can choose the wrong account, project, or cost-bearing action unless the workflow forces explicit checks.
 
 `omg` reduces that risk in three ways.
@@ -25,7 +28,7 @@ For product background, read [PRD.md](./PRD.md). For implementation sequencing, 
 
 ## Current Status
 
-Status snapshot: 2026-04-28
+Status snapshot: 2026-04-30
 
 Implemented:
 
@@ -53,11 +56,12 @@ Implemented:
 - Read-only Cloud SQL instance/backup audit
 - Downstream MCP gateway registry audit, tool discovery, and allowlisted read-only proxy calls
 - active account mismatch blocking for project delete/undelete approvals
+- free-tier-aware GCP+Firebase service coverage direction captured in PRD/PLAN/runbook docs
 
 Live validation completed:
 
 - Disposable GCP project E2E validation for `init -> link -> deploy -> doctor`
-- Disposable E2E project deleted after validation
+- Disposable E2E project verified through delete-request state after validation
 - Stale project delete, undelete, and delete-again lifecycle smoke completed
 - Existing KRW budget visibility confirmed on the live validation project after Budget API enablement
 - Secret Manager smoke secret created under budget guard and deleted afterward
@@ -72,6 +76,8 @@ Current safety status and pending scope:
 - `omg` is an MCP server and now has a narrow downstream MCP gateway for registered, allowlisted read-only tools.
 - Live budget creation and budget mutation are not opened in the production CLI runtime yet. Current support is audit, Budget API enablement, `budget ensure --dry-run` policy planning, injected Budget API executor core, live gate contract, approval/decision-log command-core wiring, transport failure mapping, opt-in transport factory, mock-only live tests, budget notification audit/dry-run planning, read-only Pub/Sub topic/IAM audit, and budget alert to cost lock ingestion dry-run planning. Pub/Sub topic/IAM setup, alert ingestion setup, and live agent IAM bootstrap stay behind a manual-first boundary.
 - Firestore, Cloud Storage, Cloud SQL, live IAM writes/provisioning, and external `notify` sender surfaces are not designed or implemented yet.
+- Free-tier guidance commands/output are still design work. The documented direction is to classify Firebase Hosting, Firestore, Cloud Storage for Firebase, Cloud Run, Cloud Build, Artifact Registry, logging, and egress as separate service surfaces.
+- Google Cloud/Firebase free policies can change in provider documentation. `omg` docs avoid fixed pricing numbers and use official links plus `unknown` as the conservative default.
 - Advanced rollback orchestration is not implemented.
 - Next.js SSR deployment is not supported.
 
@@ -87,6 +93,9 @@ Next architecture direction:
 - Add adapter capability manifests for `gcloud-cli`, `firebase-cli`, and future downstream MCP/REST backends.
 - If Google/Firebase service MCPs are added, do not expose their raw privileged tools directly to agents; register them behind the `omg` safety gateway with deny-by-default classification.
 - Downstream MCP write or lifecycle proxying is not implemented until a concrete verifier exists.
+- Treat Firebase Hosting, Firestore, and Cloud Storage for Firebase as separate audit/plan/free-tier-risk surfaces rather than one undifferentiated Firebase target.
+- Later Google Workspace, Maps Platform, Analytics, YouTube, Ads, and similar Google services should be added as separate service surfaces with explicit OAuth scopes, data-access posture, quota, cost, and approval boundaries.
+- Start free-tier judgments from the [Google Cloud free program documentation](https://docs.cloud.google.com/free/docs/free-cloud-features?hl=ko), but keep ambiguous or stale policy claims as `unknown`.
 
 ## Install And Verify
 
@@ -416,6 +425,7 @@ Representative error codes:
 - [docs/runbooks/budget-notifications.md](./docs/runbooks/budget-notifications.md): budget Pub/Sub notification audit and dry-run planning
 - [docs/runbooks/cost-lock.md](./docs/runbooks/cost-lock.md): local cost-bearing operation lock
 - [docs/runbooks/budget-cost-lock-ingestion.md](./docs/runbooks/budget-cost-lock-ingestion.md): Budget Pub/Sub alert to cost lock ingestion planning
+- [docs/runbooks/free-tier-service-coverage.md](./docs/runbooks/free-tier-service-coverage.md): free-tier-aware GCP/Firebase service coverage direction
 - [docs/runbooks/manual-first-cloud-writes.md](./docs/runbooks/manual-first-cloud-writes.md): Pub/Sub/IAM live setup manual-first decision
 - [docs/runbooks/firestore-audit.md](./docs/runbooks/firestore-audit.md): Firestore resource audit
 - [docs/runbooks/storage-audit.md](./docs/runbooks/storage-audit.md): Cloud Storage resource audit
